@@ -1,3 +1,4 @@
+from erpnext.zra_client.generic_api import send_response_list
 import frappe
 from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
 from custom_api.utils.response import send_response
@@ -5,7 +6,7 @@ from custom_api.utils.response import send_response
 # ─────────────────────────────────────────
 # RECEIVE PAYMENT (Customer → You)
 # ─────────────────────────────────────────
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist(allow_guest=False, methods=["POST"])
 def receive_payment():
     try:
         data = frappe.request.get_json()
@@ -129,7 +130,7 @@ def receive_payment():
 # ─────────────────────────────────────────
 # MAKE PAYMENT (You → Supplier)
 # ─────────────────────────────────────────
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist(allow_guest=False, methods=["POST"])
 def make_payment():
     try:
         data = frappe.request.get_json()
@@ -225,6 +226,234 @@ def make_payment():
 
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Make Payment API Error")
+        return send_response(
+            status="fail",
+            message=str(e),
+            data=None,
+            status_code=500,
+            http_status=500
+        )
+
+# ─────────────────────────────────────────
+# GET ALL PAYMENTS
+# ─────────────────────────────────────────
+@frappe.whitelist(allow_guest=False, methods=["GET"])
+def get_all_payments():
+    try:
+        args = frappe.request.args
+
+        page = args.get("page",1)
+        page_size = args.get("page_size",10)
+
+        try:
+            page = int(page)
+            if page < 1:
+                raise ValueError
+        except ValueError:
+            return send_response(
+                status="error",
+                message="'page' must be a positive integer.",
+                data=None,
+                status_code=400,
+                http_status=400
+            )
+
+        try:
+            page_size = int(page_size)
+            if page_size < 1:
+                raise ValueError
+        except ValueError:
+            return send_response(
+                status="error",
+                message="'page_size' must be a positive integer.",
+                data=None,
+                status_code=400,
+                http_status=400
+            )
+
+        start_index = (page - 1) * page_size
+
+        # ─────────────────────────────────────────
+        # FILTERS
+        # ─────────────────────────────────────────
+        filters = {}
+        or_filters = []
+
+        payment_type = args.get("paymentType")
+        if payment_type:
+            payment_type = payment_type.lower()
+            if payment_type == "receive":
+                filters["payment_type"] = "Receive"
+            elif payment_type == "pay":
+                filters["payment_type"] = "Pay"
+
+        # Party filter (Customer or Supplier)
+        party_id = args.get("CustomerId")
+        party_type = args.get("partyType")  # "Customer" or "Supplier"
+        if party_id and party_type:
+            if party_type == "Customer":
+                party_name = frappe.db.get_value(
+                    "Customer",
+                    {"custom_id": party_id},
+                    "name"
+                )
+            elif party_type == "Supplier":
+                party_name = frappe.db.get_value(
+                    "Supplier",
+                    {"custom_id": party_id},
+                    "name"
+                )
+            else:
+                party_name = None
+
+            if not party_name:
+                return send_response(
+                    status="error",
+                    message=f"{party_type} with ID '{party_id}' not found.",
+                    data=None,
+                    status_code=404,
+                    http_status=404
+                )
+            filters["party_type"] = party_type
+            filters["party"] = party_name
+
+        # Payment mode filter
+        payment_mode = args.get("paymentMode")
+        if payment_mode:
+            filters["mode_of_payment"] = ["like", f"%{payment_mode}%"]
+
+        # Status filter
+        status = args.get("status")
+        if status:
+            filters["status"] = status
+
+        # Date range filter
+        from_date = args.get("from_date")
+        to_date = args.get("to_date")
+        if from_date and to_date:
+            filters["posting_date"] = ["between", [from_date, to_date]]
+        elif from_date:
+            filters["posting_date"] = [">=", from_date]
+        elif to_date:
+            filters["posting_date"] = ["<=", to_date]
+
+        # Amount range filter
+        min_amount = args.get("minAmount")
+        max_amount = args.get("maxAmount")
+        if min_amount and max_amount:
+            filters["paid_amount"] = ["between", [float(min_amount), float(max_amount)]]
+        elif min_amount:
+            filters["paid_amount"] = [">=", float(min_amount)]
+        elif max_amount:
+            filters["paid_amount"] = ["<=", float(max_amount)]
+
+        # Search filter
+        search = args.get("search")
+        if search:
+            or_filters = [
+                ["name", "like", f"%{search}%"],
+                ["party", "like", f"%{search}%"],
+                ["mode_of_payment", "like", f"%{search}%"],
+                ["reference_no", "like", f"%{search}%"],
+            ]
+
+            try:
+                search_amount = float(search)
+                or_filters.append(["paid_amount", "=", search_amount])
+            except ValueError:
+                pass
+
+            # Search by date if valid date
+            from datetime import datetime
+            try:
+                datetime.strptime(search, "%Y-%m-%d")
+                or_filters.append(["posting_date", "=", search])
+            except ValueError:
+                pass
+
+        # ─────────────────────────────────────────
+        # SORTING
+        # ─────────────────────────────────────────
+        allowed_sort_fields = {
+            "id": "name",
+            "partyName": "party",
+            "paymentDate": "posting_date",
+            "amount": "paid_amount",
+            "paymentMode": "mode_of_payment",
+            "status": "status",
+        }
+
+        sort_by = args.get("sortBy", "paymentDate")
+        sort_order = args.get("sortOrder", "desc").lower()
+        sort_field = allowed_sort_fields.get(sort_by, "posting_date")
+        sort_order = "asc" if sort_order == "asc" else "desc"
+        order_by = f"{sort_field} {sort_order}"
+
+        # ─────────────────────────────────────────
+        # FETCH
+        # ─────────────────────────────────────────
+        payments = frappe.get_all(
+            "Payment Entry",
+            filters=filters,
+            or_filters=or_filters,
+            fields=[
+                "name as paymentId",
+                "payment_type as paymentType",
+                "party_type as partyType",
+                "party as partyName",
+                "mode_of_payment as paymentMode",
+                "posting_date as paymentDate",
+                "paid_amount as amount",
+                "reference_no as referenceNumber",
+                "status",
+            ],
+            order_by=order_by,
+            start=start_index,
+            page_length=page_size
+        )
+
+        total_payments = len(
+            frappe.get_all(
+                "Payment Entry",
+                filters=filters,
+                or_filters=or_filters,
+                pluck="name"
+            )
+        )
+
+        if total_payments == 0:
+            return send_response(
+                status="success",
+                message="No payments found.",
+                data=[],
+                status_code=200,
+                http_status=200
+            )
+
+        total_pages = (total_payments + page_size - 1) // page_size
+
+        response_data = {
+            "payments": payments,
+            "pagination": {
+                "page": page,
+                "pageSize": page_size,
+                "total": total_payments,
+                "totalPages": total_pages,
+                "hasNext": page < total_pages,
+                "hasPrev": page > 1
+            }
+        }
+
+        return send_response_list(
+            status="success",
+            message="Payments fetched successfully.",
+            status_code=200,
+            http_status=200,
+            data=response_data
+        )
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Get All Payments API Error")
         return send_response(
             status="fail",
             message=str(e),
