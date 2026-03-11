@@ -85,7 +85,6 @@ def get_chart_of_accounts():
             if balance_data:
                 raw_balance = balance_data["balance"]
                 acc["account_currency"] = balance_data["account_currency"]
-                acc["base_currency"] = company_currency
                 if acc["account_currency"] and acc["account_currency"] != company_currency:
                     acc["balance_in_account_currency"] = flt(get_balance_on(acc["name"], company=company))
 
@@ -114,6 +113,7 @@ def get_chart_of_accounts():
             message="Chart of accounts fetched successfully.",
             data={
                 "company": company,
+                "base_currency" : company_currency,
                 "total": len(accounts),
                 "accounts": tree
             },
