@@ -4,13 +4,31 @@ from custom_api.utils.response import send_response
 
 @frappe.whitelist(allow_guest=False)
 def get_trial_balance():
-    try:
-        company = frappe.defaults.get_user_default("Company")
+    company = frappe.defaults.get_user_default("Company")
 
-        from_date = frappe.request.args.get("from_date")
-        to_date = frappe.request.args.get("to_date")
-        show_zero_balances = frappe.request.args.get("show_zero_balances", "0") == "1"
-        fiscal_year = frappe.request.args.get("fiscal_year")
+    from_date = frappe.request.args.get("from_date")
+    to_date = frappe.request.args.get("to_date")
+    show_zero_balances = frappe.request.args.get("show_zero_balances", "0") == "1"
+    fiscal_year = frappe.request.args.get("fiscal_year")
+    with_period_closing_entry = frappe.request.args.get("with_period_closing_entry", "0")
+    show_closing_entries = frappe.request.args.get("show_closing_entries","0")
+    empty_response = {
+        "company": company,
+        "from_date": from_date,
+        "to_date": to_date,
+        "total_accounts": 0,
+        "totals": {
+            "opening_debit": 0.0,
+            "opening_credit": 0.0,
+            "debit": 0.0,
+            "credit": 0.0,
+            "closing_debit": 0.0,
+            "closing_credit": 0.0,
+        },
+        "accounts": []
+    }
+
+    try:
         if not from_date or not to_date:
             return send_response(
                 status="error",
@@ -25,8 +43,8 @@ def get_trial_balance():
             "from_date": from_date,
             "to_date": to_date,
             "show_zero_values": show_zero_balances,
-            "with_period_closing_entry": 0,
-            "show_closing_entries": 0,
+            "with_period_closing_entry": with_period_closing_entry,
+            "show_closing_entries": show_closing_entries,
             "fiscal_year": fiscal_year,
         }
 
@@ -104,6 +122,16 @@ def get_trial_balance():
                 "totals": {k: round(v, 2) for k, v in totals.items()},
                 "accounts": tree,
             },
+            status_code=200,
+            http_status=200
+        )
+
+    except (frappe.DoesNotExistError, frappe.ValidationError) as e:
+        # ── Handles "Fiscal Year XXXX does not exist" and similar ──────────
+        return send_response(
+            status="success",
+            message="Trial balance fetched successfully.",
+            data=empty_response,
             status_code=200,
             http_status=200
         )
