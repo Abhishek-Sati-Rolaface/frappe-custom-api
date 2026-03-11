@@ -1,4 +1,5 @@
 import frappe
+from frappe.desk.query_report import run
 from custom_api.utils.response import send_response
 
 @frappe.whitelist(allow_guest=False)
@@ -29,7 +30,7 @@ def get_trial_balance():
             "fiscal_year": fiscal_year,
         }
 
-        result = frappe.desk.query_report.run(
+        result = run(
             "Trial Balance",
             filters=filters,
             user=frappe.session.user
