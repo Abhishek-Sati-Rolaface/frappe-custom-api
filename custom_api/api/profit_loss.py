@@ -82,6 +82,7 @@ def get_profit_and_loss():
         status="success",
         message="Profit and Loss fetched successfully.",
         data={
+            "columns": columns,
             "summary": report_summary,
             "income": tree["income"],
             "expense": tree["expense"],

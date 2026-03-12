@@ -81,6 +81,7 @@ def get_balance_sheet():
         status="success",
         message="Balance Sheet fetched successfully.",
         data={
+            "columns": columns,
             "summary": report_summary,
             "assets": tree["assets"],
             "liabilities": tree["liabilities"],
