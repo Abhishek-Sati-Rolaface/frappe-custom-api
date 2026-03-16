@@ -1,3 +1,4 @@
+from custom_api.helper import get_leaf_accounts
 import frappe
 from frappe.desk.query_report import run
 from custom_api.utils.response import send_response
@@ -64,7 +65,8 @@ def get_trial_balance():
             and "'Total'" not in str(row.get("account"))
         ]
 
-        # ── Compute totals from ledger accounts only ───────────────────────
+       # ── Ledger accounts only ─────────────────────────────────────────
+        ledger_accounts = get_leaf_accounts(cleaned_data)
         totals = {
             "opening_debit": 0.0,
             "opening_credit": 0.0,
@@ -73,43 +75,54 @@ def get_trial_balance():
             "closing_debit": 0.0,
             "closing_credit": 0.0,
         }
-        for row in cleaned_data:
-            if not row.get("is_group"):
-                totals["opening_debit"]  += row.get("opening_debit", 0) or 0
-                totals["opening_credit"] += row.get("opening_credit", 0) or 0
-                totals["debit"]          += row.get("debit", 0) or 0
-                totals["credit"]         += row.get("credit", 0) or 0
-                totals["closing_debit"]  += row.get("closing_debit", 0) or 0
-                totals["closing_credit"] += row.get("closing_credit", 0) or 0
+
+        for row in ledger_accounts:
+            totals["opening_debit"]  += row.get("opening_debit", 0) or 0
+            totals["opening_credit"] += row.get("opening_credit", 0) or 0
+            totals["debit"]          += row.get("debit", 0) or 0
+            totals["credit"]         += row.get("credit", 0) or 0
+            totals["closing_debit"]  += row.get("closing_debit", 0) or 0
+            totals["closing_credit"] += row.get("closing_credit", 0) or 0
 
         # ── Build tree ─────────────────────────────────────────────────────
-        def build_tree(rows, parent=None):
-            tree = []
-            for row in rows:
-                row_parent = row.get("parent_account")
-                if row_parent == parent:
-                    children = build_tree(rows, parent=row["account"])
-                    node = {
-                        "account": row.get("account"),
-                        "account_name": row.get("account_name"),
-                        "currency": row.get("currency"),
-                        "indent": row.get("indent"),
-                        "opening_debit": round(row.get("opening_debit", 0) or 0, 2),
-                        "opening_credit": round(row.get("opening_credit", 0) or 0, 2),
-                        "debit": round(row.get("debit", 0) or 0, 2),
-                        "credit": round(row.get("credit", 0) or 0, 2),
-                        "closing_debit": round(row.get("closing_debit", 0) or 0, 2),
-                        "closing_credit": round(row.get("closing_credit", 0) or 0, 2),
-                        "has_value": row.get("has_value", False),
-                    }
-                    if children:
-                        node["children"] = children
-                    else:
-                        node["children"] = []
-                    tree.append(node)
-            return tree
+        def build_tree(rows):
+            nodes = {}
+            roots = []
 
-        tree = build_tree(cleaned_data, parent=None)
+            # Step 1: Create node map
+            for row in rows:
+                node = {
+                    "account": row.get("account"),
+                    "account_name": row.get("account_name"),
+                    "currency": row.get("currency"),
+                    "indent": row.get("indent"),
+                    "opening_debit": round(row.get("opening_debit", 0) or 0, 2),
+                    "opening_credit": round(row.get("opening_credit", 0) or 0, 2),
+                    "debit": round(row.get("debit", 0) or 0, 2),
+                    "credit": round(row.get("credit", 0) or 0, 2),
+                    "closing_debit": round(row.get("closing_debit", 0) or 0, 2),
+                    "closing_credit": round(row.get("closing_credit", 0) or 0, 2),
+                    "has_value": row.get("has_value", False),
+                    "children": [],
+                }
+
+                nodes[row["account"]] = node
+
+            # Step 2: Attach children to parents
+            for row in rows:
+                account = row["account"]
+                parent = row.get("parent_account")
+
+                node = nodes[account]
+
+                if parent and parent in nodes:
+                    nodes[parent]["children"].append(node)
+                else:
+                    roots.append(node)
+
+            return roots
+
+        tree = build_tree(cleaned_data)
 
         return send_response(
             status="success",
@@ -118,7 +131,7 @@ def get_trial_balance():
                 "company": company,
                 "from_date": from_date,
                 "to_date": to_date,
-                "total_accounts": len(cleaned_data),
+                "total_accounts": len(ledger_accounts),
                 "totals": {k: round(v, 2) for k, v in totals.items()},
                 "accounts": tree,
             },
