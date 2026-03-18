@@ -3,6 +3,7 @@ import frappe
 from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
 from custom_api.utils.response import send_response
 
+
 # ─────────────────────────────────────────
 # RECEIVE PAYMENT (Customer → You)
 # ─────────────────────────────────────────
@@ -20,7 +21,7 @@ def receive_payment():
                     message=f"'{field}' is required.",
                     data=None,
                     status_code=400,
-                    http_status=400
+                    http_status=400,
                 )
 
         invoice_number = data.get("invoice_number")
@@ -35,9 +36,7 @@ def receive_payment():
         # Resolve customer from customer_id if provided
         if customer_id:
             resolved = frappe.db.get_value(
-                "Customer",
-                {"custom_id": customer_id},
-                "name"
+                "Customer", {"custom_id": customer_id}, "name"
             )
             if not resolved:
                 return send_response(
@@ -45,7 +44,7 @@ def receive_payment():
                     message=f"Customer with ID '{customer_id}' not found.",
                     data=None,
                     status_code=404,
-                    http_status=404
+                    http_status=404,
                 )
             customer_name = resolved
 
@@ -56,30 +55,34 @@ def receive_payment():
                 message=f"Sales Invoice '{invoice_number}' not found.",
                 data=None,
                 status_code=404,
-                http_status=404
+                http_status=404,
             )
 
         # Validate invoice belongs to customer
         if customer_name:
-            invoice_customer = frappe.db.get_value("Sales Invoice", invoice_number, "customer")
+            invoice_customer = frappe.db.get_value(
+                "Sales Invoice", invoice_number, "customer"
+            )
             if invoice_customer != customer_name:
                 return send_response(
                     status="error",
                     message="Invoice does not belong to this customer.",
                     data=None,
                     status_code=400,
-                    http_status=400
+                    http_status=400,
                 )
 
         # Validate amount vs outstanding
-        outstanding = frappe.db.get_value("Sales Invoice", invoice_number, "outstanding_amount")
+        outstanding = frappe.db.get_value(
+            "Sales Invoice", invoice_number, "outstanding_amount"
+        )
         if amount > outstanding:
             return send_response(
                 status="error",
                 message=f"Amount exceeds outstanding balance of {outstanding}.",
                 data=None,
                 status_code=400,
-                http_status=400
+                http_status=400,
             )
 
         # Use Frappe's built-in method
@@ -110,20 +113,16 @@ def receive_payment():
                 "amount": amount,
                 "paymentMode": payment_mode,
                 "paymentDate": payment_date,
-                "status": pe.status
+                "status": pe.status,
             },
             status_code=201,
-            http_status=201
+            http_status=201,
         )
 
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Receive Payment API Error")
         return send_response(
-            status="fail",
-            message=str(e),
-            data=None,
-            status_code=500,
-            http_status=500
+            status="fail", message=str(e), data=None, status_code=500, http_status=500
         )
 
 
@@ -144,7 +143,7 @@ def make_payment():
                     message=f"'{field}' is required.",
                     data=None,
                     status_code=400,
-                    http_status=400
+                    http_status=400,
                 )
 
         supplier_id = data.get("supplier_id")
@@ -156,9 +155,7 @@ def make_payment():
 
         # Resolve supplier from supplier_id
         supplier_name = frappe.db.get_value(
-            "Supplier",
-            {"custom_supplier_id": supplier_id},
-            "name"
+            "Supplier", {"custom_supplier_id": supplier_id}, "name"
         )
         if not supplier_name:
             return send_response(
@@ -166,22 +163,28 @@ def make_payment():
                 message=f"Supplier with ID '{supplier_id}' not found.",
                 data=None,
                 status_code=404,
-                http_status=404
+                http_status=404,
             )
 
         # Get default payable account
         default_payable_account = frappe.db.get_value(
             "Company",
             frappe.defaults.get_user_default("Company"),
-            "default_payable_account"
+            "default_payable_account",
         )
 
         # Get mode of payment account
-        paid_from_account = frappe.db.get_value(
-            "Mode of Payment Account",
-            {"parent": payment_mode, "company": frappe.defaults.get_user_default("Company")},
-            "default_account"
-        ) or deposit_into_account
+        paid_from_account = (
+            frappe.db.get_value(
+                "Mode of Payment Account",
+                {
+                    "parent": payment_mode,
+                    "company": frappe.defaults.get_user_default("Company"),
+                },
+                "default_account",
+            )
+            or deposit_into_account
+        )
 
         if not paid_from_account:
             return send_response(
@@ -189,7 +192,7 @@ def make_payment():
                 message="Could not determine payment account. Please provide 'deposit_into_account'.",
                 data=None,
                 status_code=400,
-                http_status=400
+                http_status=400,
             )
 
         # Build Payment Entry manually (no invoice to link)
@@ -218,21 +221,18 @@ def make_payment():
                 "amount": amount,
                 "paymentMode": payment_mode,
                 "paymentDate": payment_date,
-                "status": pe.status
+                "status": pe.status,
             },
             status_code=201,
-            http_status=201
+            http_status=201,
         )
 
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Make Payment API Error")
         return send_response(
-            status="fail",
-            message=str(e),
-            data=None,
-            status_code=500,
-            http_status=500
+            status="fail", message=str(e), data=None, status_code=500, http_status=500
         )
+
 
 # ─────────────────────────────────────────
 # GET ALL PAYMENTS
@@ -242,8 +242,8 @@ def get_all_payments():
     try:
         args = frappe.request.args
 
-        page = args.get("page",1)
-        page_size = args.get("page_size",10)
+        page = args.get("page", 1)
+        page_size = args.get("page_size", 10)
 
         try:
             page = int(page)
@@ -255,7 +255,7 @@ def get_all_payments():
                 message="'page' must be a positive integer.",
                 data=None,
                 status_code=400,
-                http_status=400
+                http_status=400,
             )
 
         try:
@@ -268,7 +268,7 @@ def get_all_payments():
                 message="'page_size' must be a positive integer.",
                 data=None,
                 status_code=400,
-                http_status=400
+                http_status=400,
             )
 
         start_index = (page - 1) * page_size
@@ -297,15 +297,11 @@ def get_all_payments():
         if party_id and party_type:
             if party_type == "Customer":
                 party_name = frappe.db.get_value(
-                    "Customer",
-                    {"custom_id": party_id},
-                    "name"
+                    "Customer", {"custom_id": party_id}, "name"
                 )
             elif party_type == "Supplier":
                 party_name = frappe.db.get_value(
-                    "Supplier",
-                    {"custom_id": party_id},
-                    "name"
+                    "Supplier", {"custom_id": party_id}, "name"
                 )
             else:
                 party_name = None
@@ -316,7 +312,7 @@ def get_all_payments():
                     message=f"{party_type} with ID '{party_id}' not found.",
                     data=None,
                     status_code=404,
-                    http_status=404
+                    http_status=404,
                 )
             filters["party_type"] = party_type
             filters["party"] = party_name
@@ -369,6 +365,7 @@ def get_all_payments():
 
             # Search by date if valid date
             from datetime import datetime
+
             try:
                 datetime.strptime(search, "%Y-%m-%d")
                 or_filters.append(["posting_date", "=", search])
@@ -413,15 +410,12 @@ def get_all_payments():
             ],
             order_by=order_by,
             start=start_index,
-            page_length=page_size
+            page_length=page_size,
         )
 
         total_payments = len(
             frappe.get_all(
-                "Payment Entry",
-                filters=filters,
-                or_filters=or_filters,
-                pluck="name"
+                "Payment Entry", filters=filters, or_filters=or_filters, pluck="name"
             )
         )
 
@@ -431,7 +425,7 @@ def get_all_payments():
                 message="No payments found.",
                 data=[],
                 status_code=200,
-                http_status=200
+                http_status=200,
             )
 
         total_pages = (total_payments + page_size - 1) // page_size
@@ -444,8 +438,8 @@ def get_all_payments():
                 "total": total_payments,
                 "totalPages": total_pages,
                 "hasNext": page < total_pages,
-                "hasPrev": page > 1
-            }
+                "hasPrev": page > 1,
+            },
         }
 
         return send_response_list(
@@ -453,15 +447,145 @@ def get_all_payments():
             message="Payments fetched successfully.",
             status_code=200,
             http_status=200,
-            data=response_data
+            data=response_data,
         )
 
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Get All Payments API Error")
         return send_response(
-            status="fail",
-            message=str(e),
+            status="fail", message=str(e), data=None, status_code=500, http_status=500
+        )
+
+
+# ─────────────────────────────────────────
+# GET PAYMENT BY ID
+# ─────────────────────────────────────────
+@frappe.whitelist(allow_guest=False, methods=["GET"])
+def get_payment_by_id():
+    try:
+        payment_id = frappe.request.args.get("payment_id")
+
+        if not payment_id:
+            return send_response(
+                status="error",
+                message="Parameter 'payment_id' is required.",
+                data=None,
+                status_code=400,
+                http_status=400,
+            )
+
+        if not frappe.db.exists("Payment Entry", payment_id):
+            return send_response(
+                status="error",
+                message=f"Payment Entry '{payment_id}' not found.",
+                data=None,
+                status_code=404,
+                http_status=404,
+            )
+
+        doc = frappe.get_doc("Payment Entry", payment_id)
+
+        # 1. Map Allocations (References)
+        allocations = []
+        for ref in doc.get("references"):
+            allocations.append(
+                {
+                    "reference_doctype": ref.reference_doctype,
+                    "reference_name": ref.reference_name,
+                    "total_amount": ref.total_amount,
+                    "outstanding_amount": ref.outstanding_amount,
+                    "allocated_amount": ref.allocated_amount,
+                    "account": ref.account,
+                }
+            )
+
+        # 2. Map Taxes
+        taxes = []
+        for t in doc.get("taxes"):
+            taxes.append(
+                {
+                    "account_head": t.account_head,
+                    "tax_amount": t.tax_amount,
+                    "description": t.description,
+                    "rate": t.rate,
+                }
+            )
+
+        # 3. Map Deductions
+        deductions = []
+        for d in doc.get("deductions"):
+            deductions.append(
+                {"account": d.account, "amount": d.amount, "description": d.description}
+            )
+
+        detailed_data = {
+            "header": {
+                "payment_id": doc.name,
+                "payment_type": doc.payment_type,
+                "status": doc.status,
+                "posting_date": doc.posting_date,
+                "company": doc.company,
+                "naming_series": doc.naming_series,
+            },
+            "party_info": {
+                "party_type": doc.party_type,
+                "party": doc.party,
+                "party_name": doc.party_name,
+                "contact_person": doc.contact_person,
+                "contact_email": doc.contact_email,
+            },
+            "transaction_info": {
+                "mode_of_payment": doc.mode_of_payment,
+                "paid_from": doc.paid_from,
+                "paid_from_currency": doc.paid_from_account_currency,
+                "paid_to": doc.paid_to,
+                "paid_to_currency": doc.paid_to_account_currency,
+                "bank": doc.bank,
+                "bank_account_no": doc.bank_account_no,
+                "party_bank_account": doc.party_bank_account,
+                "reference_no": doc.reference_no,
+                "reference_date": doc.reference_date,
+                "clearance_date": doc.clearance_date,
+                "cost_center": doc.cost_center,
+                "project": doc.project,
+            },
+            "amounts": {
+                "paid_amount": doc.paid_amount,
+                "received_amount": doc.received_amount,
+                "base_paid_amount": doc.base_paid_amount,
+                "base_received_amount": doc.base_received_amount,
+                "total_allocated_amount": doc.total_allocated_amount,
+                "unallocated_amount": doc.unallocated_amount,
+                "difference_amount": doc.difference_amount,
+                "source_exchange_rate": doc.source_exchange_rate,
+                "target_exchange_rate": doc.target_exchange_rate,
+                "amount_in_words": doc.in_words,
+            },
+            "allocations": allocations,
+            "taxes": taxes,
+            "deductions": deductions,
+            "remarks": doc.remarks,
+        }
+
+        return send_response(
+            status="success",
+            message="Payment Entry details fetched successfully.",
+            data=detailed_data,
+            status_code=200,
+            http_status=200,
+        )
+
+    except frappe.PermissionError:
+        frappe.log_error(frappe.get_traceback(), "Get Payment By ID Permission Error")
+        return send_response(
+            status="error",
+            message="You do not have permission to view this Payment Entry.",
             data=None,
-            status_code=500,
-            http_status=500
+            status_code=403,
+            http_status=403,
+        )
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Get Payment By ID API Error")
+        return send_response(
+            status="fail", message=str(e), data=None, status_code=500, http_status=500
         )
