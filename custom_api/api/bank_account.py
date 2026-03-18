@@ -91,3 +91,45 @@ def create():
         return send_response(
             status="fail", message="Something went wrong, Please try again later", data=None, status_code=500, http_status=500
         )
+    
+@frappe.whitelist(allow_guest=False, methods=["GET"])
+def get():
+    company    = frappe.request.args.get("company") or frappe.defaults.get_user_default("Company")
+    party_type = frappe.request.args.get("party_type")
+    party      = frappe.request.args.get("party")
+    bank       = frappe.request.args.get("bank")
+    disabled   = frappe.request.args.get("disabled")
+
+    filters = {"company": company}
+
+    if party_type:
+        filters["party_type"] = party_type
+    if party:
+        filters["party"] = party
+    if bank:
+        filters["bank"] = bank
+    if disabled is not None:
+        filters["disabled"] = int(disabled)
+
+    bank_accounts = frappe.db.get_all(
+        "Bank Account",
+        filters=filters,
+        fields=[
+            "name", "account_name as accountHolderName", "bank as bankName", "bank_account_no as accountNo",
+            "branch_code as sortCode", "branch_address as branchAddress", "iban",
+            "is_company_account", "is_default as isDefaulr", "disabled as isDisabled",
+            "party_type as ", "party as partyName", "company", "last_integration_date as dateAdded"
+        ],
+        order_by="creation desc",
+    )
+
+    return send_response(
+        status="success",
+        message="Bank Accounts fetched successfully.",
+        data={
+            "bank_accounts": bank_accounts,
+            "total": len(bank_accounts)
+        },
+        status_code=200,
+        http_status=200,
+    )
