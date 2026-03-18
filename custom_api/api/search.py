@@ -207,7 +207,7 @@ def get_suppliers():
 def get_bank_company_supplier_cutomer():
     try:
         txt = frappe.request.args.get("search", "")
-        doc_filter = frappe.request.args.get("accountFor","")
+        doc_filter = frappe.request.args.get("filter","")
 
         if doc_filter not in ["Company", "Supplier", "Bank", "Customer"]:
             return send_response(
