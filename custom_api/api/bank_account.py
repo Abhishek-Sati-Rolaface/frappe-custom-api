@@ -36,6 +36,7 @@ def create():
     if accountFor != "Company" and party == None:
         return send_response(status="fail", message="Party Name is required.", data=None, status_code=400, http_status=400)
     try:
+        ledger_account = None
         if accountFor == "Company":
             ledger_account = frappe.get_doc({
                                 "doctype":"Account",
@@ -65,7 +66,7 @@ def create():
             "is_company_account": is_company_account,
             "branch_address": branch_address,
             "last_integration_date": last_integration_date,
-            "account": ledger_account.name,
+            "account": ledger_account.name if accountFor == "Company" else None,
             "party_type": accountFor if accountFor != "Company" else None,
             "party": party
         })
