@@ -90,7 +90,6 @@ def _calculate_receivable_kpis(rows):
 
         total_outstanding += outstanding
 
-        # Calculate Overdue AND Future Payment Schedule
         if due_date_str and outstanding > 0:
             due_date_obj = getdate(due_date_str)
             days_to_due = date_diff(due_date_obj, today_date)
@@ -186,11 +185,11 @@ def get_accounts_receivable():
         {
             "company": frappe.defaults.get_user_default("Company"),
             "report_date": _get_arg("report_date", today()),
-            "cost_center": _get_list_arg("cost_center"),
-            "party_account": _get_list_arg("receivable_account"),
+            "cost_center": _get_arg("cost_center"),
+            "party_account": _get_arg("receivable_account"),
             "party_type": _get_arg("party_type"),
             "party": _get_list_arg("party"),
-            "customer_group": _get_list_arg("customer_group"),
+            "customer_group": _get_arg("customer_group"),
             "ageing_based_on": _get_arg("ageing_based_on", "Due Date"),
             "calculate_ageing_with": _get_arg("calculate_ageing_with", "Today Date"),
             "range": _get_arg("range", "30, 60, 90, 120"),
