@@ -94,14 +94,15 @@ def create():
     
 @frappe.whitelist(allow_guest=False, methods=["GET"])
 def get():
-    company    = frappe.request.args.get("company") or frappe.defaults.get_user_default("Company")
+    company    = frappe.request.args.get("company", None)
     party_type = frappe.request.args.get("party_type")
     party      = frappe.request.args.get("party")
     bank       = frappe.request.args.get("bank")
     disabled   = frappe.request.args.get("disabled")
-
-    filters = {"company": company}
-
+    company_name = frappe.defaults.get_user_default("Company") if company else None
+    filters = {}
+    if company_name:
+        filters = {"company": company}
     if party_type:
         filters["party_type"] = party_type
     if party:
@@ -118,7 +119,7 @@ def get():
             "name", "account_name as accountHolderName", "bank as bankName", "bank_account_no as accountNo",
             "branch_code as sortCode", "branch_address as branchAddress", "iban",
             "is_company_account", "is_default as isDefaulr", "disabled as isDisabled",
-            "party_type as ", "party as partyName", "company", "last_integration_date as dateAdded"
+            "party_type as accountFor", "party as partyName", "company", "last_integration_date as dateAdded"
         ],
         order_by="creation desc",
     )
