@@ -16,9 +16,11 @@ def create():
     accountFor = data.get("accountFor")
     reporting_account = data.get("reportingAccount")
     party = data.get("partyName")
+    isDefault = data.get("isDefault", 0)
+    isDisabled = data.get("isDisabled",0)
+
     is_company_account = 1 if accountFor == "Company" else 0
     company =  frappe.defaults.get_user_default("Company") if accountFor == "Compnay" else None
-
     if not accountFor:
         return send_response(status="fail", message=" is required.", data=None, status_code=400, http_status=400)
 
@@ -68,7 +70,9 @@ def create():
             "last_integration_date": last_integration_date,
             "account": ledger_account.name if accountFor == "Company" else None,
             "party_type": accountFor if accountFor != "Company" else None,
-            "party": party
+            "party": party,
+            "is_default": isDefault,
+            "disabled": isDisabled
         })
 
         bank_account.insert(ignore_permissions=True)
