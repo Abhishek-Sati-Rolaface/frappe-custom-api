@@ -1,6 +1,7 @@
 from erpnext.zra_client.generic_api import send_response
 import frappe
 from frappe.utils import ceil
+from frappe.desk.search import build_for_autosuggest, search_widget
 
 @frappe.whitelist(allow_guest=False, methods=["POST"])
 def create():
@@ -117,7 +118,7 @@ def get():
         http_status=200,
     )
 
-@frappe.whitelist(allow_guest=False, methods=["POST"])
+@frappe.whitelist(allow_guest=False, methods=["PUT"])
 def update():
     data = frappe.request.get_json()
 
@@ -173,6 +174,32 @@ def update():
         status="success",
         message="Mode of Payment updated successfully.",
         data={"name": name},
+        status_code=200,
+        http_status=200,
+    )
+
+@frappe.whitelist(allow_guest=False, methods=["GET"])
+def get_default_accounts():
+    
+    company = frappe.defaults.get_user_default("Company")
+    txt = frappe.request.args.get("search", "")
+
+    results = search_widget(
+                "Account",
+                txt.strip(),
+                page_length=10,
+                filters=[
+                        ["Account","account_type","in","Bank, Cash, Receivable"],
+                        ["Account","is_group","=",0],
+                        ["Account","company","=",f"{company}"]
+                        ],
+                reference_doctype="Mode of Payment Account",
+	        )
+    response =  build_for_autosuggest(results, doctype="Account")
+    return send_response(
+        status="success",
+        message="Mode of Payment updated successfully.",
+        data=response,
         status_code=200,
         http_status=200,
     )
