@@ -102,7 +102,7 @@ def get():
     company_name = frappe.defaults.get_user_default("Company") if company else None
     filters = {}
     if company_name:
-        filters = {"company": company}
+        filters = {"company": company_name}
     if party_type:
         filters["party_type"] = party_type
     if party:
