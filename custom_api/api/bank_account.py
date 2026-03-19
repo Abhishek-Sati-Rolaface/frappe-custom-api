@@ -38,6 +38,12 @@ def create():
 
     if accountFor != "Company" and party == None:
         return send_response(status="fail", message="Party Name is required.", data=None, status_code=400, http_status=400)
+    
+    if reporting_account and frappe.db.exists("Bank Account", {"account": reporting_account}):
+        return send_response(status="fail", message=f" {reporting_account} reporting account is already use another account.", 
+                            data=None, status_code=400, http_status=400)
+
+
     try:
         bank_account = frappe.get_doc({
             "doctype": "Bank Account",
