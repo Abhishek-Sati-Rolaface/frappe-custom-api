@@ -62,7 +62,7 @@ def create():
             "account_name": account_holder_name,
             "bank": bank,
             "bank_account_no": account_number,
-            "company": company,
+            "company": company if accountFor == "Company" else None,
             "currency": currency,
             "branch_code": branch_code,
             "iban": iban,
