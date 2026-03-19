@@ -134,3 +134,36 @@ def get():
         status_code=200,
         http_status=200,
     )
+
+@frappe.whitelist(allow_guest=False, methods=["PUT"])
+def set_bank_account_status():
+    data = frappe.request.get_json()
+
+    bank_account_id = data.get("bankAccountId")
+    is_default      = data.get("isDefault")
+    is_disabled     = data.get("isDisabled")
+
+    if not bank_account_id:
+        return send_response(status="fail", message="'bankAccountId' is required.", data=None, status_code=400, http_status=400)
+
+    if not frappe.db.exists("Bank Account", bank_account_id):
+        return send_response(status="fail", message=f"Bank Account '{bank_account_id}' not found.", data=None, status_code=404, http_status=404)
+
+    updates = {}
+    if is_default is not None:
+        updates["is_default"] = int(is_default)
+    if is_disabled is not None:
+        updates["disabled"] = int(is_disabled)
+
+    if not updates:
+        return send_response(status="fail", message="Nothing to update. Provide 'isDefault' or 'isDisabled'.", data=None, status_code=400, http_status=400)
+
+    frappe.db.set_value("Bank Account", bank_account_id, updates)
+    frappe.db.commit()
+
+    return send_response(
+        status="success",
+        message="Bank Account updated successfully.",
+        status_code=200,
+        http_status=200,
+    )
