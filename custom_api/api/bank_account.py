@@ -105,7 +105,7 @@ def get():
     
     filters = {}
     if company:
-        filters = {"company": frappe.defaults.get_user_default("Company")}
+        filters = {"company": frappe.defaults.get_user_default("Company"), "is_company_account":1}
     if party_type:
         filters["party_type"] = party_type
     if party:
