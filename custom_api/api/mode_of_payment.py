@@ -116,3 +116,63 @@ def get():
         status_code=200,
         http_status=200,
     )
+
+@frappe.whitelist(allow_guest=False, methods=["POST"])
+def update():
+    data = frappe.request.get_json()
+
+    name            = data.get("name")
+    payment_type    = data.get("type")
+    enabled         = data.get("enabled")
+    default_account = data.get("default_account")
+    company         = frappe.defaults.get_user_default("Company")
+
+    if not name:
+        return send_response(status="fail", message="'name' is required.", data=None, status_code=400, http_status=400)
+
+    if not frappe.db.exists("Mode of Payment", name):
+        return send_response(status="fail", message=f"Mode of Payment '{name}' not found.", data=None, status_code=404, http_status=404)
+
+    if payment_type and payment_type not in ("Bank", "Cash", "General"):
+        return send_response(status="fail", message="Invalid 'type'. Allowed: Bank, Cash, General", data=None, status_code=400, http_status=400)
+
+    if default_account and not frappe.db.exists("Account", default_account):
+        return send_response(status="fail", message=f"Account '{default_account}' does not exist.", data=None, status_code=404, http_status=404)
+
+    if not any([payment_type, enabled is not None, default_account]):
+        return send_response(status="fail", message="Nothing to update. Provide 'type', 'enabled' or 'default_account'.", data=None, status_code=400, http_status=400)
+
+    mop_updates = {}
+    if payment_type:
+        mop_updates["type"] = payment_type
+    if enabled is not None:
+        mop_updates["enabled"] = int(enabled)
+
+    if mop_updates:
+        frappe.db.set_value("Mode of Payment", name, mop_updates)
+
+    if default_account:
+        existing = frappe.db.exists(
+            "Mode of Payment Account",
+            {"parent": name, "company": company}
+        )
+        if existing:
+            frappe.db.set_value("Mode of Payment Account", existing, "default_account", default_account)
+        else:
+            # No account for this company yet — create one
+            mop_doc = frappe.get_doc("Mode of Payment", name)
+            mop_doc.append("accounts", {
+                "company": company,
+                "default_account": default_account,
+            })
+            mop_doc.save(ignore_permissions=True)
+
+    frappe.db.commit()
+
+    return send_response(
+        status="success",
+        message="Mode of Payment updated successfully.",
+        data={"name": name},
+        status_code=200,
+        http_status=200,
+    )
