@@ -61,7 +61,8 @@ def create():
             "party_type": accountFor if accountFor != "Company" else None,
             "party": party if accountFor != "Company" else None,
             "is_default": isDefault,
-            "disabled": isDisabled
+            "disabled": isDisabled,
+            "bank_account_currency": currency
         })
 
         bank_account.insert(ignore_permissions=True)
