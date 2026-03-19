@@ -207,8 +207,10 @@ def get_bank_company_supplier_cutomer():
     try:
         txt = frappe.request.args.get("search", "")
         doc_filter = frappe.request.args.get("filter","")
+        company = frappe.defaults.get_user_default("Company")
+        filters = None
 
-        if doc_filter not in ["Company", "Supplier", "Bank", "Customer", "Currency"]:
+        if doc_filter not in ["Company", "Supplier", "Bank", "Customer", "Currency", "Account"]:
             return send_response(
                 status="fail",
                 message="Invalid Filter.",
@@ -217,16 +219,17 @@ def get_bank_company_supplier_cutomer():
             )
 
         if doc_filter == "Company":
-            company = frappe.defaults.get_user_default("Company")
             currency = frappe.db.get_value("Company", company, "default_currency")
             response = {"company": company, "currency":currency}
-            
         else:
             filter_fields = None
-            if doc_filter == "Supplier":
+            if doc_filter in ["Supplier", "Customer"]:
                 filter_fields = '["default_currency"]'
             if doc_filter == "Bank":
                 filter_fields = '["swift_number"]'
+
+            if doc_filter == "Account":
+                filters = frappe._dict({"account_type": "Bank", "company": company, "is_group":0})
 
             response = search_widget(
                 doc_filter,
@@ -234,7 +237,7 @@ def get_bank_company_supplier_cutomer():
                 None,
                 searchfield=None,
                 page_length=10,
-                filters=None,
+                filters=filters,
                 filter_fields=filter_fields,
                 reference_doctype="Bank Account",
                 ignore_user_permissions=0,

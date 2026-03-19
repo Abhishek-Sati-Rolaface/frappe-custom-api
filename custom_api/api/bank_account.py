@@ -39,24 +39,6 @@ def create():
     if accountFor != "Company" and party == None:
         return send_response(status="fail", message="Party Name is required.", data=None, status_code=400, http_status=400)
     try:
-        ledger_account = None
-        if accountFor == "Company":
-            ledger_account = frappe.get_doc({
-                                "doctype":"Account",
-                                "disabled": 0,
-                                "is_group": 0,
-                                "company": company,
-                                "root_type": "Asset",
-                                "report_type": "Balance Sheet",
-                                "account_currency": currency,
-                                "account_type": "Bank",
-                                "freeze_account": "No",
-                                "account_name": bank+ " " +currency,
-                                "parent_account": reporting_account
-                            })
-            ledger_account.insert(ignore_permissions=True)
-            # frappe.db.commit()
-
         bank_account = frappe.get_doc({
             "doctype": "Bank Account",
             "account_name": account_holder_name,
@@ -69,7 +51,7 @@ def create():
             "is_company_account": is_company_account,
             "branch_address": branch_address,
             "last_integration_date": last_integration_date,
-            "account": ledger_account.name if accountFor == "Company" else None,
+            "account": reporting_account,
             "party_type": accountFor if accountFor != "Company" else None,
             "party": party if accountFor != "Company" else None,
             "is_default": isDefault,
