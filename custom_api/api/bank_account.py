@@ -111,7 +111,7 @@ def get():
         "branch_code as sortCode", "branch_address as branchAddress", "iban",
         "is_company_account", "is_default as isDefault", "disabled as isDisabled",
         "party_type as accountFor", "party as partyName", "company",
-        "last_integration_date as dateAdded", "account as ledgerAccount"
+        "last_integration_date as dateAdded", "account as ledgerAccount", "bank_account_currency as currency"
     ]
 
     total = frappe.db.count("Bank Account", filters=filters)
