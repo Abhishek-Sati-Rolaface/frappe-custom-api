@@ -175,14 +175,22 @@ def get_suppliers():
         )
 
 @frappe.whitelist(allow_guest=False, methods=["GET"])
-def get_bank_company_supplier_cutomer():
+def search_parties_and_accounts():
     try:
         txt = frappe.request.args.get("search", "")
         doc_filter = frappe.request.args.get("filter","")
+        reference_doctype = frappe.request.args.get("reference_doctype", "Bank Account") # We have made Bank Account as default because API was initially develop for referebce doctye = Bank Account and because of so much update in the front-end we have make it default
         company = frappe.defaults.get_user_default("Company")
         filters = None
 
-        if doc_filter not in ["Company", "Supplier", "Bank", "Customer", "Currency", "Account"]:
+        if reference_doctype not in ["Bank Account", "Payment Entry"]:
+            return send_response(
+                status="fail",
+                message="Invalid Reference Doctype.",
+                status_code=400,
+                http_status=400,
+            )
+        if doc_filter not in ["Company", "Supplier", "Bank", "Customer", "Currency", "Account", "Shareholder", "Employee"]:
             return send_response(
                 status="fail",
                 message="Invalid Filter.",
@@ -211,7 +219,7 @@ def get_bank_company_supplier_cutomer():
                 page_length=10,
                 filters=filters,
                 filter_fields=filter_fields,
-                reference_doctype="Bank Account",
+                reference_doctype=reference_doctype,
                 ignore_user_permissions=0,
                 as_dict= True,
 
