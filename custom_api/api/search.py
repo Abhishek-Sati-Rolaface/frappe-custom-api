@@ -175,7 +175,7 @@ def get_suppliers():
         )
 
 @frappe.whitelist(allow_guest=False, methods=["GET"])
-def search_parties_and_accounts():
+def parties_and_accounts():
     try:
         txt = frappe.request.args.get("search", "")
         doc_filter = frappe.request.args.get("filter","")
