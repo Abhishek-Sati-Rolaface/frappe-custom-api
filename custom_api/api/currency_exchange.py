@@ -258,25 +258,25 @@ def get_currency_exchanges():
 # 1. GET BY ID (READ)
 # ==========================================
 @frappe.whitelist(allow_guest=False, methods=["GET"])
-def get_currency_exchange(name):
-    if not name:
+def get_currency_exchange(id):
+    if not id:
         return send_response(
             status="error",
-            message="Record ID (name) is required.",
+            message="Record ID (id) is required.",
             status_code=400,
             http_status=400,
         )
 
-    if not frappe.db.exists("Currency Exchange", name):
+    if not frappe.db.exists("Currency Exchange", id):
         return send_response(
             status="error",
-            message=f"Currency Exchange '{name}' not found.",
+            message=f"Currency Exchange '{id}' not found.",
             status_code=404,
             http_status=404,
         )
 
     try:
-        doc = frappe.get_doc("Currency Exchange", name)
+        doc = frappe.get_doc("Currency Exchange", id)
 
         return send_response(
             status="success",
@@ -357,15 +357,15 @@ def create_currency_exchange():
 # 3. UPDATE (PUT / PATCH)
 # ==========================================
 @frappe.whitelist(allow_guest=False, methods=["POST", "PUT", "PATCH"])
-def update_currency_exchange(name=None, **kwargs):
+def update_currency_exchange(id=None, **kwargs):
     data = _get_request_data()
 
-    record_name = name or data.get("name") or _get_arg("name")
+    record_name = id or data.get("id") or _get_arg("id")
 
     if not record_name:
         return send_response(
             status="error",
-            message="Record ID (name) is required.",
+            message="Record ID (id) is required.",
             status_code=400,
             http_status=400,
         )
@@ -428,31 +428,31 @@ def update_currency_exchange(name=None, **kwargs):
 # 4. DELETE (DELETE)
 # ==========================================
 @frappe.whitelist(allow_guest=False, methods=["DELETE"])
-def delete_currency_exchange(name):
-    if not name:
+def delete_currency_exchange(id):
+    if not id:
         return send_response(
             status="error",
-            message="Record ID (name) is required.",
+            message="Record ID (id) is required.",
             status_code=400,
             http_status=400,
         )
 
-    if not frappe.db.exists("Currency Exchange", name):
+    if not frappe.db.exists("Currency Exchange", id):
         return send_response(
             status="error",
-            message=f"Currency Exchange '{name}' not found.",
+            message=f"Currency Exchange '{id}' not found.",
             status_code=404,
             http_status=404,
         )
 
     try:
-        frappe.delete_doc("Currency Exchange", name, ignore_permissions=False)
+        frappe.delete_doc("Currency Exchange", id, ignore_permissions=False)
         frappe.db.commit()
 
         return send_response(
             status="success",
-            message=f"Currency Exchange '{name}' deleted successfully.",
-            data={"id": name},
+            message=f"Currency Exchange '{id}' deleted successfully.",
+            data={"id": id},
             status_code=200,
             http_status=200,
         )
