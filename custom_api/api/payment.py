@@ -9,52 +9,77 @@ from erpnext.zra_client.generic_api import send_response as old_response
 def get_ledger_account():
     try:
         payment_type = frappe.request.args.get("paymentType", "Pay")
-        filter = frappe.request.args.get("filter", "to")
-        txt = frappe.request.args.get("search","")
+        filter       = frappe.request.args.get("filter", "to")
+        txt          = frappe.request.args.get("search", "")
+        party_type   = frappe.request.args.get("partyType", "Customer")
+
         company = frappe.defaults.get_user_default("Company")
 
-        from_filters = {"account_type":["in",["Bank","Cash"]],"is_group":0,"company":f"{company}"}
-        to_filters = {"account_type":["in",["Receivable"]],"is_group":0,"company":f"{company}"}
+        # ── Account type maps per party_type ──────────────────────────────────
+        account_type_map = {
+            "Customer": {
+                "from": ["Bank", "Cash"],
+                "to":   ["Receivable"],
+            },
+            "Supplier": {
+                "from": ["Bank", "Cash"],
+                "to":   ["Payable"],
+            },
+            "Employee": {
+                "from": ["Bank", "Cash"],
+                "to":   ["Payable"],
+            },
+            "Shareholder": {
+                "from": ["Bank", "Cash", "Equity"],
+                "to":   ["Payable", "Equity"],
+            },
+        }
 
-        if payment_type == "Pay" and filter == "from":
-            filters = from_filters
+        # Fallback to Customer if party_type not found
+        party_map = account_type_map.get(party_type, account_type_map["Customer"])
 
-        if payment_type == "Pay" and filter == "to":
-            filters = to_filters
+        # ── Determine filter direction based on payment_type ──────────────────
+        # Pay:     money goes OUT → "from" = Bank/Cash, "to" = Payable/Receivable
+        # Receive: money comes IN → "from" = Payable/Receivable, "to" = Bank/Cash
+        if payment_type == "Receive":
+            resolved_filter = "to" if filter == "from" else "from"
+        else:
+            resolved_filter = filter
 
-        if payment_type == "Receive" and filter == "to":
-            filters = from_filters
+        account_types = party_map.get(resolved_filter, ["Bank", "Cash"])
 
-        if payment_type == "Receive" and filter == "from":
-            filters = to_filters
+        filters = {
+            "account_type": ["in", account_types],
+            "is_group": 0,
+            "company": company
+        }
 
         response = search_widget(
-                "Account",
-                txt.strip(),
-                None,
-                searchfield=None,
-                page_length=10,
-                filters=filters,
-                filter_fields='["account_currency"]',
-                reference_doctype="Payment Entry",
-                ignore_user_permissions=0,
-                as_dict= True,
+            "Account",
+            txt.strip(),
+            None,
+            searchfield=None,
+            page_length=10,
+            filters=filters,
+            filter_fields='["account_currency"]',
+            reference_doctype="Payment Entry",
+            ignore_user_permissions=0,
+            as_dict=True,
+        )
 
-            )
         return old_response(
             status="success",
-            message="Suppliers fetched successfully.",
-            data= response,
+            message="Ledger accounts fetched successfully.",
+            data=response,
             status_code=200,
             http_status=200,
         )
 
     except Exception as e:
-        frappe.log_error(frappe.get_traceback(), "Get Suppliers API Error")
+        frappe.log_error(frappe.get_traceback(), "Get Ledger Account API Error")
         return old_response(
             status="fail", message=str(e), data=None, status_code=500, http_status=500
         )
-
 
 # ─────────────────────────────────────────
 # RECEIVE PAYMENT (Customer → You)
