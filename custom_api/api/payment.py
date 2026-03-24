@@ -14,7 +14,7 @@ def get_ledger_account():
         company = frappe.defaults.get_user_default("Company")
 
         from_filters = {"account_type":["in",["Bank","Cash"]],"is_group":0,"company":f"{company}"}
-        to_filters = {"account_type":["in",["Payable"]],"is_group":0,"company":f"{company}"}
+        to_filters = {"account_type":["in",["Receivable"]],"is_group":0,"company":f"{company}"}
 
         if payment_type == "Pay" and filter == "from":
             filters = from_filters
