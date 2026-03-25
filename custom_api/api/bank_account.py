@@ -91,6 +91,7 @@ def get():
     party      = frappe.request.args.get("party")
     bank       = frappe.request.args.get("bank")
     disabled   = frappe.request.args.get("disabled")
+    search     = frappe.request.args.get("search", "")
     page       = int(frappe.request.args.get("page", 1))
     page_size  = int(frappe.request.args.get("page_size", 10))
     
@@ -106,6 +107,19 @@ def get():
     if disabled is not None:
         filters["disabled"] = int(disabled)
 
+    # ── Search filter ─────────────────────────────────────────────────────────
+    or_filters = []
+    if search:
+        or_filters = [
+            ["account_name",    "like", f"%{search}%"],
+            ["bank",            "like", f"%{search}%"],
+            ["bank_account_no", "like", f"%{search}%"],
+            ["iban",            "like", f"%{search}%"],
+            ["party",           "like", f"%{search}%"],
+            ["party_type",      "like", f"%{search}%"],
+            ["branch_code",     "like", f"%{search}%"],
+        ]
+
     fields = [
         "name", "account_name as accountHolderName", "bank as bankName", "bank_account_no as accountNo",
         "branch_code as sortCode", "branch_address as branchAddress", "iban",
@@ -118,6 +132,7 @@ def get():
     bank_accounts = frappe.db.get_all(
         "Bank Account",
         filters=filters,
+        or_filters=or_filters,
         fields=fields,
         order_by="creation desc",
         limit=page_size,
