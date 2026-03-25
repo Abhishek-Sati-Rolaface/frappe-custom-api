@@ -81,235 +81,272 @@ def get_ledger_account():
             status="fail", message=str(e), data=None, status_code=500, http_status=500
         )
 
-# ─────────────────────────────────────────
-# RECEIVE PAYMENT (Customer → You)
-# ─────────────────────────────────────────
-@frappe.whitelist(allow_guest=False, methods=["POST"])
-def receive_payment():
-    try:
-        data = frappe.request.get_json()
+def validate_required(data, fields):
+    for field in fields:
+        if not data.get(field):
+            return field
+    return None
 
-        # Validate required fields
-        required_fields = ["invoice_number", "payment_date", "payment_mode", "amount"]
-        for field in required_fields:
-            if not data.get(field):
-                return send_response(
-                    status="error",
-                    message=f"'{field}' is required.",
-                    data=None,
-                    status_code=400,
-                    http_status=400,
-                )
 
-        invoice_number = data.get("invoice_number")
-        payment_date = data.get("payment_date")
-        payment_mode = data.get("payment_mode")
-        amount = data.get("amount")
-        reference_number = data.get("reference_number", "")
-        deposit_into_account = data.get("deposit_into_account", "")
-        customer_id = data.get("customer_id")
-        customer_name = data.get("customer_name")
+def resolve_party_name(party_type, party_id):
+    doctype_map = {
+        "Customer":    ("Customer",    "custom_id"),
+        "Supplier":    ("Supplier",    "custom_id"),
+        "Employee":    ("Employee",    "name"),
+        "Shareholder": ("Shareholder", "custom_id"),
+    }
+    doctype, id_field = doctype_map.get(party_type, (None, None))
+    if not doctype:
+        return None
+    return frappe.db.get_value(doctype, {id_field: party_id}, "name")
 
-        # Resolve customer from customer_id if provided
-        if customer_id:
-            resolved = frappe.db.get_value(
-                "Customer", {"custom_id": customer_id}, "name"
-            )
-            if not resolved:
-                return send_response(
-                    status="error",
-                    message=f"Customer with ID '{customer_id}' not found.",
-                    data=None,
-                    status_code=404,
-                    http_status=404,
-                )
-            customer_name = resolved
 
-        # Validate invoice exists
-        if not frappe.db.exists("Sales Invoice", invoice_number):
-            return send_response(
-                status="error",
-                message=f"Sales Invoice '{invoice_number}' not found.",
-                data=None,
-                status_code=404,
-                http_status=404,
-            )
+def build_references(references, pe):
+    for ref in references:
+        reference_doctype = ref.get("reference_doctype")
+        reference_name    = ref.get("reference_name")
+        allocated_amount  = float(ref.get("allocated_amount") or 0)
 
-        # Validate invoice belongs to customer
-        if customer_name:
-            invoice_customer = frappe.db.get_value(
-                "Sales Invoice", invoice_number, "customer"
-            )
-            if invoice_customer != customer_name:
-                return send_response(
-                    status="error",
-                    message="Invoice does not belong to this customer.",
-                    data=None,
-                    status_code=400,
-                    http_status=400,
-                )
+        if not reference_doctype or not reference_name:
+            continue
 
-        # Validate amount vs outstanding
         outstanding = frappe.db.get_value(
-            "Sales Invoice", invoice_number, "outstanding_amount"
-        )
-        if amount > outstanding:
-            return send_response(
-                status="error",
-                message=f"Amount exceeds outstanding balance of {outstanding}.",
-                data=None,
-                status_code=400,
-                http_status=400,
-            )
+            reference_doctype, reference_name, "outstanding_amount"
+        ) or 0
 
-        # Use Frappe's built-in method
-        pe = get_payment_entry("Sales Invoice", invoice_number)
-        pe.mode_of_payment = payment_mode
-        pe.posting_date = payment_date
-        pe.reference_no = reference_number
-        pe.reference_date = payment_date
-        pe.paid_amount = amount
-        pe.received_amount = amount
+        total_amount = frappe.db.get_value(
+            reference_doctype, reference_name, "grand_total"
+        ) or 0
 
-        if deposit_into_account:
-            pe.paid_to = deposit_into_account
-
-        for ref in pe.references:
-            ref.allocated_amount = amount
-
-        pe.insert(ignore_permissions=True)
-        pe.submit()
-
-        return send_response(
-            status="success",
-            message="Payment received successfully.",
-            data={
-                "paymentId": pe.name,
-                "invoiceNumber": invoice_number,
-                "customerName": customer_name,
-                "amount": amount,
-                "paymentMode": payment_mode,
-                "paymentDate": payment_date,
-                "status": pe.status,
-            },
-            status_code=201,
-            http_status=201,
-        )
-
-    except Exception as e:
-        frappe.log_error(frappe.get_traceback(), "Receive Payment API Error")
-        return send_response(
-            status="fail", message=str(e), data=None, status_code=500, http_status=500
-        )
+        pe.append("references", {
+            "reference_doctype":  reference_doctype,
+            "reference_name":     reference_name,
+            "due_date":           ref.get("due_date"),
+            "total_amount":       total_amount,
+            "outstanding_amount": outstanding,
+            "allocated_amount":   allocated_amount,
+        })
 
 
-# ─────────────────────────────────────────
-# MAKE PAYMENT (You → Supplier)
-# ─────────────────────────────────────────
+def build_taxes(taxes, pe):
+    for tax in taxes:
+        pe.append("taxes", {
+            "charge_type":    tax.get("type", "Actual"),
+            "account_head":   tax.get("account_head"),
+            "rate":           float(tax.get("tax_rate") or 0),
+            "tax_amount":     float(tax.get("amount") or 0),
+            "total":          float(tax.get("total") or 0),
+            "description":    tax.get("account_head"),
+        })
+
+
 @frappe.whitelist(allow_guest=False, methods=["POST"])
-def make_payment():
+def create_payment_entry():
     try:
         data = frappe.request.get_json()
 
-        # Validate required fields
-        required_fields = ["supplier_id", "payment_date", "payment_mode", "amount"]
-        for field in required_fields:
-            if not data.get(field):
-                return send_response(
-                    status="error",
-                    message=f"'{field}' is required.",
-                    data=None,
-                    status_code=400,
-                    http_status=400,
-                )
-
-        supplier_id = data.get("supplier_id")
-        payment_date = data.get("payment_date")
-        payment_mode = data.get("payment_mode")
-        amount = data.get("amount")
-        reference_number = data.get("reference_number", "")
-        deposit_into_account = data.get("deposit_into_account", "")
-
-        # Resolve supplier from supplier_id
-        supplier_name = frappe.db.get_value(
-            "Supplier", {"custom_supplier_id": supplier_id}, "name"
-        )
-        if not supplier_name:
+        if not data:
             return send_response(
                 status="error",
-                message=f"Supplier with ID '{supplier_id}' not found.",
-                data=None,
-                status_code=404,
-                http_status=404,
-            )
-
-        # Get default payable account
-        default_payable_account = frappe.db.get_value(
-            "Company",
-            frappe.defaults.get_user_default("Company"),
-            "default_payable_account",
-        )
-
-        # Get mode of payment account
-        paid_from_account = (
-            frappe.db.get_value(
-                "Mode of Payment Account",
-                {
-                    "parent": payment_mode,
-                    "company": frappe.defaults.get_user_default("Company"),
-                },
-                "default_account",
-            )
-            or deposit_into_account
-        )
-
-        if not paid_from_account:
-            return send_response(
-                status="error",
-                message="Could not determine payment account. Please provide 'deposit_into_account'.",
+                message="Request body is required.",
                 data=None,
                 status_code=400,
-                http_status=400,
+                http_status=400
             )
 
-        # Build Payment Entry manually (no invoice to link)
+        # ── Required fields ───────────────────────────────────────────────────
+        required = [
+            "payment_type", "party_type", "party_id",
+            "mode_of_payment", "payment_date",
+            "paid_from", "paid_to",
+            "paid_from_amount"
+        ]
+        missing = validate_required(data, required)
+        if missing:
+            return old_response(
+                status="error",
+                message=f"'{missing}' is required.",
+                data=None,
+                status_code=400,
+                http_status=400
+            )
+        
+        company = frappe.defaults.get_user_default("Company")
+        company_currency = frappe.db.get_value("Company", company, "default_currency")
+
+        # ── Extract fields ────────────────────────────────────────────────────
+        payment_type     = data.get("payment_type")
+        party_type       = data.get("party_type")
+        party_id         = data.get("party_id")
+        payment_mode     = data.get("mode_of_payment")
+        payment_date     = data.get("payment_date")
+        reference_no     = data.get("reference_no", "")
+        reference_date   = data.get("reference_date") or payment_date
+        project          = data.get("project")
+        cost_center      = data.get("cost_center")
+        exchange_rate    = float(data.get("exchange_rate") or 1)
+
+        paid_from                 = data.get("paid_from")
+        paid_from_bank_account    = data.get("paid_from_bank_account", "")
+        paid_from_currency        = data.get("paid_from_account_currency", company_currency)
+        paid_amount               = float(data.get("paid_from_amount") or 0)
+
+        paid_to                   = data.get("paid_to")
+        paid_to_bank_account      = data.get("paid_to_bank_account", "")
+        paid_to_currency          = data.get("paid_to_account_currency", company_currency)
+        received_amount           = float(data.get("paid_to_amount") or paid_amount)
+
+        references = data.get("references", [])
+        taxes      = data.get("taxes", [])
+
+        company = frappe.defaults.get_user_default("Company")
+
+        # ── Validate payment type ─────────────────────────────────────────────
+        valid_payment_types = ["Pay", "Receive", "Internal Transfer"]
+        if payment_type not in valid_payment_types:
+            return old_response(
+                status="error",
+                message=f"'paymentType' must be one of: {', '.join(valid_payment_types)}.",
+                data=None,
+                status_code=400,
+                http_status=400
+            )
+
+        # ── Validate party type ───────────────────────────────────────────────
+        valid_party_types = ["Customer", "Supplier", "Employee", "Shareholder"]
+        if party_type not in valid_party_types:
+            return old_response(
+                status="error",
+                message=f"'partyType' must be one of: {', '.join(valid_party_types)}.",
+                data=None,
+                status_code=400,
+                http_status=400
+            )
+
+        # ── Resolve party ─────────────────────────────────────────────────────
+        party_name = data.get("party_id") or resolve_party_name(party_type, party_id)
+        if not party_name:
+            return old_response(
+                status="error",
+                message=f"{party_type} with ID '{party_id}' not found.",
+                data=None,
+                status_code=404,
+                http_status=404
+            )
+        
+        if not (paid_from_currency == paid_to_currency or paid_from_currency == company_currency
+                    or paid_to_currency == company_currency
+                ):
+                return old_response(
+                    status="error",
+                    message=(
+                        "Invalid currency combination: 'paid from account currency' "
+                        "and 'paid to account currency' must either be the same "
+                        f"or one of them must be the company default currency ({company_currency})."
+                    ),
+                    data={
+                        "paid_from_currency": paid_from_currency,
+                        "paid_to_currency": paid_to_currency,
+                        "company_currency": company_currency
+                    },
+                    status_code=400,
+                    http_status=400
+                )
+
+        # ── Create Payment Entry ──────────────────────────────────────────────
         pe = frappe.new_doc("Payment Entry")
-        pe.payment_type = "Pay"
-        pe.party_type = "Supplier"
-        pe.party = supplier_name
-        pe.posting_date = payment_date
-        pe.mode_of_payment = payment_mode
-        pe.paid_amount = amount
-        pe.received_amount = amount
-        pe.paid_from = paid_from_account
-        pe.paid_to = default_payable_account
-        pe.reference_no = reference_number
-        pe.reference_date = payment_date
+        pe.payment_type               = payment_type
+        pe.posting_date               = payment_date
+        pe.company                    = company
+        pe.mode_of_payment            = payment_mode
+        pe.party_type                 = party_type
+        pe.party                      = party_name
+        pe.paid_from                  = paid_from
+        pe.paid_to                    = paid_to
+        pe.paid_from_account_currency = paid_from_currency
+        pe.paid_to_account_currency   = paid_to_currency
+        pe.paid_amount                = paid_amount
+        pe.received_amount            = received_amount
+        pe.source_exchange_rate       = exchange_rate
+        pe.target_exchange_rate       = exchange_rate
+        pe.reference_no               = reference_no
+        pe.reference_date             = reference_date
+
+        if paid_from_bank_account:
+            pe.bank_account = paid_from_bank_account
+
+        if paid_to_bank_account:
+            pe.party_bank_account = paid_to_bank_account
+
+        if project:
+            pe.project = project
+
+        if cost_center:
+            pe.cost_center = cost_center
+
+        # ── Invoices tab — references ─────────────────────────────────────────
+        if references:
+            build_references(references, pe)
+
+        # ── Taxes & Charges tab ───────────────────────────────────────────────
+        if taxes:
+            build_taxes(taxes, pe)
 
         pe.insert(ignore_permissions=True)
         pe.submit()
+        frappe.db.commit()
 
-        return send_response(
+        return old_response(
             status="success",
-            message="Payment made successfully.",
+            message="Payment entry created successfully.",
             data={
-                "paymentId": pe.name,
-                "supplierName": supplier_name,
-                "amount": amount,
-                "paymentMode": payment_mode,
-                "paymentDate": payment_date,
-                "status": pe.status,
+                "paymentId":       pe.name,
+                "paymentType":     pe.payment_type,
+                "partyType":       pe.party_type,
+                "partyName":       pe.party,
+                "paidFrom":        pe.paid_from,
+                "paidTo":          pe.paid_to,
+                "paidAmount":      pe.paid_amount,
+                "receivedAmount":  pe.received_amount,
+                "paymentDate":     str(pe.posting_date),
+                "referenceNo":     pe.reference_no,
+                "status":          pe.status,
             },
             status_code=201,
-            http_status=201,
+            http_status=201
         )
 
     except Exception as e:
-        frappe.log_error(frappe.get_traceback(), "Make Payment API Error")
-        return send_response(
-            status="fail", message=str(e), data=None, status_code=500, http_status=500
-        )
 
+        try:
+            # Safely check if pe exists and was submitted
+            if pe and pe.get("name"):
+                docstatus = frappe.db.get_value("Payment Entry", pe.name, "docstatus")
+                if docstatus == 1:
+                    return old_response(
+                        status="success",
+                        message="Payment entry created successfully.",
+                        data={
+                            "paymentId": pe.name,
+                            "status":    "Submitted",
+                            "warning":   str(e)
+                        },
+                        status_code=201,
+                        http_status=201
+                    )
+        except Exception:
+            pass  # pe doesn't exist at all
+
+        frappe.log_error(frappe.get_traceback(), "Create Payment Entry API Error")
+        frappe.db.rollback()
+
+        return old_response(
+            status="fail",
+            message=str(e),
+            data=None,
+            status_code=500,
+            http_status=500
+        )
 
 # ─────────────────────────────────────────
 # GET ALL PAYMENTS
