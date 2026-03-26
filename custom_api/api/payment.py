@@ -485,7 +485,7 @@ def get_all_payments():
         }
 
         sort_by = args.get("sortBy", "paymentDate")
-        sort_order = args.get("sortOrder", "desc").lower()
+        sort_order = args.get("sortOrder", "asc").lower()
         sort_field = allowed_sort_fields.get(sort_by, "posting_date")
         sort_order = "asc" if sort_order == "asc" else "desc"
         order_by = f"{sort_field} {sort_order}"
