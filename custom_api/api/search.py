@@ -299,6 +299,24 @@ def get_party_details(party_type, party, cost_center=None):
                 if company_account_ledger["account"]
                 else None
             )
+    total_outstanding = 0
+
+    if party_type == "Customer":
+        invoices = frappe.get_all(
+            "Sales Invoice",
+            filters={"customer": party, "docstatus": 1},
+            fields=["outstanding_amount"]
+        )
+        total_outstanding = sum(inv.get("outstanding_amount", 0) or 0 for inv in invoices)
+
+    elif party_type == "Supplier":
+        invoices = frappe.get_all(
+            "Purchase Invoice",
+            filters={"supplier": party, "docstatus": 1},
+            fields=["outstanding_amount"]
+        )
+        total_outstanding = sum(inv.get("outstanding_amount", 0) or 0 for inv in invoices)
+
 
     return old_response(
         status="success",
@@ -311,7 +329,8 @@ def get_party_details(party_type, party, cost_center=None):
             "company_bank_account": company_default_bank_account,
             "company_account_ledger": company_account_ledger["account"] if company_account_ledger else None,
             "company_account_ledger_currency": company_account_ledger_currency,
-            "company_default_currency": company_currency
+            "company_default_currency": company_currency,
+            "total_outstanding_amount": total_outstanding
         },
         status_code=201,
         http_status=201,
