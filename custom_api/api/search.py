@@ -1,3 +1,5 @@
+import frappe
+from custom_api.utils.response import send_response, send_response_list
 from erpnext.accounts.doctype.account.account import get_account_currency
 from erpnext.accounts.doctype.bank_account.bank_account import (
     get_default_company_bank_account,
@@ -5,178 +7,142 @@ from erpnext.accounts.doctype.bank_account.bank_account import (
 )
 from erpnext.accounts.party import get_party_account
 from frappe.desk.search import build_for_autosuggest, search_widget
-import frappe
-from custom_api.utils.response import send_response
 from erpnext.zra_client.generic_api import send_response as old_response
+
+def _get_pagination_args():
+    try:
+        page = int(frappe.request.args.get("page", 1))
+        page_size = int(frappe.request.args.get("page_size", 10))
+    except ValueError:
+        page, page_size = 1, 10
+    return page, page_size
+
+
+def _fetch_paginated_autosuggest(
+    doctype, filters, search_fields, reference_doctype=None
+):
+    txt = frappe.request.args.get("search", "").strip()
+    page, page_size = _get_pagination_args()
+    start = (page - 1) * page_size
+    reference_doctype = reference_doctype or doctype
+
+    results = search_widget(
+        doctype,
+        txt,
+        None,
+        searchfield=None,
+        start=start,
+        page_length=page_size,
+        filters=filters,
+        reference_doctype=reference_doctype,
+        ignore_user_permissions=0,
+    )
+
+    response_data = build_for_autosuggest(results, doctype=doctype)
+
+    if txt and search_fields:
+        or_filters = [[doctype, field, "like", f"%{txt}%"] for field in search_fields]
+        count_result = frappe.get_all(
+            doctype,
+            filters=filters,
+            or_filters=or_filters,
+            fields=["count(name) as total"],
+        )
+        total_items = (
+            count_result[0].total if count_result and count_result[0].total else 0
+        )
+    else:
+        total_items = frappe.db.count(doctype, filters=filters)
+
+    total_pages = (total_items + page_size - 1) // page_size if page_size else 1
+
+    return {
+        "data": response_data,
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "items_in_page": len(response_data),
+            "total_items": total_items,
+            "total_pages": total_pages,
+            "has_next": page < total_pages,
+            "has_previous": page > 1,
+        },
+    }
 
 
 @frappe.whitelist(allow_guest=False, methods=["GET"])
 def get_payable_accounts():
     try:
-        txt = frappe.request.args.get("search", "")
         company = frappe.defaults.get_user_default("Company")
         filters = frappe._dict(
             {"company": company, "account_type": "Payable", "is_group": 0}
         )
-        results = search_widget(
-            "Account",
-            txt.strip(),
-            None,
-            searchfield=None,
-            page_length=10,
-            filters=filters,
-            reference_doctype="Account",
-            ignore_user_permissions=0,
+        data = _fetch_paginated_autosuggest(
+            "Account", filters, ["name", "account_name"]
         )
-        response = build_for_autosuggest(results, doctype="Account")
-        return send_response(
-            status="success",
-            message="Payable Accounts fetched successfully.",
-            data={"data": response},
-            status_code=200,
-            http_status=200,
+        return send_response_list(
+            "success", "Payable Accounts fetched successfully.", data
         )
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Get Payable Accounts API Error")
-        return send_response(
-            status="fail", message=str(e), data=None, status_code=500, http_status=500
-        )
+        return send_response("fail", str(e), None, 500, 500)
 
 
 @frappe.whitelist(allow_guest=False, methods=["GET"])
 def get_receivable_accounts():
     try:
-        txt = frappe.request.args.get("search", "")
         company = frappe.defaults.get_user_default("Company")
         filters = frappe._dict(
             {"company": company, "account_type": "Receivable", "is_group": 0}
         )
-        results = search_widget(
-            "Account",
-            txt.strip(),
-            None,
-            searchfield=None,
-            page_length=10,
-            filters=filters,
-            reference_doctype="Account",
-            ignore_user_permissions=0,
+        data = _fetch_paginated_autosuggest(
+            "Account", filters, ["name", "account_name"]
         )
-        response = build_for_autosuggest(results, doctype="Account")
-        return send_response(
-            status="success",
-            message="Receivable Accounts fetched successfully.",
-            data={"data": response},
-            status_code=200,
-            http_status=200,
+        return send_response_list(
+            "success", "Receivable Accounts fetched successfully.", data
         )
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Get Receivable Accounts API Error")
-        return send_response(
-            status="fail", message=str(e), data=None, status_code=500, http_status=500
-        )
+        return send_response("fail", str(e), None, 500, 500)
 
 
 @frappe.whitelist(allow_guest=False, methods=["GET"])
 def get_cost_centers():
     try:
-        txt = frappe.request.args.get("search", "")
         company = frappe.defaults.get_user_default("Company")
-
         filters = frappe._dict({"company": company})
-
-        results = search_widget(
-            "Cost Center",
-            txt.strip(),
-            None,
-            searchfield=None,
-            page_length=10,
-            filters=filters,
-            reference_doctype="Cost Center",
-            ignore_user_permissions=0,
+        data = _fetch_paginated_autosuggest(
+            "Cost Center", filters, ["name", "cost_center_name"]
         )
-
-        response = build_for_autosuggest(results, doctype="Cost Center")
-
-        return send_response(
-            status="success",
-            message="Cost Centers fetched successfully.",
-            data={"data": response},
-            status_code=200,
-            http_status=200,
-        )
+        return send_response_list("success", "Cost Centers fetched successfully.", data)
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Get Cost Centers API Error")
-        return send_response(
-            status="fail", message=str(e), data=None, status_code=500, http_status=500
-        )
+        return send_response("fail", str(e), None, 500, 500)
 
 
 @frappe.whitelist(allow_guest=False, methods=["GET"])
 def get_customers():
     try:
-        txt = frappe.request.args.get("search", "")
-
-        filters = frappe._dict({})
-
-        results = search_widget(
-            "Customer",
-            txt.strip(),
-            None,
-            searchfield=None,
-            page_length=10,
-            filters=filters,
-            reference_doctype="Customer",
-            ignore_user_permissions=0,
+        data = _fetch_paginated_autosuggest(
+            "Customer", frappe._dict({}), ["name", "customer_name"]
         )
-
-        response = build_for_autosuggest(results, doctype="Customer")
-
-        return send_response(
-            status="success",
-            message="Customers fetched successfully.",
-            data={"data": response},
-            status_code=200,
-            http_status=200,
-        )
+        return send_response_list("success", "Customers fetched successfully.", data)
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Get Customers API Error")
-        return send_response(
-            status="fail", message=str(e), data=None, status_code=500, http_status=500
-        )
+        return send_response("fail", str(e), None, 500, 500)
 
 
 @frappe.whitelist(allow_guest=False, methods=["GET"])
 def get_suppliers():
     try:
-        txt = frappe.request.args.get("search", "")
-
-        filters = frappe._dict({})
-
-        results = search_widget(
-            "Supplier",
-            txt.strip(),
-            None,
-            searchfield=None,
-            page_length=10,
-            filters=filters,
-            reference_doctype="Supplier",
-            ignore_user_permissions=0,
+        data = _fetch_paginated_autosuggest(
+            "Supplier", frappe._dict({}), ["name", "supplier_name"]
         )
-
-        response = build_for_autosuggest(results, doctype="Supplier")
-
-        return send_response(
-            status="success",
-            message="Suppliers fetched successfully.",
-            data={"data": response},
-            status_code=200,
-            http_status=200,
-        )
+        return send_response_list("success", "Suppliers fetched successfully.", data)
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Get Suppliers API Error")
-        return send_response(
-            status="fail", message=str(e), data=None, status_code=500, http_status=500
-        )
+        return send_response("fail", str(e), None, 500, 500)
+
 
 
 @frappe.whitelist(allow_guest=False, methods=["GET"])
@@ -340,53 +306,48 @@ def get_party_details(party_type, party, cost_center=None):
 @frappe.whitelist(allow_guest=False, methods=["GET"])
 def get_currencies():
     try:
-        txt = frappe.request.args.get("search", "")
-        page = int(frappe.request.args.get("page", 1))
-        page_size = int(frappe.request.args.get("page_size", 10))
+        txt = frappe.request.args.get("search", "").strip()
+        
+        try:
+            page = int(frappe.request.args.get("page", 1))
+            page_size = int(frappe.request.args.get("page_size", 10))
+        except ValueError:
+            page, page_size = 1, 10
 
         start = (page - 1) * page_size
 
-        conditions = ""
-        values = {}
-
+        filters = {}
         if txt:
-            conditions = """
-                WHERE name LIKE %(txt)s
-                OR currency_name LIKE %(txt)s
-            """
-            values["txt"] = f"%{txt}%"
+            filters = [
+                ["Currency", "name", "like", f"%{txt}%"],
+                ["Currency", "currency_name", "like", f"%{txt}%"]
+            ]
 
-        total_items = frappe.db.sql(
-            f"""
-            SELECT COUNT(*) FROM `tabCurrency`
-            {conditions}
-            """,
-            values,
-        )[0][0]
-
-        rows = frappe.db.sql(
-            f"""
-            SELECT name, currency_name
-            FROM `tabCurrency`
-            {conditions}
-            ORDER BY name
-            LIMIT %(start)s, %(page_size)s
-            """,
-            {**values, "start": start, "page_size": page_size},
-            as_dict=True,
+        total_items = frappe.db.count("Currency", filters=filters)
+        
+        rows = frappe.get_all(
+            "Currency",
+            filters=filters,
+            or_filters=filters if txt else None,
+            fields=["name", "currency_name", "number_format", "symbol"],
+            order_by="name asc",
+            limit_start=start,
+            limit_page_length=page_size
         )
 
         data = [
             {
-                "value": row.name,
-                "label": f"{row.name} - {row.currency_name or ''}".strip(" -"),
+                "name": row.name,
+                "currency_name": row.currency_name,
+                "symbol": row.symbol,
+                "number_format": row.number_format,
             }
             for row in rows
         ]
 
-        total_pages = (total_items + page_size - 1) // page_size
+        total_pages = (total_items + page_size - 1) // page_size if page_size else 1
 
-        return send_response(
+        return send_response_list(
             status="success",
             message="Currencies fetched successfully.",
             data={
@@ -407,7 +368,7 @@ def get_currencies():
 
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Get Currencies API Error")
-        return send_response(
+        return send_response_list(
             status="fail",
             message=str(e),
             data=None,
