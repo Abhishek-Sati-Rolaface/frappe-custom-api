@@ -160,7 +160,7 @@ def create_payment_entry():
             )
 
         # ── Required fields ───────────────────────────────────────────────────
-        if data.get["payment_type"] == "Internal Transfer":
+        if data.get("payment_type") == "Internal Transfer":
             required = ["paid_from", "paid_to"]
         else:
             required = [
@@ -221,19 +221,19 @@ def create_payment_entry():
             )
 
         # ── Validate party type ───────────────────────────────────────────────
-        valid_party_types = ["Customer", "Supplier", "Employee", "Shareholder", None]
-        if party_type not in valid_party_types:
-            return old_response(
-                status="error",
-                message=f"'partyType' must be one of: {', '.join(valid_party_types)}.",
-                data=None,
-                status_code=400,
-                http_status=400
-            )
-
-        # ── Resolve party ─────────────────────────────────────────────────────
         party_name = None
         if payment_type != "Internal Transfer": 
+            valid_party_types = ["Customer", "Supplier", "Employee", "Shareholder"]
+            if party_type not in valid_party_types:
+                return old_response(
+                    status="error",
+                    message=f"'partyType' must be one of: {', '.join(valid_party_types)}.",
+                    data=None,
+                    status_code=400,
+                    http_status=400
+                )
+
+        # ── Resolve party ─────────────────────────────────────────────────────
             party_name = data.get("party_id") or resolve_party_name(party_type, party_id)
             if not party_name:
                 return old_response(
