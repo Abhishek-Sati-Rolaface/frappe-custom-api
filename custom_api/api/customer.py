@@ -465,8 +465,7 @@ def create_customer():
 def update_customer(id=None, **kwargs):
     try:        
         data = parse_api_payload()
-        customer_id = id or data.get("id") or frappe.form_dict.get("id")
-
+        customer_id = frappe.request.args.get("id")
         if not customer_id:
             return send_response(status="fail", message="Customer ID required as query parameter (?id=...)", status_code=400, http_status=400)
         if not frappe.db.exists("Customer", customer_id):
@@ -649,7 +648,7 @@ def delete_customer(id=None):
 def update_customer_status(id=None):
     try:
         data = parse_api_payload()
-        customer_id = id or data.get("id") or frappe.form_dict.get("id")
+        customer_id = frappe.request.args.get("id")
         raw_status = data.get("status")
 
         if not customer_id:
