@@ -21,14 +21,23 @@ jobs:
           key: ${{ secrets.SERVER_PRIVATE_KEY }}
           port: 22
           timeout: 60s
-          command_timeout: 120s
+          command_timeout: 600s  # ⬆️ Was 120s — migrate + build easily takes 5–10 min
           script: |
-            echo "📂 Switching to bench directory..."
-            cd /srv/apps/erp/backend/rolaface-izayne-bench
+            set -e  # Fail fast on any error
 
-            echo "🔌 Running as frappe user..."
+            SITE="api.erp.udvell.rolaface.com"
+            BENCH_DIR="/srv/apps/erp/backend/rolaface-izayne-bench"
+            LOG_FILE="/tmp/deploy_$(date +%Y%m%d_%H%M%S).log"
+
+            echo "📂 Switching to bench directory..."
+            cd "$BENCH_DIR"
+
             su - frappe -c "
-              cd /srv/apps/erp/backend/rolaface-izayne-bench
+              set -e
+              BENCH_DIR=\"$BENCH_DIR\"
+              SITE=\"$SITE\"
+
+              cd \"\$BENCH_DIR\"
 
               # Load nvm and switch to Node 24
               export NVM_DIR=~/.nvm
@@ -39,20 +48,34 @@ jobs:
               source env/bin/activate
 
               echo '📦 Backup...'
-              bench --site api.erp.udvell.rolaface.com backup
+              bench --site \"\$SITE\" backup
 
               echo '⬇️ Pull latest code...'
-              cd apps/custom_api && git pull origin main
+              cd apps/custom_api
+              git fetch origin main
+              git reset --hard origin/main  # ⬆️ Safer than pull — avoids merge conflicts
+              cd \"\$BENCH_DIR\"
 
               echo '⚙️ Run migrations...'
-              cd .. && bench --site api.erp.udvell.rolaface.com migrate
+              # Capture output; exit code 2 from bench migrate = real error, don't swallow it
+              bench --site \"\$SITE\" migrate 2>&1
+              echo '✅ Migration complete'
 
               echo '🎨 Build assets...'
-              bench build --verbose 2>&1 | grep -v "Browserslist: caniuse-lite is outdated" || true
+              bench build --verbose 2>&1 | grep -v 'Browserslist: caniuse-lite is outdated' || true
 
               echo '🧹 Clear cache...'
-              bench --site api.erp.udvell.rolaface.com clear-cache
-            "
+              bench --site \"\$SITE\" clear-cache
+            " 2>&1 | tee "$LOG_FILE"
+
+            # Check if the su block itself failed
+            if [ ${PIPESTATUS[0]} -ne 0 ]; then
+              echo "❌ Deploy failed. Last 50 lines of log:"
+              tail -50 "$LOG_FILE"
+              exit 1
+            fi
 
             echo "🔄 Restarting services..."
             supervisorctl restart frappe:
+
+            echo "✅ Deploy complete!"
