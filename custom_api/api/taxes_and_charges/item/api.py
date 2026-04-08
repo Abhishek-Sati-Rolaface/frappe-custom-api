@@ -44,7 +44,9 @@ def get():
     except Exception as e:
         frappe.log_error(str(e), "Get Item Tax Templates API Error")
 
-        return {
-            "status": "fail",
-            "message": str(e)
-        }
+        return send_old_response(
+            status="fail",
+            message=str(e),
+            status_code=500,
+            http_status=500
+        )
