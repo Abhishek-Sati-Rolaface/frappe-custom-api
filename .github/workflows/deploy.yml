@@ -20,6 +20,8 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_PRIVATE_KEY }}
           port: 22
+          timeout: 60s
+          command_timeout: 120s
           script: |
             echo "📂 Switching to bench directory..."
             cd /srv/apps/erp/backend/rolaface-izayne-bench
