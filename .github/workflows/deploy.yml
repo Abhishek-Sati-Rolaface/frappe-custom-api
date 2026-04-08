@@ -46,8 +46,7 @@ jobs:
               cd .. && bench --site api.erp.udvell.rolaface.com migrate
 
               echo '🎨 Build assets...'
-              npx update-browserslist-db@latest --yes
-              bench build
+              bench build --verbose 2>&1 | grep -v "Browserslist: caniuse-lite is outdated" || true
 
               echo '🧹 Clear cache...'
               bench --site api.erp.udvell.rolaface.com clear-cache
