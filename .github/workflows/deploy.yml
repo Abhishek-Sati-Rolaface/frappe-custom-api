@@ -21,10 +21,9 @@ jobs:
           key: ${{ secrets.SERVER_PRIVATE_KEY }}
           port: 22
           timeout: 60s
-          command_timeout: 600s  # ⬆️ Was 120s — migrate + build easily takes 5–10 min
+          command_timeout: 600s
           script: |
-            set -e  # Fail fast on any error
-
+            set -e
             SITE="api.erp.udvell.rolaface.com"
             BENCH_DIR="/srv/apps/erp/backend/rolaface-izayne-bench"
             LOG_FILE="/tmp/deploy_$(date +%Y%m%d_%H%M%S).log"
@@ -39,12 +38,10 @@ jobs:
 
               cd \"\$BENCH_DIR\"
 
-              # Load nvm and switch to Node 24
               export NVM_DIR=~/.nvm
               [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
               nvm use 24
 
-              # Activate virtual environment
               source env/bin/activate
 
               echo '📦 Backup...'
@@ -53,13 +50,17 @@ jobs:
               echo '⬇️ Pull latest code...'
               cd apps/custom_api
               git fetch origin main
-              git reset --hard origin/main  # ⬆️ Safer than pull — avoids merge conflicts
+              git reset --hard origin/main
               cd \"\$BENCH_DIR\"
 
               echo '⚙️ Run migrations...'
-              # Capture output; exit code 2 from bench migrate = real error, don't swallow it
-              bench --site \"\$SITE\" migrate 2>&1
-              echo '✅ Migration complete'
+              bench --site \"\$SITE\" migrate 2>&1; MIGRATE_EXIT=\$?
+              if [ \"\$MIGRATE_EXIT\" -eq 0 ] || [ \"\$MIGRATE_EXIT\" -eq 2 ]; then
+                echo \"✅ Migration complete (exit code: \$MIGRATE_EXIT)\"
+              else
+                echo \"❌ Migration failed with exit code: \$MIGRATE_EXIT\"
+                exit \"\$MIGRATE_EXIT\"
+              fi
 
               echo '🎨 Build assets...'
               bench build --verbose 2>&1 | grep -v 'Browserslist: caniuse-lite is outdated' || true
@@ -68,7 +69,6 @@ jobs:
               bench --site \"\$SITE\" clear-cache
             " 2>&1 | tee "$LOG_FILE"
 
-            # Check if the su block itself failed
             if [ ${PIPESTATUS[0]} -ne 0 ]; then
               echo "❌ Deploy failed. Last 50 lines of log:"
               tail -50 "$LOG_FILE"
