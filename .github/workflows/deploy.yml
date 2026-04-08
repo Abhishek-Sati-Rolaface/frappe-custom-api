@@ -31,6 +31,8 @@ jobs:
             echo "📂 Switching to bench directory..."
             cd "$BENCH_DIR"
 
+            # Pause outer set -e so the pipe exit code doesn't kill us prematurely
+            set +e
             su - frappe -c "
               set -e
               BENCH_DIR=\"$BENCH_DIR\"
@@ -71,9 +73,11 @@ jobs:
               echo '🧹 Clear cache...'
               bench --site \"\$SITE\" clear-cache
             " 2>&1 | tee "$LOG_FILE"
+            SU_EXIT=${PIPESTATUS[0]}
+            set -e  # Resume fail-fast
 
-            if [ ${PIPESTATUS[0]} -ne 0 ]; then
-              echo "❌ Deploy failed. Last 50 lines of log:"
+            if [ "$SU_EXIT" -ne 0 ]; then
+              echo "❌ Deploy failed (exit code: $SU_EXIT). Last 50 lines of log:"
               tail -50 "$LOG_FILE"
               exit 1
             fi
