@@ -35,7 +35,6 @@ def map_to_frappe_item(data: dict, brand: str) -> dict:
         "taxes": _map_taxes(data),
     }
 
-
 def _map_taxes(data):
     tax_info_list = data.get("taxInfo")
 
@@ -58,7 +57,6 @@ def _map_taxes(data):
         })
 
     return mapped_taxes
-
 
 def validate_item_payload(data):
 
@@ -205,10 +203,18 @@ def _update_taxes(item_doc, data):
 
     item_doc.taxes = []
 
-    tax_info = data.get("taxInfo", {})
+    tax_info_list = data.get("taxInfo", [])
 
-    if tax_info:
-        item_doc.append("taxes", {
-            "item_tax_template": tax_info.get("taxName"),
-            "tax_category": tax_info.get("taxCategory")
+    if tax_info_list:
+        for tax_info in tax_info_list:
+
+            tax_name = tax_info.get("taxName")
+            tax_category = tax_info.get("taxCategory")
+
+            if not tax_name:
+                frappe.throw((f"Tax Type is required"))
+
+            item_doc.append("taxes", {
+            "item_tax_template": tax_name,
+            "tax_category": tax_category
         })

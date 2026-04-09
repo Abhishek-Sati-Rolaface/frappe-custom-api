@@ -1,6 +1,6 @@
 from custom_api.api.item.brand_service import get_or_create_brand
 from custom_api.api.item.price_service import create_item_prices
-from custom_api.api.item.utils.item_utils import map_item_response, map_to_frappe_item, validate_item_payload
+from custom_api.api.item.utils.item_utils import _update_basic_fields, _update_taxes, _update_uom, map_item_response, map_to_frappe_item, validate_item_payload
 import frappe
 
 def create_item_service(data: dict):
@@ -65,7 +65,6 @@ def get_items_service(params):
         }
     }
 
-
 def _build_filters(params):
     filters = {}
 
@@ -82,3 +81,28 @@ def _build_filters(params):
         filters["brand"] = params.get("brand")
 
     return filters
+
+def update_item_service(id, data: dict):
+
+
+    if not id:
+        frappe.throw("Item id is required")
+
+    validate_item_payload(data)
+
+    item_doc = frappe.get_doc("Item", id)
+
+    brand = get_or_create_brand(data.get("brand"))
+
+    _update_basic_fields(item_doc, data, brand)
+
+    _update_uom(item_doc, data)
+    _update_taxes(item_doc, data)
+
+    item_doc.save(ignore_permissions=True)
+
+    create_item_prices(item_doc, data)
+
+    frappe.db.commit()
+
+    return item_doc

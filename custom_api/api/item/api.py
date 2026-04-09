@@ -1,9 +1,9 @@
-from custom_api.api.item.service import create_item_service, get_items_service
+from custom_api.api.item.service import create_item_service, get_items_service, update_item_service
 from custom_api.utils.response import send_old_response
 import frappe
 from frappe import _
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist(allow_guest=False, methods=["POST"])
 def create():
     try:
         data = frappe.request.get_json()
@@ -26,7 +26,7 @@ def create():
             http_status=500
         )
 
-@frappe.whitelist()
+@frappe.whitelist(allow_guest=False, methods=["GET"])
 def get():
     try:
         params = frappe.request.args
@@ -50,19 +50,20 @@ def get():
                     http_status=500
                 )
 
-# @frappe.whitelist()
-# def update_item():
-#     try:
-#         data = frappe.request.get_json()
+@frappe.whitelist(allow_guest=False, methods=["PUT"])
+def update():
+    try:
+        id = frappe.request.args.get("item_code")
+        data = frappe.request.get_json()
 
-#         item = update_item_service(data)
+        item = update_item_service(id, data)
 
-#         return {
-#             "status": "success",
-#             "message": "Item updated successfully",
-#             "data": item.name
-#         }
+        return {
+            "status": "success",
+            "message": "Item updated successfully",
+            "data": item.name
+        }
 
-#     except Exception as e:
-#         frappe.log_error(frappe.get_traceback(), "Update Item API Error")
-#         frappe.throw(str(e))
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Update Item API Error")
+        frappe.throw(str(e))
