@@ -37,17 +37,27 @@ def map_to_frappe_item(data: dict, brand: str) -> dict:
 
 
 def _map_taxes(data):
-    taxInfoList = data.get("taxInfo", {})
+    tax_info_list = data.get("taxInfo")
 
-    if not taxInfoList:
+    if not tax_info_list:
         return []
 
-    return [
-        {
-            "item_tax_template": tax_info.get("taxName"),
-            "tax_category": tax_info.get("taxCategory")
-        } for tax_info in taxInfoList
-    ]
+    mapped_taxes = []
+
+    for tax_info in tax_info_list:
+
+        tax_name = tax_info.get("taxName")
+        tax_category = tax_info.get("taxCategory")
+
+        if not tax_name:
+            frappe.throw((f"Tax Type is required"))
+
+        mapped_taxes.append({
+            "item_tax_template": tax_name,
+            "tax_category": tax_category
+        })
+
+    return mapped_taxes
 
 
 def validate_item_payload(data):
@@ -160,3 +170,45 @@ def _get_tracking_method(item):
     if item.has_expiry_date:
         return "expiry"
     return "none"
+
+def _update_basic_fields(item_doc, data, brand):
+
+    item_doc.item_name = data.get("itemName")
+    item_doc.item_group = data.get("itemGroup")
+    item_doc.description = data.get("description")
+
+    item_doc.brand = brand
+
+    item_doc.stock_uom = data.get("unitOfMeasureCd") or "Nos"
+
+    item_doc.weight_per_unit = float(data.get("weight") or 0)
+    item_doc.weight_uom = data.get("weightUnit") or "Kg"
+
+    item_doc.valuation_method = data.get("inventoryInfo", {}).get("valuationMethod") or "FIFO"
+
+    batch_info = data.get("batchInfo", {})
+
+    item_doc.has_batch_no = 1 if batch_info.get("has_batch_no") else 0
+    item_doc.has_expiry_date = 1 if batch_info.get("has_expiry_date") else 0
+    item_doc.end_of_life = batch_info.get("endOfLife") or "2099-12-31"
+
+def _update_uom(item_doc, data):
+
+    item_doc.uoms = []
+
+    item_doc.append("uoms", {
+        "uom": data.get("unitOfMeasureCd") or "Nos",
+        "conversion_factor": 1
+    })
+
+def _update_taxes(item_doc, data):
+
+    item_doc.taxes = []
+
+    tax_info = data.get("taxInfo", {})
+
+    if tax_info:
+        item_doc.append("taxes", {
+            "item_tax_template": tax_info.get("taxName"),
+            "tax_category": tax_info.get("taxCategory")
+        })
