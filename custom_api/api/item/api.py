@@ -50,6 +50,30 @@ def get():
                     http_status=500
                 )
 
+@frappe.whitelist(allow_guest=False, methods=["GET"])
+def get_by_id():
+    try:
+        params = frappe.request.args
+
+        data = get_items_service(params)
+
+        return send_old_response(
+            status="success",
+            message="Items retrieved successfully",
+            data=data["data"][0] if data.get("data") else None,
+            status_code=200,
+            http_status=200
+        )
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Get Items API Error")
+        return send_old_response(
+                    status="fail",
+                    message=str(e),
+                    status_code=500,
+                    http_status=500
+                )
+
 @frappe.whitelist(allow_guest=False, methods=["PUT"])
 def update():
     try:
