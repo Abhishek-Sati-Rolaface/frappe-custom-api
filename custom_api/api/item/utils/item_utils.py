@@ -86,7 +86,6 @@ def map_item_response(item):
         "sellingPrice": selling_price.price_list_rate if selling_price else 0.0,
         "buyingPrice": buying_price.price_list_rate if buying_price else 0.0,
         "vendorInfo": {"preferredVendor": buying_price.get("supplier") if buying_price else ""},
-        "sku": item.name,
         "brand": item.brand or "",
         "description": item.description or "",
 

@@ -69,8 +69,8 @@ def get_items_service(params):
 def _build_filters(params):
     filters = {}
 
-    if params.get("item_code"):
-        filters["name"] = ["like", f"%{params.get('item_code')}%"]
+    if params.get("id"):
+        filters["name"] = ["like", f"%{params.get('id')}%"]
 
     if params.get("item_name"):
         filters["item_name"] = ["like", f"%{params.get('item_name')}%"]
