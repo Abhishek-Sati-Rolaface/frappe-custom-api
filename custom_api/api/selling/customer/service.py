@@ -30,7 +30,8 @@ def create_customer(data):
 
     sync_addresses(customer, data.get("addresses"), is_update=False)
     sync_contacts(customer, data.get("contacts"), is_update=False)
-    sync_terms(customer, data.get("terms"))
+    sync_terms(customer, data.get("terms"), terms_type="selling")
+    
 
     return customer
 
@@ -53,7 +54,7 @@ def update_customer(customer_id, data):
     customer.save(ignore_permissions=True)
     sync_contacts(customer, data.get("contacts"), is_update=True)
     sync_addresses(customer, data.get("addresses"), is_update=True)
-    sync_terms(customer, data.get("terms"))
+    sync_terms(customer, data.get("terms"), terms_type="selling")
 
     return customer
 
