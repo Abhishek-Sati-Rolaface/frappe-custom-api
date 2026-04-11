@@ -136,6 +136,79 @@ def get_customer_groups():
     )
 
 @frappe.whitelist(allow_guest=False, methods=["GET"])
+def get_customer_group_tree():
+    try:
+        is_group = _get_arg("is_group")
+        parent_customer_group = _get_arg("parent_customer_group")
+
+        filters = {}
+        if is_group is not None:
+            filters["is_group"] = int(is_group)
+        if parent_customer_group:
+            filters["parent_customer_group"] = parent_customer_group
+
+        customer_groups = frappe.get_all(
+            "Customer Group",
+            filters=filters,
+            fields=[
+                "name",
+                "customer_group_name",
+                "parent_customer_group",
+                "is_group",
+                "lft",
+                "rgt"
+            ],
+            order_by="lft asc"
+        )
+
+        if not customer_groups:
+            return send_response(
+                status="success",
+                message="No Customer Groups found.",
+                data={
+                    "total": 0,
+                    "customer_groups": []
+                },
+                status_code=200,
+                http_status=200
+            )
+
+        def build_tree(nodes, parent=None):
+            tree = []
+            for node in nodes:
+                current_parent = node.get("parent_customer_group") or None
+                target_parent = parent or None
+
+                if current_parent == target_parent:
+                    node["children"] = build_tree(nodes, parent=node["name"])
+                    tree.append(node)
+            return tree
+
+        starting_parent = parent_customer_group or None
+        tree = build_tree(customer_groups, parent=starting_parent)
+
+        return send_response(
+            status="success",
+            message="Customer Group tree fetched successfully.",
+            data={
+                "total": len(customer_groups),
+                "customer_groups": tree
+            },
+            status_code=200,
+            http_status=200
+        )
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Get Customer Group Tree API Error")
+        return send_response(
+            status="error",
+            message=str(e),
+            data=None,
+            status_code=500,
+            http_status=500
+        )
+    
+@frappe.whitelist(allow_guest=False, methods=["GET"])
 def get_customer_group(id):
     if not id:
         return send_response(status="error", message="Record ID (id) is required.", status_code=400, http_status=400)
