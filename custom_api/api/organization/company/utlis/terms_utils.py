@@ -1,5 +1,5 @@
 import json
-from custom_api.utils.party_utils import sync_terms
+from custom_api.utils.party_utils import get_linked_terms, sync_terms
 import frappe
 
 def sync_company_terms(company_doc, terms_data) -> dict:
@@ -27,25 +27,6 @@ def sync_company_terms(company_doc, terms_data) -> dict:
                 company_doc.db_set(tc_field, tc_name, update_modified=False)
     return result
 
-def _get_payment_phases(company_name: str, terms_type: str) -> list:
-    template_name = f"{company_name} {terms_type.capitalize()} PT"
-
-    if not frappe.db.exists("Payment Terms Template", template_name):
-        return []
-
-    template = frappe.get_doc("Payment Terms Template", template_name)
-
-    phases = []
-    for term in template.terms:
-        phases.append({
-            "id": term.name,
-            "name": term.payment_term,
-            "percentage": str(term.invoice_portion),
-            "condition": term.description or ""
-        })
-
-    return phases
-
 def get_company_terms(company) -> dict:
     result = {}
 
@@ -56,18 +37,8 @@ def get_company_terms(company) -> dict:
         if not tc_name:
             result[terms_type] = None
             continue
-
         try:
-            tc = frappe.get_doc("Terms and Conditions", tc_name)
-            terms_data = json.loads(tc.terms or "{}")
-
-            # Overwrite payment phases from actual Payment Terms Template
-            if terms_data:
-                payment = terms_data.get("payment", {})
-                payment["phases"] = _get_payment_phases(company.name, terms_type)
-                terms_data["payment"] = payment
-
-            result[terms_type] = terms_data
+            result = {**result, **get_linked_terms(company.name, terms_type)}
         except Exception:
             result[terms_type] = None
 
