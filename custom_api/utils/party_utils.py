@@ -18,22 +18,15 @@ def parse_api_payload() -> Dict[str, Any]:
             raise frappe.ValidationError(f"Invalid JSON payload provided: {str(e)}")
     return data
 
-def validate_customer_payload(data: Dict[str, Any]):
-    email = data.get("email")
+def validate_email_format(email: str):
     if email:
         pattern = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
         if not re.fullmatch(pattern, email):
             raise frappe.ValidationError(f"Invalid email format: {email}")
 
-    customer_type = data.get("type")
-    if customer_type:
-        valid_types = {"Individual", "Company", "Partnership"}
-        if customer_type not in valid_types:
-            raise frappe.ValidationError(f"Invalid customer type. Allowed: {', '.join(valid_types)}")
-
-    tpin = data.get("tpin")
-    if tpin and not data.get("id") and frappe.db.exists("Customer", {"tax_id": tpin}):
-        raise frappe.exceptions.DuplicateEntryError(f"Customer with TPIN {tpin} already exists.")
+def check_duplicate_tpin(doctype: str, tpin: str, doc_id: str = None):
+    if tpin and not doc_id and frappe.db.exists(doctype, {"tax_id": tpin}):
+        raise frappe.exceptions.DuplicateEntryError(f"{doctype} with TPIN {tpin} already exists.")
 
 def unlink_and_disable_docs(child_doctype: str, parent_doctype: str, parent_name: str, disable: bool = True):
     linked_docs = frappe.get_all(
@@ -86,9 +79,7 @@ def sync_addresses(parent_doc, addresses_data: Any, is_update: bool = False):
         addr_id = addr.get("id") or addr.get("name")
         is_primary = 1 if addr.get("isPrimary") or i == 0 else 0
 
-        country = (
-            addr.get("country") or frappe.defaults.get_global_default("country")
-        )
+        country = addr.get("country") or frappe.defaults.get_global_default("country") or "India"
         country = country.title() if country else None
 
         county = addr.get("county") or addr.get("district")
@@ -102,7 +93,7 @@ def sync_addresses(parent_doc, addresses_data: Any, is_update: bool = False):
             address.address_line2 = addr.get("line2", address.address_line2)
             address.city = addr.get("city", address.city)
             address.state = addr.get("state", address.state)
-            address.county = county or address.county
+            address.county = county or getattr(address, "county", None)
             address.pincode = addr.get("postalCode", address.pincode)
             address.country = country or address.country
             address.is_primary_address = is_primary
@@ -122,31 +113,31 @@ def sync_addresses(parent_doc, addresses_data: Any, is_update: bool = False):
             processed_addresses.add(address.name)
 
         else:
-            address = frappe.get_doc(
-                {
-                    "doctype": "Address",
-                    "address_title": doc_title,
-                    "address_type": addr.get("type", "Billing"),
-                    "address_line1": addr.get("line1"),
-                    "address_line2": addr.get("line2"),
-                    "city": addr.get("city"),
-                    "state": addr.get("state"),
-                    "county": county,
-                    "pincode": addr.get("postalCode"),
-                    "country": country,
-                    "email_id": getattr(parent_doc, "email_id", ""),
-                    "phone": getattr(parent_doc, "mobile_no", ""),
-                    "is_primary_address": is_primary,
-                    "is_shipping_address": 1 if addr.get("isShipping") else 0,
-                    "links": [
-                        {
-                            "link_doctype": link_doctype,
-                            "link_name": link_name,
-                        }
-                    ],
-                }
-            ).insert(ignore_permissions=True)
+            address_fields = {
+                "doctype": "Address",
+                "address_title": doc_title,
+                "address_type": addr.get("type", "Billing"),
+                "address_line1": addr.get("line1"),
+                "address_line2": addr.get("line2"),
+                "city": addr.get("city"),
+                "state": addr.get("state"),
+                "pincode": addr.get("postalCode"),
+                "country": country,
+                "email_id": getattr(parent_doc, "email_id", ""),
+                "phone": getattr(parent_doc, "mobile_no", ""),
+                "is_primary_address": is_primary,
+                "is_shipping_address": 1 if addr.get("isShipping") else 0,
+                "links": [
+                    {
+                        "link_doctype": link_doctype,
+                        "link_name": link_name,
+                    }
+                ],
+            }
+            if county:
+                address_fields["county"] = county
 
+            address = frappe.get_doc(address_fields).insert(ignore_permissions=True)
             processed_addresses.add(address.name)
 
         if is_primary:
@@ -182,8 +173,10 @@ def sync_contacts(parent_doc, contacts_data: Any, is_update: bool = False):
     if not contacts_data:
         return
     if isinstance(contacts_data, str):
-        try: contacts_data = json.loads(contacts_data)
-        except json.JSONDecodeError: raise frappe.ValidationError("Invalid JSON format in 'contacts' array.")
+        try: 
+            contacts_data = json.loads(contacts_data)
+        except json.JSONDecodeError: 
+            raise frappe.ValidationError("Invalid JSON format in 'contacts' array.")
 
     link_doctype = parent_doc.doctype
     link_name = parent_doc.name
@@ -282,8 +275,10 @@ def sync_contacts(parent_doc, contacts_data: Any, is_update: bool = False):
             doc.flags.ignore_links = True
             doc.save(ignore_permissions=True)
             if not doc.links:
-                try: frappe.delete_doc("Contact", doc.name, ignore_permissions=True, force=True)
-                except frappe.exceptions.LinkExistsError: pass
+                try: 
+                    frappe.delete_doc("Contact", doc.name, ignore_permissions=True, force=True)
+                except frappe.exceptions.LinkExistsError: 
+                    pass
 
 def sync_payment_terms(parent_doc, payment_data: Dict, terms_type: str):
     if not payment_data or not isinstance(payment_data, dict):
@@ -348,40 +343,46 @@ def sync_payment_terms(parent_doc, payment_data: Dict, terms_type: str):
             parent_doc.db_set("payment_terms", template.name, update_modified=False)
         removed_terms = set(existing_terms) - set(new_terms)
         for term in removed_terms:
-            try: frappe.delete_doc("Payment Term", term, ignore_permissions=True, force=True)
-            except frappe.exceptions.LinkExistsError: pass
+            try: 
+                frappe.delete_doc("Payment Term", term, ignore_permissions=True, force=True)
+            except frappe.exceptions.LinkExistsError: 
+                pass
     else:
         raise frappe.ValidationError(f"Payment phases must sum to exactly 100%. Current sum is {round(total_pct, 2)}%.")
 
-def sync_terms(parent_doc, terms_data: Any, terms_type: str = "selling"):
+def sync_terms(parent_doc, terms_data: Any, terms_type: str):
     if not terms_data:
         return
 
     if isinstance(terms_data, str):
-        try: terms_data = json.loads(terms_data)
-        except json.JSONDecodeError: raise frappe.ValidationError("Invalid JSON format in 'terms' object.")
+        try: 
+            terms_data = json.loads(terms_data)
+        except json.JSONDecodeError: 
+            raise frappe.ValidationError("Invalid JSON format in 'terms' object.")
 
-    selling_terms = terms_data.get(terms_type)
-    if not selling_terms:
+    active_terms = terms_data.get(terms_type)
+    if not active_terms:
         return
 
-    sync_payment_terms(parent_doc, selling_terms.get("payment", {}), terms_type)
+    sync_payment_terms(parent_doc, active_terms.get("payment", {}), terms_type)
 
     doc_title = parent_doc.name
     expected_tc_name = f"{doc_title} {terms_type.capitalize()} Terms"
+    is_selling = 1 if terms_type == "selling" else 0
+    is_buying = 1 if terms_type == "buying" else 0
     
     if frappe.db.exists("Terms and Conditions", {"title": expected_tc_name, 
-                                                 "selling": 1 if terms_type == "selling" else 0,
-                                                 "buying": 1 if terms_type == "buying" else 0}):
+                                                 "selling": is_selling,
+                                                 "buying": is_buying}):
         tc = frappe.get_doc("Terms and Conditions", expected_tc_name)
-        tc.terms = json.dumps(selling_terms)
-        tc.selling = 1 if terms_type == "selling" else 0
-        tc.buying = 1 if terms_type == "buying" else 0
+        tc.terms = json.dumps(active_terms)
+        tc.selling = is_selling
+        tc.buying = is_buying
         tc.save(ignore_permissions=True)
     else:
         frappe.get_doc({
             "doctype": "Terms and Conditions", "title": expected_tc_name,
-            "terms": json.dumps(selling_terms), "selling": 1 if terms_type == "selling" else 0, "buying": 1 if terms_type == "buying" else 0
+            "terms": json.dumps(active_terms), "selling": is_selling, "buying": is_buying
         }).insert(ignore_permissions=True)
 
     return expected_tc_name
@@ -426,11 +427,11 @@ def get_linked_contacts(link_doctype: str, link_name: str) -> List[Dict]:
         c["isBilling"] = bool(c.get("isBilling"))
     return contacts
 
-def get_linked_terms(title_name: str) -> Dict:
-    expected_tc_name = f"{title_name} Terms"
+def get_linked_terms(title_name: str, terms_type: str) -> Dict:
+    expected_tc_name = f"{title_name} {terms_type.capitalize()} Terms"
     if frappe.db.exists("Terms and Conditions", expected_tc_name):
         tc_doc = frappe.db.get_value("Terms and Conditions", expected_tc_name, "terms")
         if tc_doc:
-            try: return {"selling": json.loads(tc_doc)}
-            except Exception: return {"selling": tc_doc}
+            try: return {terms_type: json.loads(tc_doc)}
+            except Exception: return {terms_type: tc_doc}
     return {}

@@ -1,9 +1,15 @@
 import frappe
-from .utils import (
+# from .utils import (
+#     sync_addresses, sync_contacts, sync_terms,
+#     get_linked_addresses, get_linked_contacts, get_linked_terms,
+#     unlink_and_disable_docs
+# )
+from ....utils.party_utils import (
     sync_addresses, sync_contacts, sync_terms,
     get_linked_addresses, get_linked_contacts, get_linked_terms,
     unlink_and_disable_docs
 )
+
 
 def create_supplier(data):
     doc_args = {
@@ -66,7 +72,7 @@ def get_supplier_by_id(supplier_id):
         "createdAt":supplier.creation,
         "contacts": get_linked_contacts("Supplier", supplier_id),
         "addresses": get_linked_addresses("Supplier", supplier_id),
-        "terms": get_linked_terms(f"{supplier_id} Buying")
+        "terms": get_linked_terms(supplier_id, "Buying")
     }
 
 def get_suppliers(page, page_size):

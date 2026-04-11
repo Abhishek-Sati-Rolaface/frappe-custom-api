@@ -1,9 +1,14 @@
 import frappe
-from .utils import (
+from ....utils.party_utils import (
     sync_addresses, sync_contacts, sync_terms,
     get_linked_addresses, get_linked_contacts, get_linked_terms,
     unlink_and_disable_docs
 )
+# from .utils import (
+#     sync_addresses, sync_contacts, sync_terms,
+#     get_linked_addresses, get_linked_contacts, get_linked_terms,
+#     unlink_and_disable_docs
+# )
 
 def create_customer(data):
     doc_args = {
@@ -67,7 +72,7 @@ def get_customer_by_id(customer_id):
         "customerTaxCategory": customer.tax_category,
         "contacts": get_linked_contacts("Customer", customer_id),
         "addresses": get_linked_addresses("Customer", customer_id),
-        "terms": get_linked_terms(f"{customer_id} Selling")
+        "terms": get_linked_terms(customer_id, "Selling")
     }
 
 def get_customers(page, page_size):
