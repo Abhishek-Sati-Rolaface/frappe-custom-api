@@ -1,6 +1,7 @@
 import frappe
 from custom_api.utils.response import send_response, send_response_list
-from .utils import parse_api_payload, validate_supplier_payload
+from .utils import validate_supplier_payload
+from ....utils.party_utils import parse_api_payload
 from . import service
 
 @frappe.whitelist(allow_guest=False, methods=["POST"])

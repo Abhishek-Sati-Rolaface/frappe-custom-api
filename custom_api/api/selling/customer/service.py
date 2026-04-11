@@ -4,11 +4,6 @@ from ....utils.party_utils import (
     get_linked_addresses, get_linked_contacts, get_linked_terms,
     unlink_and_disable_docs
 )
-# from .utils import (
-#     sync_addresses, sync_contacts, sync_terms,
-#     get_linked_addresses, get_linked_contacts, get_linked_terms,
-#     unlink_and_disable_docs
-# )
 
 def create_customer(data):
     doc_args = {
