@@ -2,6 +2,7 @@ import json
 import frappe
 from frappe.utils import flt, cint, add_days
 from ....api.buying.purchase_order.utils import _get_item_tax_template
+from .utils import _get_receivable_account_by_currency
 
 def sync_invoice_terms(invoice, terms_payload):
     terms_data = terms_payload.get("Selling") or terms_payload.get("selling")
@@ -171,6 +172,7 @@ def create_sales_invoice(data):
         "customer_address": data.get("billingAddress"),
         "shipping_address_name": data.get("shippingAddress"),
         "taxes_and_charges": data.get("salesTaxTemplate"),
+        "debit_to":_get_receivable_account_by_currency(data.get("currency")),
         "items": []
     }
 

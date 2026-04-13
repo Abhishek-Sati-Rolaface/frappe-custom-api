@@ -34,3 +34,32 @@ def validate_sales_invoice_payload(data: Dict[str, Any], is_update=False):
             total_percentage = sum(float(phase.get("percentage", 0)) for phase in phases)
             if total_percentage != 100:
                 raise frappe.ValidationError(f"Total percentage of payment phases must equal 100. Currently: {total_percentage}")
+            
+
+# def _get_receivable_account_based_on_currency(account_currency):
+
+#     accounts_receivables = frappe.get_all(
+#         "Account",
+#         filters={"account_type": "Receivable", "parent_account":"Accounts Receivable - RPL", "account_currency":account_currency},
+#         fields=["name", "account_name"]
+#     )
+
+#     for accounts_receivable in accounts_receivables:
+#             return accounts_receivable.get("name")
+
+#     return None
+
+def _get_receivable_account_by_currency(currency: str) -> str | None:
+    company = frappe.defaults.get_user_default("Company")
+    return frappe.db.get_value(
+        "Account",
+        {
+            "account_type": "Receivable",
+            "company": company,
+            "account_currency": currency,
+            "is_group": 0,
+            "disabled": 0,
+        },
+        "name",
+        order_by="creation asc"
+    )
