@@ -144,6 +144,18 @@ def sync_taxes(invoice, data):
                 
     return is_dirty
 
+def ensure_batch(item_code, batch_no, mfg_date=None, exp_date=None):
+    if not batch_no or not item_code:
+        return
+    if not frappe.db.exists("Batch", batch_no):
+        frappe.get_doc({
+            "doctype": "Batch",
+            "batch_id": batch_no,
+            "item": item_code,
+            "manufacturing_date": mfg_date,
+            "expiry_date": exp_date
+        }).insert(ignore_permissions=True)
+
 def create_sales_invoice(data):
     doc_args = {
         "doctype": "Sales Invoice",
@@ -163,13 +175,21 @@ def create_sales_invoice(data):
     }
 
     for item in data.get("items", []):
+        item_code = item.get("itemCode")
+        batch_no = item.get("batchNo") or item.get("batch_no")
+        mfg_date = item.get("mfgDate") or item.get("mfg_date")
+        exp_date = item.get("expDate") or item.get("exp_date")
+
+        if batch_no:
+            ensure_batch(item_code, batch_no, mfg_date, exp_date)
+
         doc_args["items"].append({
-            "item_code": item.get("itemCode"),
+            "item_code": item_code,
             "qty": item.get("quantity"),
             "rate": item.get("rate"),
             "warehouse": item.get("warehouse", data.get("warehouse")),
-            "batch_no": item.get("batchNo") or item.get("batch_no"),
-            "item_tax_template":_get_item_tax_template(item.get("itemCode"), data.get("tax_category"))
+            "batch_no": batch_no,
+            "item_tax_template": _get_item_tax_template(item_code, data.get("tax_category"))
         })
 
     invoice = frappe.get_doc(doc_args).insert(ignore_permissions=True)
@@ -210,13 +230,20 @@ def update_sales_invoice(invoice_id, data):
     if "items" in data:
         invoice.set("items", [])
         for item in data.get("items"):
+            item_code = item.get("itemCode")
+            batch_no = item.get("batchNo") or item.get("batch_no")
+            mfg_date = item.get("mfgDate") or item.get("mfg_date")
+            exp_date = item.get("expDate") or item.get("exp_date")
+
+            if batch_no:
+                ensure_batch(item_code, batch_no, mfg_date, exp_date)
+
             invoice.append("items", {
-                "item_code": item.get("itemCode"),
+                "item_code": item_code,
                 "qty": item.get("quantity"),
                 "rate": item.get("rate"),
                 "warehouse": item.get("warehouse", invoice.set_warehouse),
-                "batch_no": item.get("batchNo") or item.get("batch_no"),
-                # "item_tax_template": item.get("itemTaxTemplate")
+                "batch_no": batch_no,
             })
 
     sync_taxes(invoice, data)
@@ -252,14 +279,22 @@ def get_sales_invoice_by_id(invoice_id):
     }
 
     for item in invoice.items:
-        data["items"].append({
+        item_data = {
             "itemCode": item.item_code,
-            "quantity": item.qty,
+            "quantity": item.qty,   
             "rate": item.rate,
             "warehouse": item.warehouse,
-            "batch_no": item.get("batchNo") or item.get("batch_no"),
+            "batchNo": item.batch_no,
             "itemTaxTemplate": item.item_tax_template
-        })
+        }
+
+        if item.batch_no:
+            batch_info = frappe.db.get_value("Batch", item.batch_no, ["manufacturing_date", "expiry_date"], as_dict=True)
+            if batch_info:
+                item_data["mfgDate"] = batch_info.manufacturing_date
+                item_data["expDate"] = batch_info.expiry_date
+
+        data["items"].append(item_data)
 
     for tax in invoice.get("taxes", []):
         data["taxes"].append({
