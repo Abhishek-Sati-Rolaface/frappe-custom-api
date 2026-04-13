@@ -1,6 +1,7 @@
 import json
 import frappe
 from frappe.utils import flt, cint, add_days
+from ....api.buying.purchase_order.utils import _get_item_tax_template
 
 def sync_invoice_terms(invoice, terms_payload):
     terms_data = terms_payload.get("Selling") or terms_payload.get("selling")
@@ -168,7 +169,7 @@ def create_sales_invoice(data):
             "rate": item.get("rate"),
             "warehouse": item.get("warehouse", data.get("warehouse")),
             "batch_no": item.get("batchNo") or item.get("batch_no"),
-            "item_tax_template": item.get("itemTaxTemplate")
+            "item_tax_template":_get_item_tax_template(item.get("itemCode"), data.get("tax_category"))
         })
 
     invoice = frappe.get_doc(doc_args).insert(ignore_permissions=True)
@@ -215,7 +216,7 @@ def update_sales_invoice(invoice_id, data):
                 "rate": item.get("rate"),
                 "warehouse": item.get("warehouse", invoice.set_warehouse),
                 "batch_no": item.get("batchNo") or item.get("batch_no"),
-                "item_tax_template": item.get("itemTaxTemplate")
+                # "item_tax_template": item.get("itemTaxTemplate")
             })
 
     sync_taxes(invoice, data)
