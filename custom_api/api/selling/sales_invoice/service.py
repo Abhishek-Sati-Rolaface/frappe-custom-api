@@ -2,160 +2,9 @@ import json
 import frappe
 from frappe.utils import flt, cint, add_days
 from ....api.buying.purchase_order.utils import _get_item_tax_template
-from .utils import _get_receivable_account_by_currency
+from .utils import _get_receivable_account_by_currency, ensure_batch, sync_invoice_terms, sync_taxes, _save_sales_invoice_box_detail
 
-def sync_invoice_terms(invoice, terms_payload):
-    terms_data = terms_payload.get("Selling") or terms_payload.get("selling")
-    if not terms_data:
-        return
 
-    is_invoice_dirty = False
-
-    pt_name = f"{invoice.name} PT"
-    phases = terms_data.get("payment", {}).get("phases", [])
-    
-    if phases:
-        if not frappe.db.exists("Payment Terms Template", pt_name):
-            pt_doc = frappe.get_doc({
-                "doctype": "Payment Terms Template",
-                "template_name": pt_name
-            })
-        else:
-            pt_doc = frappe.get_doc("Payment Terms Template", pt_name)
-            pt_doc.set("terms", [])
-
-        total_pct = 0.0
-        for phase in phases:
-            term_name = phase.get("name")
-            pct = flt(phase.get("percentage"))
-            credit_days = cint(phase.get("credit_days", 0))
-            total_pct += pct
-
-            if not term_name:
-                continue
-
-            if not frappe.db.exists("Payment Term", term_name):
-                frappe.get_doc({
-                    "doctype": "Payment Term",
-                    "payment_term_name": term_name,
-                    "description": phase.get("condition", ""),
-                    "invoice_portion": pct,
-                    "due_date_based_on": "Day(s) after invoice date",
-                    "credit_days": credit_days
-                }).insert(ignore_permissions=True)
-            else:
-                pt = frappe.get_doc("Payment Term", term_name)
-                pt.description = phase.get("condition", "")
-                pt.invoice_portion = pct
-                pt.credit_days = credit_days
-                pt.save(ignore_permissions=True)
-
-            pt_doc.append("terms", {
-                "payment_term": term_name,
-                "invoice_portion": pct,
-                "credit_days": credit_days
-            })
-
-        if round(total_pct, 2) == 100.00:
-            pt_doc.save(ignore_permissions=True)
-            
-            invoice.payment_terms_template = pt_doc.name
-            invoice.set("payment_schedule", [])
-            
-            base_date = invoice.posting_date or frappe.utils.today()
-            
-            for phase in phases:
-                credit_days = cint(phase.get("credit_days", 0))
-                calculated_due_date = add_days(base_date, credit_days)
-                
-                invoice.append("payment_schedule", {
-                    "payment_term": phase.get("name"),
-                    "description": phase.get("condition", ""),
-                    "invoice_portion": flt(phase.get("percentage")),
-                    "due_date": calculated_due_date
-                })
-            is_invoice_dirty = True
-        else:
-            raise frappe.ValidationError(f"Payment phases must sum to exactly 100%. Current sum: {round(total_pct, 2)}%")
-
-    tc_name = f"{invoice.name} Terms"
-    tc_content = json.dumps(terms_data, indent=2)
-
-    if frappe.db.exists("Terms and Conditions", tc_name):
-        tc_doc = frappe.get_doc("Terms and Conditions", tc_name)
-        tc_doc.terms = tc_content
-        tc_doc.save(ignore_permissions=True)
-    else:
-        frappe.get_doc({
-            "doctype": "Terms and Conditions",
-            "title": tc_name,
-            "terms": tc_content,
-            "selling": 1
-        }).insert(ignore_permissions=True)
-
-    invoice.tc_name = tc_name
-    invoice.terms = tc_content 
-    is_invoice_dirty = True
-
-    notes = terms_data.get("payment", {}).get("notes")
-    if notes:
-        invoice.remarks = notes
-        is_invoice_dirty = True
-
-    if is_invoice_dirty:
-        invoice.save(ignore_permissions=True)
-
-def sync_taxes(invoice, data):
-    template_name = data.get("salesTaxTemplate")
-    tax_overrides = data.get("taxes", [])
-    
-    is_dirty = False
-    override_map = {t.get("accountHead"): t for t in tax_overrides if t.get("accountHead")}
-
-    if template_name and frappe.db.exists("Sales Taxes and Charges Template", template_name):
-        template = frappe.get_doc("Sales Taxes and Charges Template", template_name)
-        existing_heads = [t.account_head for t in invoice.get("taxes", [])]
-        
-        for t_row in template.taxes:
-            if t_row.account_head not in existing_heads:
-                invoice.append("taxes", {
-                    "charge_type": t_row.charge_type,
-                    "account_head": t_row.account_head,
-                    "description": t_row.description,
-                    "cost_center": t_row.cost_center,
-                    "rate": t_row.rate,
-                    "tax_amount": t_row.tax_amount
-                })
-                is_dirty = True
-
-    for tax_row in invoice.get("taxes", []):
-        override = override_map.get(tax_row.account_head)
-        if override:
-            if "amount" in override and override["amount"] is not None:
-                tax_row.charge_type = "Actual" 
-                tax_row.rate = 0
-                tax_row.tax_amount = flt(override["amount"])
-                is_dirty = True
-            elif "rate" in override and override["rate"] is not None:
-                if tax_row.charge_type == "Actual":
-                    tax_row.charge_type = "On Net Total" 
-                tax_row.rate = flt(override["rate"])
-                tax_row.tax_amount = 0
-                is_dirty = True
-                
-    return is_dirty
-
-def ensure_batch(item_code, batch_no, mfg_date=None, exp_date=None):
-    if not batch_no or not item_code:
-        return
-    if not frappe.db.exists("Batch", batch_no):
-        frappe.get_doc({
-            "doctype": "Batch",
-            "batch_id": batch_no,
-            "item": item_code,
-            "manufacturing_date": mfg_date,
-            "expiry_date": exp_date
-        }).insert(ignore_permissions=True)
 
 def create_sales_invoice(data):
     doc_args = {
@@ -172,8 +21,9 @@ def create_sales_invoice(data):
         "customer_address": data.get("billingAddress"),
         "shipping_address_name": data.get("shippingAddress"),
         "taxes_and_charges": data.get("salesTaxTemplate"),
-        "debit_to":_get_receivable_account_by_currency(data.get("currency")),
-        "items": []
+        "debit_to": _get_receivable_account_by_currency(data.get("currency")),
+        "items": [],
+        "custom_item_box_detail": []
     }
 
     for item in data.get("items", []):
@@ -191,10 +41,15 @@ def create_sales_invoice(data):
             "rate": item.get("rate"),
             "warehouse": item.get("warehouse", data.get("warehouse")),
             "batch_no": batch_no,
-            "item_tax_template": _get_item_tax_template(item_code, data.get("tax_category"))
+            "item_tax_template": _get_item_tax_template(item_code, data.get("tax_category")),
         })
 
+        doc_args["custom_item_box_detail"].append(
+            _save_sales_invoice_box_detail(item)
+        )
+
     invoice = frappe.get_doc(doc_args).insert(ignore_permissions=True)
+
     needs_save = False
 
     if sync_taxes(invoice, data):
@@ -231,6 +86,8 @@ def update_sales_invoice(invoice_id, data):
 
     if "items" in data:
         invoice.set("items", [])
+        invoice.set("custom_item_box_detail", [])
+        
         for item in data.get("items"):
             item_code = item.get("itemCode")
             batch_no = item.get("batchNo") or item.get("batch_no")
@@ -247,6 +104,8 @@ def update_sales_invoice(invoice_id, data):
                 "warehouse": item.get("warehouse", invoice.set_warehouse),
                 "batch_no": batch_no,
             })
+            
+            invoice.append("custom_item_box_detail", _save_sales_invoice_box_detail(item))
 
     sync_taxes(invoice, data)
     invoice.save(ignore_permissions=True)
@@ -259,6 +118,7 @@ def update_sales_invoice(invoice_id, data):
 
 def get_sales_invoice_by_id(invoice_id):
     invoice = frappe.get_doc("Sales Invoice", invoice_id)
+    box_details = invoice.get("custom_item_box_detail", [])
 
     data = {
         "id": invoice.name,
@@ -295,6 +155,12 @@ def get_sales_invoice_by_id(invoice_id):
             if batch_info:
                 item_data["mfgDate"] = batch_info.manufacturing_date
                 item_data["expDate"] = batch_info.expiry_date
+
+        for box in box_details:
+            if box.item_code == item.item_code and (box.batch_no == item.batch_no or not box.batch_no):
+                item_data["boxStart"] = box.box_start
+                item_data["boxEnd"] = box.box_end
+                break
 
         data["items"].append(item_data)
 
