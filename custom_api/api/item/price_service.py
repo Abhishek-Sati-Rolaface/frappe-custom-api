@@ -37,11 +37,19 @@ def _create_price(item_code, price, price_list, uom, currency, selling=0, buying
     existing_price = frappe.db.exists("Item Price", {
                                         "item_code": item_code,
                                         "price_list": price_list,
-                                        "uom": uom
+                                        "uom": uom,
+                                        "selling": selling,
+                                        "buying": buying,
                                     })
     if existing_price:
         doc = frappe.get_doc("Item Price", existing_price)
         doc.price_list_rate = price
+        doc.supplier = supplier
+        doc.uom = uom
+        doc.currency = currency
+        doc.buying = buying
+        doc.selling = selling
+
         doc.save(ignore_permissions=True)
     else:
         doc = frappe.get_doc({
