@@ -227,8 +227,26 @@ def ensure_batch(item_code, batch_no, mfg_date=None, exp_date=None):
         ).insert(ignore_permissions=True)
 
 
-def _get_receivable_account_by_currency(currency: str) -> str | None:
+def validate_receivable_account_for_currency(currency: str) -> str:
+    if not currency:
+        frappe.throw("Currency is required.", frappe.ValidationError)
+
     company = frappe.defaults.get_user_default("Company")
+    if not company:
+        frappe.throw("Default company not set.", frappe.ValidationError)
+
+    account = get_receivable_account_by_currency(currency, company)
+
+    if not account:
+        frappe.throw(
+            f"No receivable account configured for currency '{currency}' in company '{company}'.",
+            frappe.ValidationError,
+        )
+
+    return account
+
+
+def get_receivable_account_by_currency(currency: str, company: str) -> str | None:
     return frappe.db.get_value(
         "Account",
         {
@@ -242,8 +260,18 @@ def _get_receivable_account_by_currency(currency: str) -> str | None:
         order_by="creation asc",
     )
 
+def _build_additional_detail(data: dict) -> dict | None:
+    payment_mode = data.get("paymentMode") or data.get("payment_mode")
 
-def _save_sales_invoice_box_detail(item):
+    if not payment_mode:
+        return None
+
+    return {
+        "payment_mode": payment_mode
+    }
+
+
+def _build_sales_invoice_box_detail(item: dict) -> dict:
     return {
         "item_code": item.get("itemCode"),
         "batch_no": item.get("batchNo") or item.get("batch_no"),

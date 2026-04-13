@@ -3,15 +3,20 @@ import frappe
 from frappe.utils import flt, cint, add_days
 from ....api.buying.purchase_order.utils import _get_item_tax_template
 from .utils import (
-    _get_receivable_account_by_currency,
     ensure_batch,
     sync_invoice_terms,
     sync_taxes,
-    _save_sales_invoice_box_detail,
+    _build_sales_invoice_box_detail,
+    _build_additional_detail,
+    validate_receivable_account_for_currency,
 )
 
 
 def create_sales_invoice(data):
+
+    currency = data.get("currency", "INR")
+    account = validate_receivable_account_for_currency(currency)
+
     doc_args = {
         "doctype": "Sales Invoice",
         "customer": data.get("customerId"),
@@ -26,7 +31,7 @@ def create_sales_invoice(data):
         "customer_address": data.get("billingAddress"),
         "shipping_address_name": data.get("shippingAddress"),
         "taxes_and_charges": data.get("salesTaxTemplate"),
-        "debit_to": _get_receivable_account_by_currency(data.get("currency")),
+        "debit_to": account,
         "items": [],
         "custom_item_box_detail": [],
         "custom_details": [],
@@ -54,11 +59,11 @@ def create_sales_invoice(data):
             }
         )
 
-        doc_args["custom_item_box_detail"].append(_save_sales_invoice_box_detail(item))
+        doc_args["custom_item_box_detail"].append(_build_sales_invoice_box_detail(item))
 
-    payment_mode = data.get("paymentMode") or data.get("payment_mode")
-    if payment_mode:
-        doc_args["custom_details"].append({"payment_mode": payment_mode})
+    additional_details = _build_additional_detail(data)
+    if additional_details:
+        doc_args["custom_details"].append(additional_details)
 
     invoice = frappe.get_doc(doc_args).insert(ignore_permissions=True)
 
@@ -130,14 +135,14 @@ def update_sales_invoice(invoice_id, data):
             )
 
             invoice.append(
-                "custom_item_box_detail", _save_sales_invoice_box_detail(item)
+                "custom_item_box_detail", _build_sales_invoice_box_detail(item)
             )
 
     if "paymentMode" in data or "payment_mode" in data:
-        payment_mode = data.get("paymentMode") or data.get("payment_mode")
-        invoice.set("custom_details", [])  # Clear existing to replace with new
-        if payment_mode:
-            invoice.append("custom_details", {"payment_mode": payment_mode})
+        detail = _build_additional_detail(data)
+        invoice.set("custom_details", [])
+        if detail:
+            invoice.append("custom_details", detail)
 
     sync_taxes(invoice, data)
     invoice.save(ignore_permissions=True)
