@@ -45,7 +45,8 @@ def get_items_service(params):
             "weight_uom",
             "valuation_method",
             "has_batch_no",
-            "has_expiry_date"
+            "has_expiry_date",
+            "country_of_origin"
         ],
         limit_start=(current_page - 1) * page_size,
         limit_page_length=page_size
