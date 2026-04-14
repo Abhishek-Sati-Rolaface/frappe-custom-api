@@ -184,7 +184,14 @@ def get_po_by_id(po_id):
             "packingUnit": str(item_meta.get("packing_unit")) if item_meta else "",
             "packingSize": str(item_meta.get("packing_size")) if item_meta else ""
         })
-
+    advances = frappe.get_all(
+            "Payment Entry Reference",
+            filters={
+                "reference_doctype": "Purchase Order",
+                "reference_name": po_doc.name,
+            },
+            fields=["parent", "allocated_amount"]
+        )
     return {
         "poId": po_doc.name,
         "supplierId": po_doc.supplier,
@@ -211,5 +218,6 @@ def get_po_by_id(po_id):
         "roundingAdjustment": po_doc.rounding_adjustment,
         "roundedTotal": po_doc.rounded_total,
         "contactPerson": po_doc.contact_person,
-        "contactDisplay": po_doc.contact_display
+        "contactDisplay": po_doc.contact_display,
+        "advances_payments": advances,
     }
