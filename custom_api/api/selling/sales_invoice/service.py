@@ -399,12 +399,12 @@ def update_sales_invoice_status(invoice_id, action):
     if not frappe.has_permission("Sales Invoice", "write", invoice):
         raise frappe.PermissionError("No permission to modify this invoice")
 
-    if action == "submit":
+    if action == "approved":
         if invoice.docstatus == 1:
-            raise frappe.ValidationError("Invoice is already submitted.")
+            raise frappe.ValidationError("Invoice is already approved.")
         if invoice.docstatus == 2:
             raise frappe.ValidationError(
-                "Cannot submit a cancelled invoice. Please amend it first."
+                "Cannot approve a cancelled invoice. Please amend it first."
             )
 
         invoice.submit()
@@ -415,7 +415,7 @@ def update_sales_invoice_status(invoice_id, action):
             "docstatus": invoice.docstatus,
         }
 
-    elif action == "cancel":
+    elif action == "cancelled":
         if invoice.docstatus == 2:
             raise frappe.ValidationError("Invoice is already cancelled.")
         if invoice.docstatus == 0:
@@ -436,7 +436,7 @@ def update_sales_invoice_status(invoice_id, action):
             raise frappe.ValidationError("Invoice is already in Draft state.")
         if invoice.docstatus == 1:
             raise frappe.ValidationError(
-                "Cannot amend a submitted invoice. Cancel it first."
+                "Cannot amend a approved invoice. Cancel it first."
             )
 
         amended_doc = frappe.copy_doc(invoice)
@@ -451,4 +451,4 @@ def update_sales_invoice_status(invoice_id, action):
         }
 
     else:
-        raise frappe.ValidationError("Invalid action. Allowed: submit, cancel, amend")
+        raise frappe.ValidationError("Invalid action. Allowed: approved, cancelled, amend")

@@ -230,17 +230,17 @@ def update_sales_invoice_status(id=None, action=None):
         if not raw_action:
             return send_response(
                 status="fail",
-                message="Action is required (submit, cancel, amend)",
+                message="Action is required (approved, cancelled, amend)",
                 status_code=400,
                 http_status=400,
             )
 
         action = str(raw_action).strip().lower()
 
-        if action not in {"submit", "cancel", "amend"}:
+        if action not in {"approved", "cancelled", "amend"}:
             return send_response(
                 status="fail",
-                message=f"Invalid action '{raw_action}'. Allowed values: submit, cancel, amend",
+                message=f"Invalid action '{raw_action}'. Allowed values: approved, cancelled, amend",
                 status_code=400,
                 http_status=400,
             )
@@ -257,7 +257,7 @@ def update_sales_invoice_status(id=None, action=None):
 
         frappe.db.commit()
 
-        action_map = {"submit": "submitted", "cancel": "cancelled", "amend": "amended"}
+        action_map = {"approved": "approved", "cancelled": "cancelled", "amend": "amended"}
 
         return send_response(
             status="success",
