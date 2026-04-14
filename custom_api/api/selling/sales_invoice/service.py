@@ -9,7 +9,8 @@ from .utils import (
     _build_sales_invoice_box_detail,
     _build_additional_detail,
     validate_receivable_account_for_currency,
-    get_extended_item_detail
+    get_extended_item_detail,
+    get_payment_information
 )
 
 
@@ -187,11 +188,18 @@ def get_sales_invoice_by_id(invoice_id):
         "grand_total": invoice.grand_total,
         "total_advance": invoice.total_advance,
         "in_words": invoice.in_words,
-        "paymentMode": custom_details[0].payment_mode if custom_details else None,
+        # "paymentMode": custom_details[0].payment_mode if custom_details else None,
         "items": [],
         "taxes": [],
         "terms": {},
     }
+
+    payment_mode = custom_details[0].payment_mode if custom_details else None
+
+    data["paymentInformation"] = get_payment_information(
+        payment_mode,
+        invoice.company
+    )
 
     for item in invoice.items:
         item_data = {
@@ -234,7 +242,7 @@ def get_sales_invoice_by_id(invoice_id):
                     "packingSize": meta.get("packing_size"),
                 }
             )
-            
+
         data["items"].append(item_data)
 
     for tax in invoice.get("taxes", []):

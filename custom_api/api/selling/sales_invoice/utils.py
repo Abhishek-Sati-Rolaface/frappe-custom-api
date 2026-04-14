@@ -285,3 +285,61 @@ def get_extended_item_detail(item_code):
         filters={"parent": item_code},
         fields=["hsn_code","packing_unit","packing_size"]
     )
+
+def get_payment_information(mode_of_payment, company):
+    if not mode_of_payment:
+        return None
+
+    mop = frappe.get_doc("Mode of Payment", mode_of_payment)
+
+    default_account = None
+    for acc in mop.accounts:
+        if acc.company == company:
+            default_account = acc.default_account
+            break
+
+    if not default_account:
+        return None
+
+    bank_account = frappe.db.get_value(
+        "Bank Account",
+        {"account": default_account},
+        [
+            "account_name",
+            "bank",
+            "bank_account_no",
+            "branch_code",
+            "iban",
+            "account",
+        ],
+        as_dict=True,
+    )
+
+    if not bank_account:
+        return {
+            "mode": mode_of_payment,
+        }
+
+    swift_code = frappe.db.get_value(
+        "Bank",
+        bank_account.bank,
+        "swift_number"
+    )
+
+    currency = frappe.db.get_value(
+        "Account",
+        bank_account.account,
+        "account_currency"
+    )
+
+    return {
+        "paymentMethod": mode_of_payment,
+        "type": "Bank",
+        "accountHolderName": bank_account.account_name,
+        "bankName": bank_account.bank,
+        "accountNumber": bank_account.bank_account_no,
+        "branchCode": bank_account.branch_code,
+        "swiftCode": swift_code,
+        "routingNumber": bank_account.iban,
+        "currency": currency,
+    }
