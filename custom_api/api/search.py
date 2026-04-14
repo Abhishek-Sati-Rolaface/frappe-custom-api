@@ -221,6 +221,16 @@ def get_incoterms():
         data = _fetch_paginated_autosuggest(
             "Incoterm", frappe._dict({}), ["name", "title"]
         )
+        data = _fetch_paginated_autosuggest(
+            doctype="Incoterm",
+            filters=frappe._dict({}),
+            search_fields=["name", "code", "title"],
+            field_map={
+                "value": "code",
+                "label": "title",
+                "description": "description",
+            },
+        )
         return send_response_list("success", "Incoterms fetched successfully.", data)
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Get Incoterms API Error")
