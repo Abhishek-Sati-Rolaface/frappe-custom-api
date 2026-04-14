@@ -1,4 +1,4 @@
-from erpnext.zra_client.generic_api import send_response
+from custom_api.utils.response import send_old_response
 import frappe
 from frappe.utils import ceil
 from frappe.desk.search import build_for_autosuggest, search_widget
@@ -13,22 +13,22 @@ def create():
     default_account = data.get("default_account")
 
     if not name:
-        return send_response(status="fail", message="'name' is required.", data=None, status_code=400, http_status=400)
+        return send_old_response(status="fail", message="'name' is required.", data=None, status_code=400, http_status=400)
 
     if not payment_type:
-        return send_response(status="fail", message="'type' is required. Allowed: Bank, Cash, General", data=None, status_code=400, http_status=400)
+        return send_old_response(status="fail", message="'type' is required. Allowed: Bank, Cash, General", data=None, status_code=400, http_status=400)
 
     if payment_type not in ("Bank", "Cash", "General", "Phone"):
-        return send_response(status="fail", message=f"Invalid type '{payment_type}'. Allowed: Bank, Cash, General", data=None, status_code=400, http_status=400)
+        return send_old_response(status="fail", message=f"Invalid type '{payment_type}'. Allowed: Bank, Cash, General", data=None, status_code=400, http_status=400)
 
     if frappe.db.exists("Mode of Payment", name):
-        return send_response(status="fail", message=f"Mode of Payment '{name}' already exists.", data=None, status_code=409, http_status=409)
+        return send_old_response(status="fail", message=f"Mode of Payment '{name}' already exists.", data=None, status_code=409, http_status=409)
 
     if not default_account:
-        return send_response(status="fail", message="At least one account is required.", data=None, status_code=400, http_status=400)
+        return send_old_response(status="fail", message="At least one account is required.", data=None, status_code=400, http_status=400)
     
     if not frappe.db.exists("Account", default_account):
-        return send_response(status="fail", message=f"Account '{default_account}' does not exist.", data=None, status_code=404, http_status=404)
+        return send_old_response(status="fail", message=f"Account '{default_account}' does not exist.", data=None, status_code=404, http_status=404)
 
     company = frappe.defaults.get_user_default("Company")
 
@@ -48,7 +48,7 @@ def create():
         mop_doc.insert(ignore_permissions=True)
         frappe.db.commit()
 
-        return send_response(
+        return send_old_response(
             status="success",
             message="Mode of Payment created successfully.",
             data={"modeOfPaymentId": mop_doc.name},
@@ -57,7 +57,7 @@ def create():
         )
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Mode Of Payment Fail")
-        return send_response(
+        return send_old_response(
             status="fail", message="Something went wrong, Please try again later", data=None, status_code=500, http_status=500
         )
 
@@ -101,7 +101,7 @@ def get():
         mop["defaultAccount"] = account.get("default_account") if account else None
         mop["currency"] = frappe.db.get_value("Account", mop["defaultAccount"], "account_currency") if mop["defaultAccount"] else None
 
-    return send_response(
+    return send_old_response(
         status="success",
         message="Mode of Payments fetched successfully.",
         data={
@@ -130,19 +130,19 @@ def update():
     company         = frappe.defaults.get_user_default("Company")
 
     if not name:
-        return send_response(status="fail", message="'name' is required.", data=None, status_code=400, http_status=400)
+        return send_old_response(status="fail", message="'name' is required.", data=None, status_code=400, http_status=400)
 
     if not frappe.db.exists("Mode of Payment", name):
-        return send_response(status="fail", message=f"Mode of Payment '{name}' not found.", data=None, status_code=404, http_status=404)
+        return send_old_response(status="fail", message=f"Mode of Payment '{name}' not found.", data=None, status_code=404, http_status=404)
 
     if payment_type and payment_type not in ("Bank", "Cash", "General"):
-        return send_response(status="fail", message="Invalid 'type'. Allowed: Bank, Cash, General", data=None, status_code=400, http_status=400)
+        return send_old_response(status="fail", message="Invalid 'type'. Allowed: Bank, Cash, General", data=None, status_code=400, http_status=400)
 
     if default_account and not frappe.db.exists("Account", default_account):
-        return send_response(status="fail", message=f"Account '{default_account}' does not exist.", data=None, status_code=404, http_status=404)
+        return send_old_response(status="fail", message=f"Account '{default_account}' does not exist.", data=None, status_code=404, http_status=404)
 
     if not any([payment_type, enabled is not None, default_account]):
-        return send_response(status="fail", message="Nothing to update. Provide 'type', 'enabled' or 'default_account'.", data=None, status_code=400, http_status=400)
+        return send_old_response(status="fail", message="Nothing to update. Provide 'type', 'enabled' or 'default_account'.", data=None, status_code=400, http_status=400)
 
     mop_updates = {}
     if payment_type:
@@ -171,7 +171,7 @@ def update():
 
     frappe.db.commit()
 
-    return send_response(
+    return send_old_response(
         status="success",
         message="Mode of Payment updated successfully.",
         data={"name": name},
@@ -197,7 +197,7 @@ def get_default_accounts():
                 reference_doctype="Mode of Payment Account",
 	        )
     response =  build_for_autosuggest(results, doctype="Account")
-    return send_response(
+    return send_old_response(
         status="success",
         message="Mode of Payment updated successfully.",
         data=response,

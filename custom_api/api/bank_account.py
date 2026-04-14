@@ -1,6 +1,5 @@
 import frappe
-from custom_api.utils.response import send_response
-from erpnext.zra_client.generic_api import send_response as old_response
+from custom_api.utils.response import send_response, send_old_response
 from frappe.utils import ceil
 
 @frappe.whitelist(allow_guest=False, methods=["POST"])
@@ -24,27 +23,27 @@ def create():
     is_company_account = 1 if accountFor == "Company" else 0
     company =  frappe.defaults.get_user_default("Company") if accountFor == "Company" else None
     if not accountFor:
-        return old_response(status="fail", message=" is required.", data=None, status_code=400, http_status=400)
+        return send_old_response(status="fail", message=" is required.", data=None, status_code=400, http_status=400)
 
     if not bank:
-        return old_response(status="fail", message="'bank' is required.", data=None, status_code=400, http_status=400)
+        return send_old_response(status="fail", message="'bank' is required.", data=None, status_code=400, http_status=400)
     if not account_number:
-        return old_response(status="fail", message="'account_number' is required.", data=None, status_code=400, http_status=400)
+        return send_old_response(status="fail", message="'account_number' is required.", data=None, status_code=400, http_status=400)
 
     if not frappe.db.exists("Bank", bank):
-        return old_response(status="fail", message=f"Bank '{bank}' does not exist.", data=None, status_code=404, http_status=404)
+        return send_old_response(status="fail", message=f"Bank '{bank}' does not exist.", data=None, status_code=404, http_status=404)
 
     if frappe.db.exists("Bank Account", {"bank_account_no": account_number}):
-        return old_response(status="fail", message=f"Bank Account with number '{account_number}' already exists.", data=None, status_code=409, http_status=409)
+        return send_old_response(status="fail", message=f"Bank Account with number '{account_number}' already exists.", data=None, status_code=409, http_status=409)
     if frappe.db.exists("Bank Account", {"account_name":account_holder_name, "bank":bank}):
-        return old_response(status="fail", message=f"Account Name '{account_holder_name}' already exists for bank '{bank}'.", data=None, status_code=400, http_status=400)
+        return send_old_response(status="fail", message=f"Account Name '{account_holder_name}' already exists for bank '{bank}'.", data=None, status_code=400, http_status=400)
         
     if accountFor != "Company" and party == None:
-        return old_response(status="fail", message="Party Name is required.", data=None, status_code=400, http_status=400)
+        return send_old_response(status="fail", message="Party Name is required.", data=None, status_code=400, http_status=400)
     
     if reporting_account and frappe.db.exists("Bank Account", {"account": reporting_account}):
         
-        return old_response(status="fail", message=f" {reporting_account} reporting account is already use another account.", 
+        return send_old_response(status="fail", message=f" {reporting_account} reporting account is already use another account.", 
                             data=None, status_code=400, http_status=400)
     try:
         bank_account = frappe.get_doc({
@@ -70,7 +69,7 @@ def create():
         bank_account.insert(ignore_permissions=True)
         frappe.db.commit()
 
-        return old_response(
+        return send_old_response(
             status="success",
             message="Bank Account created successfully.",
             data={"bank_account_id": bank_account.name},
@@ -80,7 +79,7 @@ def create():
     
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Create Bank Acount Fail")
-        return old_response(
+        return send_old_response(
             status="fail", message="Something went wrong, Please try again later", data=None, status_code=500, http_status=500
         )
     
@@ -202,7 +201,7 @@ def set_bank_account_status():
     frappe.db.set_value("Bank Account", bank_account_id, updates)
     frappe.db.commit()
 
-    return old_response(
+    return send_old_response(
         status="success",
         message="Bank Account updated successfully.",
         status_code=200,

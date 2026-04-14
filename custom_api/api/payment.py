@@ -1,9 +1,8 @@
-from erpnext.zra_client.generic_api import send_response_list
+from custom_api.utils.response import send_old_response, send_response_list
 import frappe
 from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
 from custom_api.utils.response import send_response
 from frappe.desk.search import search_widget
-from erpnext.zra_client.generic_api import send_response as old_response
 
 @frappe.whitelist(allow_guest=False, methods=["GET"])
 def get_ledger_account():
@@ -72,7 +71,7 @@ def get_ledger_account():
             as_dict=True,
         )
 
-        return old_response(
+        return send_old_response(
             status="success",
             message="Ledger accounts fetched successfully.",
             data=response,
@@ -82,7 +81,7 @@ def get_ledger_account():
 
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Get Ledger Account API Error")
-        return old_response(
+        return send_old_response(
             status="fail", message=str(e), data=None, status_code=500, http_status=500
         )
 
@@ -178,7 +177,7 @@ def create_payment_entry():
             ]
         missing = validate_required(data, required)
         if missing:
-            return old_response(
+            return send_old_response(
                 status="error",
                 message=f"'{missing}' is required.",
                 data=None,
@@ -219,7 +218,7 @@ def create_payment_entry():
         # ── Validate payment type ─────────────────────────────────────────────
         valid_payment_types = ["Pay", "Receive", "Internal Transfer"]
         if payment_type not in valid_payment_types:
-            return old_response(
+            return send_old_response(
                 status="error",
                 message=f"'paymentType' must be one of: {', '.join(valid_payment_types)}.",
                 data=None,
@@ -232,7 +231,7 @@ def create_payment_entry():
         if payment_type != "Internal Transfer": 
             valid_party_types = ["Customer", "Supplier", "Employee", "Shareholder"]
             if party_type not in valid_party_types:
-                return old_response(
+                return send_old_response(
                     status="error",
                     message=f"'partyType' must be one of: {', '.join(valid_party_types)}.",
                     data=None,
@@ -243,7 +242,7 @@ def create_payment_entry():
         # ── Resolve party ─────────────────────────────────────────────────────
             party_name = data.get("party_id") or resolve_party_name(party_type, party_id)
             if not party_name:
-                return old_response(
+                return send_old_response(
                     status="error",
                     message=f"{party_type} with ID '{party_id}' not found.",
                     data=None,
@@ -252,7 +251,7 @@ def create_payment_entry():
                 )
         if party_type in ["Customer", "Supplier"]:  #Later on we need handle case for Emplyee and Shareholder as well
             if not references or len(references) == 0:
-                return old_response(
+                return send_old_response(
                     status="error",
                     message="At least one Purchase Invoice, Purchase Order, or Sales Invoice must be provided to create a payment entry.",
                     data=None,
@@ -263,7 +262,7 @@ def create_payment_entry():
         if not (paid_from_currency == paid_to_currency or paid_from_currency == company_currency
                     or paid_to_currency == company_currency
                 ):
-                return old_response(
+                return send_old_response(
                     status="error",
                     message=(
                         "Invalid currency combination: 'paid from account currency' "
@@ -322,7 +321,7 @@ def create_payment_entry():
         pe.submit()
         frappe.db.commit()
 
-        return old_response(
+        return send_old_response(
             status="success",
             message="Payment entry created successfully.",
             data={
@@ -349,7 +348,7 @@ def create_payment_entry():
         
         frappe.db.rollback()
 
-        return old_response(
+        return send_old_response(
             status="fail",
             message=str(e),
             data=None,
