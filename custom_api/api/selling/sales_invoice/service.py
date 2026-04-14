@@ -153,15 +153,18 @@ def update_sales_invoice(invoice_id, data):
 
     return invoice
 
-
 def get_sales_invoice_by_id(invoice_id):
     invoice = frappe.get_doc("Sales Invoice", invoice_id)
+    customer = frappe.get_doc("Customer", invoice.customer)
+
     box_details = invoice.get("custom_item_box_detail", [])
     custom_details = invoice.get("custom_details", [])
 
     data = {
         "id": invoice.name,
         "customerId": invoice.customer,
+        "customerName": customer.customer_name,
+        "customerTpin": customer.tax_id,
         "currency": invoice.currency,
         "exchangeRate": invoice.conversion_rate,
         "postingDate": invoice.posting_date,
@@ -169,11 +172,20 @@ def get_sales_invoice_by_id(invoice_id):
         "tax_category": invoice.tax_category,
         "updateStock": bool(invoice.update_stock),
         "warehouse": invoice.set_warehouse,
-        "billingAddress": invoice.customer_address,
-        "shippingAddress": invoice.shipping_address_name,
+        "billingAddress": invoice.address_display,
+        "shippingAddress": invoice.shipping_address,
         "salesTaxTemplate": invoice.taxes_and_charges,
         "status": invoice.status,
         "docstatus": invoice.docstatus,
+        "outstanding_amount": invoice.outstanding_amount,
+        # "destnCountryCd": customer.outstanding_amount,
+        "total_qty": invoice.total_qty,
+        "total_tax": invoice.total_taxes_and_charges,
+        "total": invoice.total,
+        "net_total": invoice.net_total,
+        "grand_total": invoice.grand_total,
+        "total_advance": invoice.total_advance,
+        "in_words": invoice.in_words,
         "paymentMode": custom_details[0].payment_mode if custom_details else None,
         "items": [],
         "taxes": [],
