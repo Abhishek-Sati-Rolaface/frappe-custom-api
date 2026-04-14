@@ -8,7 +8,7 @@ def create():
 
     bank = data.get("bankName")
     account_number = data.get("accountNo")
-    branch_address = data.get("branchAddress")
+    # branch_address = data.get("branchAddress")
     currency = data.get("currency", "")
     branch_code = data.get("sortCode", "")
     iban = data.get("iban", "")
@@ -56,14 +56,14 @@ def create():
             "branch_code": branch_code,
             "iban": iban,
             "is_company_account": is_company_account,
-            "branch_address": branch_address,
+            # "branch_address": branch_address,
             "last_integration_date": last_integration_date,
             "account": reporting_account,
             "party_type": accountFor if accountFor != "Company" else None,
             "party": party if accountFor != "Company" else None,
             "is_default": isDefault,
             "disabled": isDisabled,
-            "bank_account_currency": currency
+            # "bank_account_currency": currency
         })
 
         bank_account.insert(ignore_permissions=True)
@@ -121,10 +121,10 @@ def get():
 
     fields = [
         "name", "account_name as accountHolderName", "bank as bankName", "bank_account_no as accountNo",
-        "branch_code as sortCode", "branch_address as branchAddress", "iban",
+        "branch_code as sortCode", "iban",
         "is_company_account", "is_default as isDefault", "disabled as isDisabled",
         "party_type as accountFor", "party as partyName", "company",
-        "last_integration_date as dateAdded", "account as ledgerAccount", "bank_account_currency as currency"
+        "last_integration_date as dateAdded", "account as ledgerAccount"
     ]
 
     total = frappe.db.count("Bank Account", filters=filters)
@@ -206,4 +206,88 @@ def set_bank_account_status():
         message="Bank Account updated successfully.",
         status_code=200,
         http_status=200,
+    )
+
+@frappe.whitelist(allow_guest=False, methods=["GET"])
+def get_bank_account_by_mode_of_payment():
+    mode_of_payment = frappe.request.args.get("paymentMode")
+    company = frappe.request.args.get("company") or frappe.defaults.get_user_default("Company")
+
+    if not mode_of_payment:
+        return send_response(
+            status="fail",
+            message="paymentMode is required",
+            status_code=400,
+            http_status=400
+        )
+
+    mop = frappe.get_doc("Mode of Payment", mode_of_payment)
+
+    default_account = None
+    for acc in mop.accounts:
+        if acc.company == company:
+            default_account = acc.default_account
+            break
+
+    if not default_account:
+        return send_response(
+            status="fail",
+            message=f"No default account mapped for {mode_of_payment}",
+            status_code=404,
+            http_status=404
+        )
+
+    bank_account = frappe.db.get_value(
+        "Bank Account",
+        {"account": default_account},
+        [
+            "name",
+            "account_name",
+            "bank",
+            "bank_account_no",
+            "branch_code",
+            "iban",
+            "is_company_account",
+            "is_default",
+            "disabled",
+            "company",
+            "account"
+        ],
+        as_dict=True
+    )
+
+    if not bank_account:
+        return send_response(
+            status="fail",
+            message="No Bank Account linked to this Mode of Payment",
+            status_code=404,
+            http_status=404
+        )
+
+    currency = frappe.db.get_value(
+        "Account",
+        bank_account.account,
+        "account_currency"
+    )
+
+    data = {
+        "name": bank_account.name,
+        "accountHolderName": bank_account.account_name,
+        "bankName": bank_account.bank,
+        "accountNo": bank_account.bank_account_no,
+        "sortCode": bank_account.branch_code,
+        "iban": bank_account.iban,
+        "isDefault": bank_account.is_default,
+        "isDisabled": bank_account.disabled,
+        "company": bank_account.company,
+        "ledgerAccount": bank_account.account,
+        "currency": currency
+    }
+
+    return send_response(
+        status="success",
+        message="Bank account fetched successfully",
+        data=data,
+        status_code=200,
+        http_status=200
     )
