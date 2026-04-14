@@ -260,9 +260,9 @@ def get_sales_invoice_by_id(invoice_id):
             "Terms and Conditions", invoice.tc_name, "terms"
         )
         try:
-            data["terms"]["Selling"] = json.loads(tc_content)
+            data["terms"]["selling"] = json.loads(tc_content)
         except Exception:
-            data["terms"]["Selling"] = tc_content
+            data["terms"]["selling"] = tc_content
 
     return data
 
