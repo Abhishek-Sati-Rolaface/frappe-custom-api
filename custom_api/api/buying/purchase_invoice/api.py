@@ -97,3 +97,75 @@ def get_by_id():
             status_code=500,
             http_status=500
         )
+
+@frappe.whitelist(allow_guest=False, methods=["PATCH"])
+def update_status():
+    try:
+        data = frappe.request.get_json()
+        pId = data.get("id")
+        new_status = data.get("status")
+
+        if not pId:
+            return send_old_response(status="fail", message="'id' is required.", data=None, status_code=400, http_status=400)
+
+        if not new_status:
+            return send_old_response(status="fail", message="'status' is required.", data=None, status_code=400, http_status=400)
+
+        if not frappe.db.exists("Purchase Invoice", pId):
+            return send_old_response(status="fail", message=f"Purchase Invoice '{pId}' not found.", data=None, status_code=404, http_status=404)
+
+        pi_doc = frappe.get_doc("Purchase Invoice", pId)
+
+        valid_statuses = ["Return","Submitted","Paid","Party Paid",
+                          "Cancelled","Internal Transfer","Debit Note Issued"]
+
+        if new_status not in valid_statuses:
+            return send_old_response(
+                status="fail",
+                message=f"'status' must be one of: {', '.join(valid_statuses)}.",
+                data=None,
+                status_code=400,
+                http_status=400
+            )
+
+        if new_status == "Submitted":
+            if pi_doc.docstatus != 0:
+                return send_old_response(status="fail", message="Only Draft invoices can be submitted.", data=None, status_code=400, http_status=400)
+            pi_doc.submit()
+
+        elif new_status == "Cancelled":
+            if pi_doc.docstatus != 1:
+                return send_old_response(status="fail", message="Only Submitted invoices can be cancelled.", data=None, status_code=400, http_status=400)
+            pi_doc.cancel()
+
+        else:
+            frappe.db.sql("""
+                    UPDATE `tabPurchase Invoice`
+                    SET status = %s,
+                        modified = NOW(),
+                        modified_by = %s
+                    WHERE name = %s
+                """, (new_status, frappe.session.user, pId))
+
+        frappe.db.commit()
+
+        updated_status = frappe.db.get_value("Purchase Invoice", pId, "status")
+
+        return send_old_response(
+            status="success",
+            message="Purchase Invoice status updated successfully.",
+            data={"id": pId, "status": updated_status},
+            status_code=200,
+            http_status=200
+        )
+
+    except Exception as e:
+        frappe.db.rollback()
+        frappe.log_error(frappe.get_traceback(), "Update Purchase Invoice Status Error")
+        return send_old_response(
+            status="fail",
+            message=str(e),
+            data=None,
+            status_code=500,
+            http_status=500
+        )
