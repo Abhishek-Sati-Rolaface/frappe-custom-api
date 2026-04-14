@@ -116,6 +116,8 @@ def get_sales_invoice_by_id(id):
 
 @frappe.whitelist(allow_guest=False, methods=["GET"])
 def get_sales_invoices(page=1, page_size=20):
+    data = frappe.local.form_dict
+    search = data.get("search")
     try:
         try:
             page, page_size = int(page), int(page_size)
@@ -130,7 +132,7 @@ def get_sales_invoices(page=1, page_size=20):
             )
 
         invoices, total_invoices, total_pages = service.get_sales_invoices(
-            page, page_size
+            data,page, page_size,search
         )
 
         response_data = {

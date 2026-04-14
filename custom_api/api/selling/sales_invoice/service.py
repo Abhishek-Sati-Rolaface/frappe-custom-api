@@ -10,7 +10,8 @@ from .utils import (
     _build_additional_detail,
     validate_receivable_account_for_currency,
     get_extended_item_detail,
-    get_payment_information
+    get_payment_information,
+    build_sales_invoice_filters
 )
 
 
@@ -266,14 +267,42 @@ def get_sales_invoice_by_id(invoice_id):
 
     return data
 
+def get_sales_invoices(filters=None, page=1, page_size=20, search=None):
+    filters = filters or {}
 
-def get_sales_invoices(page, page_size):    
+    allowed_filters = {
+        key: filters.get(key)
+        for key in [
+            "customer",
+            "status",
+            "from_date",
+            "to_date",
+            "company",
+            "minOutstanding",
+            "maxOutstanding",
+        ]
+        if filters.get(key) is not None
+    }
+
+    frappe_filters = build_sales_invoice_filters(allowed_filters)
+
+    or_filters = []
+    if search:
+        search = str(search).strip()
+        or_filters = [
+            ["name", "like", f"%{search}%"],
+            ["customer", "like", f"%{search}%"],
+            ["customer_name", "like", f"%{search}%"],
+            ["status", "like", f"%{search}%"],
+            ["currency", "like", f"%{search}%"],
+        ]
+
     start = (page - 1) * page_size
-    total_invoices = frappe.db.count("Sales Invoice")
-    total_pages = (total_invoices + page_size - 1) // page_size
 
     invoices = frappe.get_all(
         "Sales Invoice",
+        filters=frappe_filters,
+        or_filters=or_filters if search else None,
         fields=[
             "name",
             "customer",
@@ -292,6 +321,17 @@ def get_sales_invoices(page, page_size):
         order_by="creation desc",
     )
 
+    total_invoices = len(
+        frappe.get_all(
+            "Sales Invoice",
+            filters=frappe_filters,
+            or_filters=or_filters if search else None,
+            pluck="name",
+        )
+    )
+
+    total_pages = (total_invoices + page_size - 1) // page_size
+
     for inv in invoices:
         inv["id"] = inv.pop("name")
         inv["customerId"] = inv.pop("customer")
@@ -299,10 +339,8 @@ def get_sales_invoices(page, page_size):
         inv["invoiceDate"] = inv.pop("posting_date")
         inv["dueDate"] = inv.pop("due_date")
         inv["total"] = inv.pop("base_grand_total")
-        inv["currency"] = inv.pop("currency")
         inv["exchangeRate"] = inv.pop("conversion_rate")
         inv["outstandingAmount"] = inv.pop("outstanding_amount")
-        inv["status"] = inv.pop("status")
         inv["taxCategory"] = inv.pop("tax_category")
 
     return invoices, total_invoices, total_pages

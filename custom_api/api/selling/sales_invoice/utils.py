@@ -211,6 +211,34 @@ def sync_taxes(invoice, data):
 
     return is_dirty
 
+def build_sales_invoice_filters(args):
+
+    frappe_filters = {}
+
+    if not args:
+        return frappe_filters
+    minOutstanding= args.get("minOutstanding")
+    maxOutstanding = args.get("maxOutstanding")
+    if args.get("customer"):
+        frappe_filters["customer"] = args["customer"]
+
+    if args.get("status"):
+        frappe_filters["status"] = ["in", args["status"]]
+
+    if args.get("from_date") and args.get("to_date"):
+        frappe_filters["posting_date"] = ["between", [args["from_date"], args["to_date"]]]
+
+    if args.get("company"):
+        frappe_filters["company"] = args["company"]
+
+    if minOutstanding and maxOutstanding:
+        frappe_filters["outstanding_amount"] = ["between", [float(minOutstanding), float(maxOutstanding)]]
+    elif minOutstanding:
+        frappe_filters["outstanding_amount"] = [">=", float(minOutstanding)]
+    elif maxOutstanding:
+        frappe_filters["outstanding_amount"] = ["<=", float(maxOutstanding)]
+
+    return frappe_filters                           
 
 def ensure_batch(item_code, batch_no, mfg_date=None, exp_date=None):
     if not batch_no or not item_code:
