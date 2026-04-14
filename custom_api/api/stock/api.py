@@ -748,8 +748,8 @@ def get_batch_wise_stock_report(
         item_metadata = frappe.db.get_value("Custom Item Details", 
                                             {"parent": item.name}, 
                                             ["*"], as_dict=True)
-        item_details_map["packingUnit"] = item_metadata.packing_unit
-        item_details_map["packingSize"]   = item_metadata.packing_size
+        item_details_map[item["item_code"]]["packing_unit"] = item_metadata.packing_unit
+        item_details_map[item["item_code"]]["packing_size"]   = item_metadata.packing_size
     # apply item_group filter
     if item_group:
         movement_rows = [
