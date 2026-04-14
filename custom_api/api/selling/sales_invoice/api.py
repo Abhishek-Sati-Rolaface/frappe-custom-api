@@ -212,12 +212,12 @@ def delete_sales_invoice(id=None):
 
 
 @frappe.whitelist(allow_guest=False, methods=["PUT", "PATCH"])
-def update_sales_invoice_status(id=None):
+def update_sales_invoice_status(id=None, action=None):
     try:
         data = parse_api_payload()
 
         invoice_id = id or data.get("id") or frappe.request.args.get("id")
-        raw_action = data.get("action")
+        raw_action = action or data.get("action") or frappe.request.args.get("action")
 
         if not invoice_id:
             return send_response(
@@ -253,7 +253,7 @@ def update_sales_invoice_status(id=None):
                 http_status=404,
             )
 
-        result = update_sales_invoice_status(invoice_id, action)
+        result = service.update_sales_invoice_status(invoice_id, action)
 
         frappe.db.commit()
 
