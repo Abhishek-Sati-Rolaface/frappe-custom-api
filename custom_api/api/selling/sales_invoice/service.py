@@ -14,6 +14,8 @@ from .utils import (
     build_sales_invoice_filters
 )
 
+from custom_api.api.item.utils.item_utils import _get_tax
+
 
 def create_sales_invoice(data):
 
@@ -190,7 +192,6 @@ def get_sales_invoice_by_id(invoice_id):
         "grand_total": invoice.grand_total,
         "total_advance": invoice.total_advance,
         "in_words": invoice.in_words,
-        # "paymentMode": custom_details[0].payment_mode if custom_details else None,
         "items": [],
         "taxes": [],
         "terms": {},
@@ -204,6 +205,8 @@ def get_sales_invoice_by_id(invoice_id):
     )
 
     for item in invoice.items:
+        tax = _get_tax(item.item_code, invoice.tax_category)
+
         item_data = {
             "itemCode": item.item_code,
             "quantity": item.qty,
@@ -211,6 +214,7 @@ def get_sales_invoice_by_id(invoice_id):
             "warehouse": item.warehouse,
             "batchNo": item.batch_no,
             "itemTaxTemplate": item.item_tax_template,
+            "taxInfo": tax,
         }
 
         if item.batch_no:
