@@ -1,8 +1,7 @@
 from custom_api.helper import STATUS_MAP
+from custom_api.utils.response import send_old_response
 import frappe
 from frappe.desk.doctype.bulk_update.bulk_update import _bulk_action
-from erpnext.zra_client.generic_api import send_response
-
 @frappe.whitelist(allow_guest=False, methods=["PATCH"] )
 def update_purchase_order_status():
     data = frappe.request.get_json()
@@ -11,7 +10,7 @@ def update_purchase_order_status():
     docnames = [poId]
     config = STATUS_MAP.get(status)
     if not poId:
-        return send_response(
+        return send_old_response(
                status="fail",
                message="'id' parameter is required.",
                data=None,
@@ -19,7 +18,7 @@ def update_purchase_order_status():
                http_status=400,
                )
     if not config:
-        return send_response(
+        return send_old_response(
             status="fail",
             message="'status' parameter is required.",
             data=None,
@@ -27,7 +26,7 @@ def update_purchase_order_status():
             http_status=400,
         )
     if not frappe.db.exists("Purchase Order", poId):
-        return send_response(
+        return send_old_response(
             status="fail",
             message=f"Purchase Order '{poId}' not found.",
             data=None,
@@ -41,7 +40,7 @@ def update_purchase_order_status():
             docnames = frappe.parse_json(docnames)
 
         response = _bulk_action("Purchase Order", docnames, action, data=None, task_id=None)
-        return send_response(
+        return send_old_response(
             status="success",
             message="Purchase Order status updated successfully",
             data={"poId": poId, "status": status},
@@ -62,7 +61,7 @@ def update_purchase_order_status():
 
         frappe.db.commit()
 
-        return send_response(
+        return send_old_response(
             status="success",
             message="Purchase Order status updated successfully",
             data={"poId": poId, "status": status},
