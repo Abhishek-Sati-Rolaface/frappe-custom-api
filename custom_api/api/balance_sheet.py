@@ -67,10 +67,11 @@ def get_balance_sheet():
     from_fiscal_year = frappe.request.args.get("from_fiscal_year", current_year)
     to_fiscal_year = frappe.request.args.get("to_fiscal_year", current_year)
 
-    # fy, fy_start, fy_end = get_fiscal_year(
-    # frappe.utils.nowdate(),
-    # company=company
-    # )
+    fy, fy_start, fy_end = get_fiscal_year(
+    frappe.utils.nowdate(),
+    company=company
+    )
+    print(f" fy : {fy} and fy_start : {fy_start} and fr_end : {fy_end}")
 
     # from_fiscal_year = frappe.request.args.get("from_fiscal_year") or fy
     # to_fiscal_year = frappe.request.args.get("to_fiscal_year") or fy
