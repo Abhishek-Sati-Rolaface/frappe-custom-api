@@ -61,7 +61,7 @@ def update_po_service(po_id, data):
     # Basic Fields
     # -------------------------
     po_doc.supplier = data.get("supplierId")
-    po_doc.transaction_date = data.get("transaction_date")
+    po_doc.transaction_date = data.get("transaction_date", po_doc.transaction_date)
 
     po_doc.schedule_date = data.get("schedule_date")
     po_doc.set_warehouse = data.get("set_warehouse")
@@ -91,9 +91,9 @@ def update_po_service(po_id, data):
     po_doc.payment_terms_template = f"{po_doc.name} Buying PT"
     po_doc.tc_name = terms
 
-    po_doc.run_method("set_tc_name")
+    # po_doc.run_method("set_tc_name")
 
-    po_doc.set("payment_schedule", [])
+    # po_doc.set("payment_schedule", [])
 
     po_doc.run_method("set_missing_values")
     po_doc.run_method("calculate_taxes_and_totals")
