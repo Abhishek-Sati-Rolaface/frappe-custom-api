@@ -1,6 +1,6 @@
 from custom_api.utils.response import send_old_response, send_response_list
 import frappe
-from custom_api.api.buying.purchase_invoice.service import create_purchase_invoice_service, get_purchase_invoice_by_id, get_purchase_invoice_list, update_pi_service
+from custom_api.api.buying.purchase_invoice.service import create_purchase_invoice_service, get_purchase_invoice_by_id, get_purchase_invoice_list
 
 @frappe.whitelist(allow_guest = False, methods=["GET"])
 def get():
