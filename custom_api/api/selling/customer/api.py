@@ -1,6 +1,6 @@
 import frappe
 from custom_api.utils.response import send_response, send_response_list
-from .utils import validate_customer_payload
+from .utils import validate_customer_payload, validate_customer_update_payload
 from ....utils.party_utils import parse_api_payload
 from . import service
 
@@ -47,7 +47,7 @@ def update_customer(id=None, **kwargs):
                     http_status=400
                 )
 
-        validate_customer_payload(data)
+        validate_customer_update_payload(data)
         service.update_customer(customer_id, data)
         frappe.db.commit()
         return send_response(status="success", message="Customer updated successfully", status_code=200, http_status=200)
