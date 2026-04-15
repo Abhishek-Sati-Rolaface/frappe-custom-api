@@ -40,6 +40,20 @@ def update_purchase_order_status():
             docnames = frappe.parse_json(docnames)
 
         response = _bulk_action("Purchase Order", docnames, action, data=None, task_id=None)
+        if response:
+            # Extract server messages from frappe message log
+            server_messages = []
+            for msg_str in frappe.local.message_log:
+                msg = frappe.parse_json(msg_str)
+                server_messages.append(msg.get("message", msg_str))
+
+            return send_old_response(
+                status="error",
+                message=server_messages[0],
+                status_code=422,
+                http_status=422,
+            )
+
         return send_old_response(
             status="success",
             message="Purchase Order status updated successfully",

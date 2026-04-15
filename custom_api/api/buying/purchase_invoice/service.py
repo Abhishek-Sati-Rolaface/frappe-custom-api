@@ -115,6 +115,15 @@ def get_purchase_invoice_by_id(pi_id):
             as_dict=True
         )
         tax = _get_tax(item.item_code, pi_doc.tax_category)
+        batch_info = None
+        if item.batch_no:
+            batch_info = frappe.db.get_value(
+                "Batch",
+                item.batch_no,
+                ["manufacturing_date", "expiry_date"],
+                as_dict=True,
+            )
+
         po_items.append({
             "itemCode": item.item_code,
             "itemName": item.item_name,
@@ -125,7 +134,9 @@ def get_purchase_invoice_by_id(pi_id):
             "batchNo": item.batch_no,
             "taxInfo": tax,
             "packingUnit": str(item_meta.get("packing_unit")) if item_meta else "",
-            "packingSize": str(item_meta.get("packing_size")) if item_meta else ""
+            "packingSize": str(item_meta.get("packing_size")) if item_meta else "",
+            "mfgDate": batch_info.manufacturing_date if batch_info else "",
+            "expDate": batch_info.expiry_date if batch_info else ""
         })
 
     return {
