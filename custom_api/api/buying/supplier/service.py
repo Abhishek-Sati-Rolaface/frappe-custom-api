@@ -69,7 +69,7 @@ def get_supplier_by_id(supplier_id):
         "createdAt":supplier.creation,
         "contacts": get_linked_contacts("Supplier", supplier_id),
         "addresses": get_linked_addresses("Supplier", supplier_id),
-        "terms": get_linked_terms(supplier_id, "Buying")
+        "terms": get_linked_terms(supplier_id, "buying")
     }
 
 def get_suppliers(page, page_size):
