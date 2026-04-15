@@ -69,7 +69,7 @@ def get_sales_tax_templates_service(args):
     templates = frappe.get_all(
         "Sales Taxes and Charges Template",
         filters=filters,
-        fields=["name", "title", "company", "disabled", "is_default", "modified"],
+        fields=["name", "title", "company","tax_category" ,"disabled", "is_default", "modified"],
         order_by=order_by,
         limit_start=limit_start,
         limit_page_length=limit_page_length

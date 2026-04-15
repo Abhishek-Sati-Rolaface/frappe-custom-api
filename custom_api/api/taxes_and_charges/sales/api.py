@@ -85,7 +85,7 @@ def get_sales_tax_templates():
             http_status=500
         )
 
-@frappe.whitelist(methods=["PUT"])
+@frappe.whitelist(methods=["PUT", "PATCH"])
 def update_sales_tax_status():
     try:
         template_name = frappe.request.args.get("name")
