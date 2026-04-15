@@ -16,28 +16,36 @@ def create_customer(data):
         "tax_category": data.get("customerTaxCategory"),
         "default_currency": data.get("currency"),
         "customer_group": data.get("customerGroup", "All Customer Groups"),
-        # "disabled": 0 if data.get("status", "Active") == "Active" else 1
         "disabled": 0
-
     }
     if data.get("naming_series"):
         doc_args["naming_series"] = data.get("naming_series")
 
+    # 1. Insert and save the core document first
     customer = frappe.get_doc(doc_args).insert(ignore_permissions=True)
 
+    # 2. Process links. The sync functions will use db_set to update primary fields. 
+    # Because customer is already in the DB, this works perfectly without a second save().
     sync_addresses(customer, data.get("addresses"), is_update=False)
     sync_contacts(customer, data.get("contacts"), is_update=False)
     sync_terms(customer, data.get("terms"), terms_type="selling")
-    customer.save(ignore_permissions=True)
-
+    
     return customer
 
 def update_customer(customer_id, data):
+    # 1. Load the document
     customer = frappe.get_doc("Customer", customer_id)
 
+    # 2. Map fields to the memory object
     field_map = {
-        "name": "customer_name", "type": "customer_type", "currency": "default_currency",
-        "customerTaxCategory": "tax_category", "customerGroup": "customer_group"
+        "name": "customer_name", 
+        "type": "customer_type", 
+        "currency": "default_currency",
+        "customerTaxCategory": "tax_category", 
+        "customerGroup": "customer_group",
+        "mobile": "mobile_no",
+        "email": "email_id",
+        "tpin": "tax_id"
     }
     for k, v in field_map.items():
         if data.get(k) is not None:
@@ -48,11 +56,16 @@ def update_customer(customer_id, data):
         status = str(raw_status).strip().lower()
         customer.disabled = 0 if status == "active" else 1
 
+    # 3. SAVE THE MAIN DOCUMENT FIRST
+    # This prevents the Timestamp Mismatch because we secure our core updates 
+    # before Frappe's background link updates can mess with the DB timestamps.
     customer.save(ignore_permissions=True)
+
+    # 4. Sync links. Any parent updates triggered here happen via direct DB queries (db_set),
+    # meaning we don't need a final save and avoid the mismatch crash entirely.
     sync_contacts(customer, data.get("contacts"), is_update=True)
     sync_addresses(customer, data.get("addresses"), is_update=True)
     sync_terms(customer, data.get("terms"), terms_type="selling")
-    customer.save(ignore_permissions=True)
 
     return customer
 
@@ -60,7 +73,7 @@ def get_customer_by_id(customer_id):
     customer = frappe.get_doc("Customer", customer_id)
 
     return {
-        "id":customer.name,
+        "id": customer.name,
         "name": customer.customer_name,
         "type": customer.customer_type,
         "tpin": customer.tax_id,

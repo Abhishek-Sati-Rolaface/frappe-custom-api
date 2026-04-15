@@ -63,11 +63,7 @@ def sync_addresses(parent_doc, addresses_data: Any, is_update: bool = False):
 
     existing_links = frappe.get_all(
         "Dynamic Link",
-        filters={
-            "parenttype": "Address",
-            "link_doctype": link_doctype,
-            "link_name": link_name,
-        },
+        filters={"parenttype": "Address", "link_doctype": link_doctype, "link_name": link_name},
         pluck="parent",
     )
 
@@ -104,10 +100,7 @@ def sync_addresses(parent_doc, addresses_data: Any, is_update: bool = False):
                 for l in address.links
             )
             if not link_exists:
-                address.append(
-                    "links",
-                    {"link_doctype": link_doctype, "link_name": link_name},
-                )
+                address.append("links", {"link_doctype": link_doctype, "link_name": link_name})
 
             address.save(ignore_permissions=True)
             processed_addresses.add(address.name)
@@ -127,12 +120,7 @@ def sync_addresses(parent_doc, addresses_data: Any, is_update: bool = False):
                 "phone": getattr(parent_doc, "mobile_no", ""),
                 "is_primary_address": is_primary,
                 "is_shipping_address": 1 if addr.get("isShipping") else 0,
-                "links": [
-                    {
-                        "link_doctype": link_doctype,
-                        "link_name": link_name,
-                    }
-                ],
+                "links": [{"link_doctype": link_doctype, "link_name": link_name}],
             }
             if county:
                 address_fields["county"] = county
@@ -145,26 +133,15 @@ def sync_addresses(parent_doc, addresses_data: Any, is_update: bool = False):
 
     if primary_address:
         fieldname = f"{link_doctype.lower()}_primary_address"
-        print(f"fieldname: {fieldname}")
         if frappe.db.has_column(parent_doc.doctype, fieldname):
-            # parent_doc.db_set(fieldname, primary_address, update_modified=False)
-            parent_doc.set(fieldname, primary_address)
+            # Using db_set avoids full save collision
+            parent_doc.db_set(fieldname, primary_address, update_modified=True)
 
     if is_update:
         addresses_to_remove = existing_addresses - processed_addresses
-
         for doc_name in addresses_to_remove:
             doc = frappe.get_doc("Address", doc_name)
-
-            doc.links = [
-                l
-                for l in doc.links
-                if not (
-                    l.link_doctype == link_doctype
-                    and l.link_name == link_name
-                )
-            ]
-
+            doc.links = [l for l in doc.links if not (l.link_doctype == link_doctype and l.link_name == link_name)]
             if doc.links:
                 doc.save(ignore_permissions=True)
             else:
@@ -196,6 +173,7 @@ def sync_contacts(parent_doc, contacts_data: Any, is_update: bool = False):
         first_name = contact_info.get("firstName") or contact_info.get("first_name", "")
         middle_name = contact_info.get("middleName") or contact_info.get("middle_name", "")
         last_name = contact_info.get("lastName") or contact_info.get("last_name", "")
+        
         if not first_name and contact_info.get("name"):
             parts = str(contact_info.get("name")).strip().split()
             if len(parts) == 1: first_name = parts[0]
@@ -267,7 +245,8 @@ def sync_contacts(parent_doc, contacts_data: Any, is_update: bool = False):
         if hasattr(parent_doc, "mobile_no") and primary_mobile:
             updates["mobile_no"] = primary_mobile
         if updates:
-            parent_doc.db_set(updates, update_modified=False)
+            # Using db_set updates the db instantly and avoids full save collision
+            parent_doc.db_set(updates, update_modified=True)
 
     if is_update:
         contacts_to_remove = existing_contacts - processed_contacts
@@ -342,7 +321,7 @@ def sync_payment_terms(parent_doc, payment_data: Dict, terms_type: str):
     if round(total_pct, 2) == 100.00:
         template.save(ignore_permissions=True)
         if hasattr(parent_doc, "payment_terms") and parent_doc.payment_terms != template.name:
-            parent_doc.db_set("payment_terms", template.name, update_modified=False)
+            parent_doc.db_set("payment_terms", template.name, update_modified=True)
         removed_terms = set(existing_terms) - set(new_terms)
         for term in removed_terms:
             try: 

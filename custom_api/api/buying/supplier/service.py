@@ -22,13 +22,15 @@ def create_supplier(data):
     if data.get("naming_series"):
         doc_args["naming_series"] = data.get("naming_series")
 
+    # 1. Insert and save the core document first
     supplier = frappe.get_doc(doc_args).insert(ignore_permissions=True)
 
+    # 2. Process links. The sync functions will use db_set to update primary fields.
+    # Because supplier is already in the DB, this works perfectly without a second save().
     sync_addresses(supplier, data.get("addresses"), is_update=False)
     sync_contacts(supplier, data.get("contacts"), is_update=False)
     sync_terms(supplier, data.get("terms"), terms_type="buying")
-    supplier.save(ignore_permissions=True)
-
+    
     return supplier
 
 def update_supplier(supplier_id, data):
@@ -51,13 +53,16 @@ def update_supplier(supplier_id, data):
         status = str(raw_status).strip().lower()
         supplier.disabled = 0 if status == "active" else 1
 
+    # 3. SAVE THE MAIN DOCUMENT FIRST
+    # This secures our core updates before Frappe's background link updates can mess with timestamps.
     supplier.save(ignore_permissions=True)
     
+    # 4. Sync links. Any parent updates triggered here happen via direct DB queries (db_set),
+    # meaning we DO NOT need a final save and avoid the mismatch crash entirely.
     sync_contacts(supplier, data.get("contacts"), is_update=True)
     sync_addresses(supplier, data.get("addresses"), is_update=True)
     sync_terms(supplier, data.get("terms"), terms_type="buying")
-    supplier.save(ignore_permissions=True)
-
+    
     return supplier
 
 def get_supplier_by_id(supplier_id):
