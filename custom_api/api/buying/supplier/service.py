@@ -15,7 +15,9 @@ def create_supplier(data):
         "tax_id": data.get("tpin"),
         "tax_category": data.get("supplierTaxCategory"),
         "default_currency": data.get("currency"),
-        "disabled": 0 if data.get("status", "Active") == "Active" else 1
+        # "disabled": 0 if data.get("status", "Active") == "Active" else 1
+        "disabled": 0
+
     }
     if data.get("naming_series"):
         doc_args["naming_series"] = data.get("naming_series")

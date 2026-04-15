@@ -16,7 +16,9 @@ def create_customer(data):
         "tax_category": data.get("customerTaxCategory"),
         "default_currency": data.get("currency"),
         "customer_group": data.get("customerGroup", "All Customer Groups"),
-        "disabled": 0 if data.get("status", "Active") == "Active" else 1
+        # "disabled": 0 if data.get("status", "Active") == "Active" else 1
+        "disabled": 0
+
     }
     if data.get("naming_series"):
         doc_args["naming_series"] = data.get("naming_series")
