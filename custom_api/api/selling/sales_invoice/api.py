@@ -214,10 +214,8 @@ def delete_sales_invoice(id=None):
 @frappe.whitelist(allow_guest=False, methods=["PUT", "PATCH"])
 def update_sales_invoice_status(id=None, action=None):
     try:
-        data = parse_api_payload()
-
-        invoice_id = id or data.get("id") or frappe.request.args.get("id")
-        raw_action = action or data.get("action") or frappe.request.args.get("action")
+        invoice_id = id or frappe.request.args.get("id")
+        raw_action = action or frappe.request.args.get("action")
 
         if not invoice_id:
             return send_response(

@@ -19,13 +19,17 @@ from custom_api.api.item.utils.item_utils import _get_tax
 
 def create_sales_invoice(data):
 
-    currency = data.get("currency", "INR")
+    company = frappe.defaults.get_user_default("Company")
+    company_doc = frappe.get_cached_doc("Company", company)
+
+    currency = data.get("currency") or company_doc.default_currency
+    cost_center = data.get("costCenter") or company_doc.cost_center
     account = validate_receivable_account_for_currency(currency)
 
     doc_args = {
         "doctype": "Sales Invoice",
         "customer": data.get("customerId"),
-        "currency": data.get("currency", "INR"),
+        "currency": currency,
         "conversion_rate": data.get("exchangeRate", 1),
         "posting_date": data.get("postingDate"),
         "due_date": data.get("dueDate"),
@@ -36,6 +40,7 @@ def create_sales_invoice(data):
         "customer_address": data.get("billingAddress"),
         "shipping_address_name": data.get("shippingAddress"),
         "taxes_and_charges": data.get("salesTaxTemplate"),
+        "cost_center": cost_center,
         "debit_to": account,
         "items": [],
         "custom_item_box_detail": [],
@@ -93,6 +98,12 @@ def update_sales_invoice(invoice_id, data):
         raise frappe.ValidationError(
             "Cannot edit a submitted Sales Invoice. Cancel it first."
         )
+    
+    company = invoice.company
+    company_doc = frappe.get_cached_doc("Company", company)
+
+    currency = data.get("currency") or company_doc.default_currency
+    cost_center = data.get("costCenter") or invoice.cost_center or company_doc.cost_center
 
     field_map = {
         "customerId": "customer",
@@ -110,6 +121,12 @@ def update_sales_invoice(invoice_id, data):
     for k, v in field_map.items():
         if data.get(k) is not None:
             setattr(invoice, v, data.get(k))
+
+    if currency:
+        invoice.currency = currency
+
+    if cost_center:
+        invoice.cost_center = cost_center
 
     if data.get("updateStock") is not None:
         invoice.update_stock = 1 if data.get("updateStock") else 0
@@ -184,6 +201,7 @@ def get_sales_invoice_by_id(invoice_id):
         "docstatus": invoice.docstatus,
         "outstanding_amount": invoice.outstanding_amount,
         # "destnCountryCd": customer.outstanding_amount,
+        "costCenter": invoice.cost_center,
         "roundingAdjustment": invoice.rounding_adjustment,
         "total_qty": invoice.total_qty,
         "total_tax": invoice.total_taxes_and_charges,
@@ -318,6 +336,7 @@ def get_sales_invoices(filters=None, page=1, page_size=20, search=None):
             "conversion_rate",
             "outstanding_amount",
             "tax_category",
+            "cost_center",
             "status",
         ],
         limit_start=start,
@@ -345,6 +364,7 @@ def get_sales_invoices(filters=None, page=1, page_size=20, search=None):
         inv["total"] = inv.pop("base_grand_total")
         inv["exchangeRate"] = inv.pop("conversion_rate")
         inv["outstandingAmount"] = inv.pop("outstanding_amount")
+        inv["costCenter"] = inv.pop("cost_center")
         inv["taxCategory"] = inv.pop("tax_category")
 
     return invoices, total_invoices, total_pages
