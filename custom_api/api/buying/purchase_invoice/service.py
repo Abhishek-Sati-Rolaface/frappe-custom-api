@@ -180,3 +180,50 @@ def get_purchase_invoice_by_id(pi_id):
         "spplrInvcNo": pi_doc.bill_no,
         "spplrInvcDt": str(pi_doc.bill_date) if pi_doc.bill_date else None,
     }
+
+def update_pi_service(pi_id, data):
+
+    pi_doc = frappe.get_doc("Purchase Invoice", pi_id)
+
+    pi_doc.supplier = data.get("supplierId")
+    pi_doc.contact_person = data.get("supplierContact","")
+    pi_doc.update_stock = data.get("updateStock", pi_doc.update_stock)
+    pi_doc.posting_date = data.get("poDate")
+    pi_doc.set_warehouse = data.get("warehouse")
+    pi_doc.currency = data.get("currency", frappe.defaults.get_user_default("Currency"))
+    pi_doc.tax_category = data.get("taxCategory")
+    pi_doc.bill_no = data.get("spplrInvcNo")
+    pi_doc.bill_date = data.get("spplrInvcDt")
+    pi_doc.cost_center = data.get("costCenter")
+    pi_doc.project = data.get("project")
+    pi_doc.incoterm =  data.get("incoterms")
+    pi_doc.billing_address = data.get("billing_address")
+    pi_doc.shipping_address = data.get("shipping_address")
+    pi_doc.supplier_address = data.get("supplier_address")
+    pi_doc.dispatch_address = data.get("dispatch_address")
+    pi_doc.advances = []
+    pi_doc.allocate_advances_automatically = 0
+    pi_doc.only_include_allocated_payments = 0
+    pi_doc.set("items", [])
+
+    for item in build_items(data.get("items"), data.get("supplierId")):
+        pi_doc.append("items", item)
+
+    pi_doc.set("taxes", [])
+
+    terms = sync_terms(pi_doc, data.get("terms"), terms_type="buying")
+
+    pi_doc.payment_terms_template = f"{pi_doc.name} Buying PT"
+    pi_doc.tc_name = terms
+
+
+    pi_doc.run_method("set_missing_values")
+    pi_doc.run_method("calculate_taxes_and_totals")
+
+    pi_doc.save(ignore_permissions=True)
+
+    if data.get("lpoNumber"):
+        apply_advances(data.get("lpoNumber"), pi_doc)
+        pi_doc.run_method("set_missing_values")
+        pi_doc.run_method("calculate_taxes_and_totals")
+        pi_doc.save(ignore_permissions=True)

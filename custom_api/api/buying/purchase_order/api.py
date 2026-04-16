@@ -137,13 +137,13 @@ def create_pi_from_po():
         pi_doc = make_purchase_invoice(po_id)
 
         pi_doc.docstatus = 0
-
+        pi_doc.allocate_advances_automatically = 1
+        pi_doc.only_include_allocated_payments = 1
         pi_doc.insert(ignore_permissions=True)
 
         return send_old_response(
             status="success",
             message="Purchase Invoice created successfully from Purchase Order",
-            data=pi_doc,
             status_code=201,
             http_status=201
         )
