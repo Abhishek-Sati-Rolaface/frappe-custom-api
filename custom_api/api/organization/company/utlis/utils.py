@@ -12,6 +12,7 @@ def build_company_response(company):
         "dateOfIncorporation": company.date_of_incorporation,
         "companyType": company.custom_type,
         "registrationNumber": company.registration_details,
+        "baseCurrency":company.default_currency,
         "contactInfo": {
             "companyEmail": company.email,
             "companyPhone": company.phone_no,
