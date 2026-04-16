@@ -16,9 +16,7 @@ from .utils import (
 
 from custom_api.api.item.utils.item_utils import _get_tax
 
-
 def create_sales_invoice(data):
-
     company = frappe.defaults.get_user_default("Company")
     company_doc = frappe.get_cached_doc("Company", company)
 
@@ -26,8 +24,9 @@ def create_sales_invoice(data):
     cost_center = data.get("costCenter") or company_doc.cost_center
     account = validate_receivable_account_for_currency(currency)
 
-    doc_args = {
-        "doctype": "Sales Invoice",
+    invoice = frappe.new_doc("Sales Invoice")
+
+    invoice.update({
         "customer": data.get("customerId"),
         "currency": currency,
         "conversion_rate": data.get("exchangeRate", 1),
@@ -42,10 +41,7 @@ def create_sales_invoice(data):
         "taxes_and_charges": data.get("salesTaxTemplate"),
         "cost_center": cost_center,
         "debit_to": account,
-        "items": [],
-        "custom_item_box_detail": [],
-        "custom_details": [],
-    }
+    })
 
     for item in data.get("items", []):
         item_code = item.get("itemCode")
@@ -56,38 +52,28 @@ def create_sales_invoice(data):
         if batch_no:
             ensure_batch(item_code, batch_no, mfg_date, exp_date)
 
-        doc_args["items"].append(
-            {
-                "item_code": item_code,
-                "qty": item.get("quantity"),
-                "rate": item.get("rate"),
-                "warehouse": item.get("warehouse", data.get("warehouse")),
-                "batch_no": batch_no,
-                # "cost_center": item.get("costCenter") or cost_center,
-                "item_tax_template": _get_item_tax_template(
-                    item_code, data.get("tax_category")
-                ),
-            }
-        )
+        invoice.append("items", {
+            "item_code": item_code,
+            "qty": item.get("quantity"),
+            "rate": item.get("rate"),
+            "warehouse": item.get("warehouse", data.get("warehouse")),
+            "batch_no": batch_no,
+            "item_tax_template": _get_item_tax_template(item_code, data.get("tax_category")),
+        })
 
-        doc_args["custom_item_box_detail"].append(_build_sales_invoice_box_detail(item))
+        invoice.append("custom_item_box_detail", _build_sales_invoice_box_detail(item))
 
     additional_details = _build_additional_detail(data)
     if additional_details:
-        doc_args["custom_details"].append(additional_details)
+        invoice.append("custom_details", additional_details)
 
-    invoice = frappe.get_doc(doc_args).insert(ignore_permissions=True)
+    sync_taxes(invoice, data)
 
-    needs_save = False
-
-    if sync_taxes(invoice, data):
-        needs_save = True
+    invoice.insert(ignore_permissions=True)
 
     terms_payload = data.get("terms")
     if terms_payload:
         sync_invoice_terms(invoice, terms_payload)
-    elif needs_save:
-        invoice.save(ignore_permissions=True)
 
     return invoice
 
@@ -96,9 +82,7 @@ def update_sales_invoice(invoice_id, data):
     invoice = frappe.get_doc("Sales Invoice", invoice_id)
 
     if invoice.docstatus == 1:
-        raise frappe.ValidationError(
-            "Cannot edit a submitted Sales Invoice. Cancel it first."
-        )
+        raise frappe.ValidationError("Cannot edit a submitted Sales Invoice. Cancel it first.")
     
     company = invoice.company
     company_doc = frappe.get_cached_doc("Company", company)
@@ -123,12 +107,8 @@ def update_sales_invoice(invoice_id, data):
         if data.get(k) is not None:
             setattr(invoice, v, data.get(k))
 
-    if currency:
-        invoice.currency = currency
-
-    if cost_center:
-        invoice.cost_center = cost_center
-
+    if currency: invoice.currency = currency
+    if cost_center: invoice.cost_center = cost_center
     if data.get("updateStock") is not None:
         invoice.update_stock = 1 if data.get("updateStock") else 0
         invoice.set_posting_time = 1 if data.get("updateStock") else 0
@@ -146,21 +126,17 @@ def update_sales_invoice(invoice_id, data):
             if batch_no:
                 ensure_batch(item_code, batch_no, mfg_date, exp_date)
 
-            invoice.append(
-                "items",
-                {
-                    "item_code": item_code,
-                    "qty": item.get("quantity"),
-                    "rate": item.get("rate"),
-                    "warehouse": item.get("warehouse", invoice.set_warehouse),
-                    # "cost_center": item.get("costCenter") or cost_center,
-                    "batch_no": batch_no,
-                },
-            )
+            invoice.append("items", {
+                "item_code": item_code,
+                "qty": item.get("quantity"),
+                "rate": item.get("rate"),
+                "warehouse": item.get("warehouse", invoice.set_warehouse),
+                "batch_no": batch_no,
+                "item_tax_template": _get_item_tax_template(item_code, data.get("tax_category")), 
+            })
+            invoice.append("custom_item_box_detail", _build_sales_invoice_box_detail(item))
 
-            invoice.append(
-                "custom_item_box_detail", _build_sales_invoice_box_detail(item)
-            )
+    sync_taxes(invoice, data)
 
     if "paymentMode" in data or "payment_mode" in data:
         detail = _build_additional_detail(data)
@@ -168,7 +144,6 @@ def update_sales_invoice(invoice_id, data):
         if detail:
             invoice.append("custom_details", detail)
 
-    sync_taxes(invoice, data)
     invoice.save(ignore_permissions=True)
 
     terms_payload = data.get("terms")
@@ -230,6 +205,8 @@ def get_sales_invoice_by_id(invoice_id):
 
         item_data = {
             "itemCode": item.item_code,
+            "itemName": item.item_name,
+            "uom": item.uom,
             "quantity": item.qty,
             "rate": item.rate,
             "warehouse": item.warehouse,
