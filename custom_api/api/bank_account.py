@@ -35,8 +35,8 @@ def create():
 
     if frappe.db.exists("Bank Account", {"bank_account_no": account_number}):
         return send_old_response(status="fail", message=f"Bank Account with number '{account_number}' already exists.", data=None, status_code=409, http_status=409)
-    if frappe.db.exists("Bank Account", {"account_name":account_holder_name, "bank":bank}):
-        return send_old_response(status="fail", message=f"Account Name '{account_holder_name}' already exists for bank '{bank}'.", data=None, status_code=400, http_status=400)
+    # if frappe.db.exists("Bank Account", {"account_name":account_holder_name, "bank":bank}):
+    #     return send_old_response(status="fail", message=f"Account Name '{account_holder_name}' already exists for bank '{bank}'.", data=None, status_code=400, http_status=400)
         
     if accountFor != "Company" and party == None:
         return send_old_response(status="fail", message="Party Name is required.", data=None, status_code=400, http_status=400)
