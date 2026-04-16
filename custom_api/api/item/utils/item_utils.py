@@ -53,6 +53,12 @@ def _map_taxes(data):
 
         if not tax_name and not tax_category:
             continue
+        
+        if not tax_name:
+            frappe.throw(f"Tax' is required.")
+
+        if not tax_category:
+            frappe.throw(f"TaxCategory is required.")
 
         mapped_taxes.append({
             "item_tax_template": tax_name,
