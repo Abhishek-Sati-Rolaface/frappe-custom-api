@@ -321,6 +321,7 @@ def get_sales_invoices(filters=None, page=1, page_size=20, search=None):
             "posting_date",
             "due_date",
             "base_grand_total",
+            "grand_total",
             "currency",
             "conversion_rate",
             "outstanding_amount",
@@ -351,6 +352,7 @@ def get_sales_invoices(filters=None, page=1, page_size=20, search=None):
         inv["invoiceDate"] = inv.pop("posting_date")
         inv["dueDate"] = inv.pop("due_date")
         inv["total"] = inv.pop("base_grand_total")
+        inv["baseGrandTotal"] = inv.pop("base_grand_total")
         inv["exchangeRate"] = inv.pop("conversion_rate")
         inv["outstandingAmount"] = inv.pop("outstanding_amount")
         inv["costCenter"] = inv.pop("cost_center")
