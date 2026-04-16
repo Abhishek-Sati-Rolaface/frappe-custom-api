@@ -75,7 +75,7 @@ def validate_sales_invoice_payload(data: Dict[str, Any], is_update=False):
     #             raise frappe.ValidationError(
     #                 f"No exchange rate found for {currency} → {company_currency} on {posting_date}. "
     #                 f"Please maintain Currency Exchange."
-                )
+                # )
 
 
 def sync_invoice_terms(invoice, terms_payload):
