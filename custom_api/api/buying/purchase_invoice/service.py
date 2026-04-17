@@ -189,12 +189,15 @@ def update_pi_service(pi_id, data):
 
     pi_doc = frappe.get_doc("Purchase Invoice", pi_id)
 
+    currency = data.get("currency", frappe.defaults.get_user_default("Currency"))
+    account = validate_receivable_account_for_currency(currency, "Payable", "Liability")
+
     pi_doc.supplier = data.get("supplierId")
     pi_doc.contact_person = data.get("supplierContact","")
     pi_doc.update_stock = data.get("updateStock", pi_doc.update_stock)
     pi_doc.posting_date = data.get("poDate")
     pi_doc.set_warehouse = data.get("warehouse")
-    pi_doc.currency = data.get("currency", frappe.defaults.get_user_default("Currency"))
+    pi_doc.currency = currency
     pi_doc.tax_category = data.get("taxCategory")
     pi_doc.bill_no = data.get("spplrInvcNo")
     pi_doc.bill_date = data.get("spplrInvcDt")
@@ -209,7 +212,7 @@ def update_pi_service(pi_id, data):
     pi_doc.allocate_advances_automatically = 0
     pi_doc.only_include_allocated_payments = 0
     pi_doc.set("items", [])
-
+    pi_doc.credit_to = account
     for item in build_items(data.get("items"), data.get("supplierId")):
         pi_doc.append("items", item)
 

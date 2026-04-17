@@ -141,7 +141,7 @@ def create_pi_from_po():
     try:
         pi_doc = make_purchase_invoice(po_id)
         currency = pi_doc.currency
-        account = validate_receivable_account_for_currency(currency, "Payable")
+        account = validate_receivable_account_for_currency(currency, "Payable", "Liability")
         pi_doc.credit_to = account
         pi_doc.docstatus = 0
         pi_doc.allocate_advances_automatically = 1
