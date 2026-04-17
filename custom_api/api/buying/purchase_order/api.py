@@ -73,7 +73,11 @@ def get():
         filters["supplier"] = data.get("supplier")
 
     if data.get("status"):
-        filters["status"] = data.get("status")
+        if data.get("status") == "Approved":
+            filters["staus"] = ["in", ["To Receive", "To Receive and Bill"]]
+        else:
+            filters["status"] = data.get("status")
+
     
     search = data.get("search")
 
