@@ -212,6 +212,12 @@ def update_pi_service(pi_id, data):
     pi_doc.set("taxes", [])
 
     terms = sync_terms(pi_doc, data.get("terms"), terms_type="buying")
+    if terms:
+        if frappe.db.exists("Payment Terms Template", f"{pi_doc.name} Buying PT"):
+            pi_doc.payment_terms_template = f"{pi_doc.name} Buying PT"   
+            pi_doc.set("payment_schedule", [])
+        pi_doc.tc_name = terms
+        pi_doc.terms = frappe.db.get_value("Terms and Conditions", terms, "terms") if terms else ""
 
     pi_doc.payment_terms_template = f"{pi_doc.name} Buying PT"
     pi_doc.tc_name = terms
