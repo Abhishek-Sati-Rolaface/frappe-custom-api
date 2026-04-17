@@ -41,12 +41,12 @@ def get_current_fiscal_year():
             http_status=404,
         )
 
-    except Exception:
+    except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Get Current Fiscal Year Failed")
 
         return send_response(
             status="fail",
-            message="Something went wrong while fetching Fiscal Year.",
+            message=str(e),
             data=None,
             status_code=500,
             http_status=500,

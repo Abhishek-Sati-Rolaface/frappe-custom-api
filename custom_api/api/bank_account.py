@@ -80,7 +80,7 @@ def create():
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Create Bank Acount Fail")
         return send_old_response(
-            status="fail", message="Something went wrong, Please try again later", data=None, status_code=500, http_status=500
+            status="fail", message=str(e), data=None, status_code=500, http_status=500
         )
     
 @frappe.whitelist(allow_guest=False, methods=["GET"])
