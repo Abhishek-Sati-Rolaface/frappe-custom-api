@@ -74,7 +74,7 @@ def get():
 
     if data.get("status"):
         if data.get("status") == "Approved":
-            filters["staus"] = ["in", ["To Receive", "To Receive and Bill"]]
+            filters["status"] = ["in", ["To Receive", "To Receive and Bill"]]
         else:
             filters["status"] = data.get("status")
 
