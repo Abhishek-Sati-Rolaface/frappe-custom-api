@@ -250,24 +250,12 @@ def get_sales_invoice_by_id(invoice_id):
             )
 
         data["items"].append(item_data)
-
-    # for tax in invoice.get("taxes", []):
-    #     row = {
-    #         "accountHead": tax.description,
-    #         "rate": tax.rate,
-    #         "amount": tax.tax_amount,
-    #     }
-
-    #     account_type = frappe.get_cached_value(
-    #         "Account", tax.account_head, "account_type"
-    #     )
-
-    #     if account_type == "Tax":
-    #         data["taxes"].append(row)
-    #     else:
-    #         data["charges"].append(row)
+    total_tax = 0
+    total_charges = 0
 
     for tax in invoice.get("taxes", []):
+        amount = tax.tax_amount or 0
+
         account_type = frappe.get_cached_value(
             "Account", tax.account_head, "account_type"
         )
@@ -276,16 +264,23 @@ def get_sales_invoice_by_id(invoice_id):
             row = {
                 "accountHead": tax.account_head,
                 "rate": tax.rate,
-                "amount": tax.tax_amount,
+                "amount": amount,
             }
             data["taxes"].append(row)
+            total_tax += amount
+
         else:
             row = {
                 "accountHead": tax.description,
                 "rate": tax.rate,
-                "amount": tax.tax_amount,
+                "amount": amount,
             }
             data["charges"].append(row)
+            total_charges += amount
+
+
+    data["totalCalculatedTax"] = total_tax
+    data["totalCalculatedCharges"] = total_charges
 
     if invoice.tc_name and frappe.db.exists("Terms and Conditions", invoice.tc_name):
         tc_content = frappe.db.get_value(
