@@ -1,3 +1,4 @@
+from custom_api.api.selling.sales_invoice.utils import validate_receivable_account_for_currency
 from erpnext.buying.doctype.purchase_order.purchase_order import make_purchase_invoice
 import frappe
 from custom_api.utils.response import send_old_response, send_response_list
@@ -139,7 +140,9 @@ def create_pi_from_po():
 
     try:
         pi_doc = make_purchase_invoice(po_id)
-
+        currency = pi_doc.currency
+        account = validate_receivable_account_for_currency(currency, "Payable")
+        pi_doc.credit_to = account
         pi_doc.docstatus = 0
         pi_doc.allocate_advances_automatically = 1
         pi_doc.only_include_allocated_payments = 1
