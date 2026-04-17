@@ -179,6 +179,7 @@ def get_purchase_invoice_by_id(pi_id):
         "paymentType": pi_doc.custom_invoice_metadata[0].payment_mode if pi_doc.custom_invoice_metadata else None,
         "spplrInvcNo": pi_doc.bill_no,
         "spplrInvcDt": str(pi_doc.bill_date) if pi_doc.bill_date else None,
+        "updateStock": pi_doc.update_stock
     }
 
 def update_pi_service(pi_id, data):
