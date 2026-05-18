@@ -214,6 +214,25 @@ def get_po_by_id(po_id):
             if po_doc.status == config["erp_status"]:
                 po_doc_status = api_status
                 break
+    
+    attachments = frappe.db.get_all(
+        "File",
+        filters={
+            "attached_to_doctype": "Purchase Order",
+            "attached_to_name": po_doc.name,
+        },
+        fields=[
+            "name",
+            "file_name",
+            "file_url",
+            "file_size",
+            "file_type",
+            "is_private",
+            "creation",
+        ],
+        order_by="creation desc",
+    )
+
     return {
         "poId": po_doc.name,
         "supplierId": po_doc.supplier,
@@ -243,4 +262,6 @@ def get_po_by_id(po_id):
         "contactDisplay": po_doc.contact_display,
         "advances_payments": advances,
         "status": po_doc_status,
+        "attachments": attachments,
+        "contact_email": po_doc.contact_email
     }
