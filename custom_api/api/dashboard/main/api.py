@@ -288,6 +288,171 @@ def notes():
             http_status=500,
         )
 
+# @frappe.whitelist(allow_guest=False, methods=["GET"])
+# def sales_chart(from_date=None, to_date=None, year=None, interval="Monthly"):
+#     try:
+#         company = frappe.defaults.get_user_default("Company") or frappe.get_default("Company")
+
+#         filters = {
+#             "docstatus": 1,
+#             "company": company
+#         }
+
+#         if year:
+#             filters["posting_date"] = ["between", [f"{year}-01-01", f"{year}-12-31"]]
+#         elif from_date and to_date:
+#             filters["posting_date"] = ["between", [from_date, to_date]]
+#         elif from_date:
+#             filters["posting_date"] = [">=", from_date]
+#         elif to_date:
+#             filters["posting_date"] = ["<=", to_date]
+
+#         invoices = frappe.get_all(
+#             "Sales Invoice",
+#             filters=filters,
+#             fields=["posting_date", "base_grand_total", "outstanding_amount", "conversion_rate"]
+#         )
+
+#         total_receivable = 0.0
+#         total_received = 0.0
+#         trend_data = {} 
+
+#         for inv in invoices:
+#             receivable_pending = flt(inv.outstanding_amount) * flt(inv.conversion_rate)
+            
+#             # The amount already paid (Total Invoiced - Pending)
+#             received = flt(inv.base_grand_total) - receivable_pending
+
+#             # 2. UPDATE OVERALL TOTALS
+#             total_receivable += receivable_pending
+#             total_received += received
+
+#             if inv.posting_date:
+#                 date_obj = getdate(inv.posting_date)
+#                 year_str = date_obj.strftime("%Y")
+#                 month = date_obj.month
+
+#                 if interval == "Yearly":
+#                     group_key = year_str
+#                 elif interval == "Half-Yearly":
+#                     h_val = "H1" if month <= 6 else "H2"
+#                     group_key = f"{year_str}-{h_val}"
+#                 elif interval == "Quarterly":
+#                     q_val = f"Q{((month - 1) // 3) + 1}"
+#                     group_key = f"{year_str}-{q_val}"
+#                 else:
+#                     # Default to Monthly
+#                     group_key = date_obj.strftime("%Y-%m")
+                
+#                 if group_key not in trend_data:
+#                     trend_data[group_key] = {"receivable": 0.0, "received": 0.0}
+                
+#                 trend_data[group_key]["receivable"] += receivable_pending
+#                 trend_data[group_key]["received"] += received
+
+#         chart_data = {
+#             "totals": {
+#                 "totalReceivable": total_receivable,
+#                 "totalReceived": total_received
+#             },
+#             "trend": trend_data
+#         }
+
+#         return send_old_response(
+#             status="success",
+#             message="Sales chart data retrieved successfully.",
+#             data=chart_data,
+#             status_code=200,
+#             http_status=200,
+#         )
+
+#     except Exception as e:
+#         frappe.log_error(frappe.get_traceback(), "Sales Chart API Error")
+#         return send_old_response(
+#             status="error",
+#             message=f"Error retrieving sales chart data: {str(e)}",
+#             data=None,
+#             status_code=500,
+#             http_status=500,
+#         )
+
+# @frappe.whitelist(allow_guest=False, methods=["GET"])
+# def purchase_chart(from_date=None, to_date=None, year=None):
+#     try:
+#         company = frappe.defaults.get_user_default("Company") or frappe.get_default("Company")
+
+#         # 1. Build ORM Filters
+#         filters = {
+#             "docstatus": 1,
+#             "company": company
+#         }
+
+#         # Handle Date Range & Year logic for ORM
+#         if year:
+#             filters["posting_date"] = ["between", [f"{year}-01-01", f"{year}-12-31"]]
+#         elif from_date and to_date:
+#             filters["posting_date"] = ["between", [from_date, to_date]]
+#         elif from_date:
+#             filters["posting_date"] = [">=", from_date]
+#         elif to_date:
+#             filters["posting_date"] = ["<=", to_date]
+
+#         # 2. Fetch Data using ORM
+#         invoices = frappe.get_all(
+#             "Purchase Invoice",
+#             filters=filters,
+#             fields=["posting_date", "base_grand_total", "outstanding_amount"]
+#         )
+
+#         # 3. Process Data in Python Memory
+#         total_payable = 0.0
+#         total_paid = 0.0
+#         monthly_trend = {}
+
+#         for inv in invoices:
+#             payable = flt(inv.base_grand_total)
+#             paid = payable - flt(inv.outstanding_amount)
+
+#             # Aggregate Overall Totals
+#             total_payable += payable
+#             total_paid += paid
+
+#             # Group by Month for Trend
+#             if inv.posting_date:
+#                 date_obj = getdate(inv.posting_date)
+#                 month_key = date_obj.strftime("%Y-%m")
+                
+#                 if month_key not in monthly_trend:
+#                     monthly_trend[month_key] = {"payable": 0.0, "paid": 0.0}
+                
+#                 monthly_trend[month_key]["payable"] += payable
+#                 monthly_trend[month_key]["paid"] += paid
+
+#         chart_data = {
+#             "totals": {
+#                 "totalPayable": total_payable,
+#                 "totalPaid": total_paid
+#             },
+#             "trend": monthly_trend
+#         }
+
+#         return send_old_response(
+#             status="success",
+#             message="Purchase chart data retrieved successfully.",
+#             data=chart_data,
+#             status_code=200,
+#             http_status=200,
+#         )
+
+#     except Exception as e:
+#         frappe.log_error(frappe.get_traceback(), "Purchase Chart API Error")
+#         return send_old_response(
+#             status="error",
+#             message=f"Error retrieving purchase chart data: {str(e)}",
+#             data=None,
+#             status_code=500,
+#             http_status=500,
+#         )
 @frappe.whitelist(allow_guest=False, methods=["GET"])
 def sales_chart(from_date=None, to_date=None, year=None, interval="Monthly"):
     try:
@@ -317,13 +482,27 @@ def sales_chart(from_date=None, to_date=None, year=None, interval="Monthly"):
         total_received = 0.0
         trend_data = {} 
 
+        # 1. Pre-fill trend_data to ensure all periods are returned even if 0
+        months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        
+        if interval == "Monthly":
+            for m in months:
+                trend_data[m] = {"receivable": 0.0, "received": 0.0}
+        elif interval == "Quarterly":
+            for q in ["Q1", "Q2", "Q3", "Q4"]:
+                trend_data[q] = {"receivable": 0.0, "received": 0.0}
+        elif interval == "Half-Yearly":
+            for h in ["H1", "H2"]:
+                trend_data[h] = {"receivable": 0.0, "received": 0.0}
+
+        # 2. Process Invoices
         for inv in invoices:
             receivable_pending = flt(inv.outstanding_amount) * flt(inv.conversion_rate)
             
             # The amount already paid (Total Invoiced - Pending)
             received = flt(inv.base_grand_total) - receivable_pending
 
-            # 2. UPDATE OVERALL TOTALS
+            # UPDATE OVERALL TOTALS
             total_receivable += receivable_pending
             total_received += received
 
@@ -335,15 +514,14 @@ def sales_chart(from_date=None, to_date=None, year=None, interval="Monthly"):
                 if interval == "Yearly":
                     group_key = year_str
                 elif interval == "Half-Yearly":
-                    h_val = "H1" if month <= 6 else "H2"
-                    group_key = f"{year_str}-{h_val}"
+                    group_key = "H1" if month <= 6 else "H2"
                 elif interval == "Quarterly":
-                    q_val = f"Q{((month - 1) // 3) + 1}"
-                    group_key = f"{year_str}-{q_val}"
+                    group_key = f"Q{((month - 1) // 3) + 1}"
                 else:
-                    # Default to Monthly
-                    group_key = date_obj.strftime("%Y-%m")
+                    # Default to Monthly mapping ("Jan", "Feb", etc.)
+                    group_key = months[month - 1]
                 
+                # Fallback just in case "Yearly" adds a new key
                 if group_key not in trend_data:
                     trend_data[group_key] = {"receivable": 0.0, "received": 0.0}
                 
@@ -381,7 +559,7 @@ def purchase_chart(from_date=None, to_date=None, year=None):
     try:
         company = frappe.defaults.get_user_default("Company") or frappe.get_default("Company")
 
-        # 1. Build ORM Filters
+        # Build ORM Filters
         filters = {
             "docstatus": 1,
             "company": company
@@ -397,17 +575,22 @@ def purchase_chart(from_date=None, to_date=None, year=None):
         elif to_date:
             filters["posting_date"] = ["<=", to_date]
 
-        # 2. Fetch Data using ORM
+        # Fetch Data using ORM
         invoices = frappe.get_all(
             "Purchase Invoice",
             filters=filters,
             fields=["posting_date", "base_grand_total", "outstanding_amount"]
         )
 
-        # 3. Process Data in Python Memory
+        # Process Data in Python Memory
         total_payable = 0.0
         total_paid = 0.0
         monthly_trend = {}
+
+        # Pre-fill 12 months for Purchase Chart to maintain UI consistency
+        months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        for m in months:
+            monthly_trend[m] = {"payable": 0.0, "paid": 0.0}
 
         for inv in invoices:
             payable = flt(inv.base_grand_total)
@@ -420,7 +603,7 @@ def purchase_chart(from_date=None, to_date=None, year=None):
             # Group by Month for Trend
             if inv.posting_date:
                 date_obj = getdate(inv.posting_date)
-                month_key = date_obj.strftime("%Y-%m")
+                month_key = months[date_obj.month - 1]
                 
                 if month_key not in monthly_trend:
                     monthly_trend[month_key] = {"payable": 0.0, "paid": 0.0}
@@ -453,7 +636,6 @@ def purchase_chart(from_date=None, to_date=None, year=None):
             status_code=500,
             http_status=500,
         )
-
 @frappe.whitelist(allow_guest=False, methods=["GET"])
 def inventory_chart(from_date=None, to_date=None, year=None):
     try:
