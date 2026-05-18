@@ -304,6 +304,27 @@ def get_sales_invoice_by_id(invoice_id):
         except Exception:
             data["terms"]["selling"] = tc_content
 
+    attachments = frappe.db.get_all(
+        "File",
+        filters={
+            "attached_to_doctype": "Sales Invoice",
+            "attached_to_name":    invoice_id,
+        },
+        fields=[
+            "name as fileId",
+            "file_name",
+            "file_url",
+            "file_size",
+            "file_type",
+            "is_private",
+            "creation",
+        ],
+        order_by="creation desc",
+    )
+
+    data["attachments"] = [att for att in attachments]
+       
+
     return data
 
 def get_sales_invoices(filters=None, page=1, page_size=20, search=None):
