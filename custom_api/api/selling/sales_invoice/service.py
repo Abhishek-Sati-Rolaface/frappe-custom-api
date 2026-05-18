@@ -194,6 +194,7 @@ def get_sales_invoice_by_id(invoice_id):
         "taxes": [],
         "charges": [],
         "terms": {},
+        "contact_email": invoice.contact_email,
     }
 
     payment_mode = custom_details[0].payment_mode if custom_details else None
