@@ -55,3 +55,53 @@ def create():
                                     status_code=500,
                                     http_status=500
                                 )
+
+@frappe.whitelist(allow_guest=False, methods=["PUT"])
+def update():
+    try:
+        data = frappe.local.form_dict
+
+        template_name = data.get("id")
+
+        if not template_name:
+            return send_old_response(
+                status="fail",
+                message="template_name is required.",
+                status_code=400,
+                http_status=400,
+            )
+
+        if not frappe.db.exists("Email Template", template_name):
+            return send_old_response(
+                status="fail",
+                message=f"Email Template '{template_name}' not found.",
+                status_code=404,
+                http_status=404,
+            )
+
+        template = frappe.get_doc("Email Template", template_name)
+
+        if data.get("subject"):
+            template.subject = data.get("subject")
+
+        if data.get("message"):
+            template.response = data.get("message")
+
+        template.save(ignore_permissions=True)
+
+        return send_old_response(
+            status="success",
+            message="Email Template updated successfully.",
+            status_code=200,
+            http_status=200,
+        )
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Update Email Template API Error")
+
+        return send_old_response(
+            status="fail",
+            message=str(e),
+            status_code=500,
+            http_status=500,
+        )
