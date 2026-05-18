@@ -311,7 +311,7 @@ def get_sales_invoice_by_id(invoice_id):
             "attached_to_name":    invoice_id,
         },
         fields=[
-            "name as fileId",
+            "name",
             "file_name",
             "file_url",
             "file_size",
