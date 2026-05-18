@@ -209,6 +209,11 @@ def get_po_by_id(po_id):
             },
             fields=["parent", "allocated_amount"]
         )
+    po_doc_status = None
+    for api_status, config in STATUS_MAP.items():
+            if po_doc.status == config["erp_status"]:
+                po_doc_status = api_status
+                break
     return {
         "poId": po_doc.name,
         "supplierId": po_doc.supplier,
@@ -237,4 +242,5 @@ def get_po_by_id(po_id):
         "contactPerson": po_doc.contact_person,
         "contactDisplay": po_doc.contact_display,
         "advances_payments": advances,
+        "status": po_doc_status,
     }

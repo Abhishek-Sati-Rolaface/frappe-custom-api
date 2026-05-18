@@ -183,7 +183,8 @@ def get_purchase_invoice_by_id(pi_id):
         "spplrInvcDt": str(pi_doc.bill_date) if pi_doc.bill_date else None,
         "updateStock": pi_doc.update_stock,
         "lpoNumber": purchase_order,
-        "outstanding_amount": pi_doc.outstanding_amount
+        "outstanding_amount": pi_doc.outstanding_amount,
+        "status": pi_doc.status
     }
 
 def update_pi_service(pi_id, data):
