@@ -105,3 +105,68 @@ def update():
             status_code=500,
             http_status=500,
         )
+
+@frappe.whitelist(allow_guest=False, methods=["GET"])
+def get_all():
+    try:
+        args = frappe.local.form_dict
+        page = int(args.get("page", 1))
+        page_size = int(args.get("pageSize", 10))
+        search = args.get("search", "").strip() or None
+
+        limit_start = (page - 1) * page_size
+
+        or_filters = None
+
+        if search:
+            wildcard = f"%{search}%"
+            or_filters = [
+                ["name", "like", wildcard],
+                ["subject", "like", wildcard],
+            ]
+
+        total = frappe.db.count("Email Template")
+
+        templates = frappe.db.get_all(
+            "Email Template",
+            or_filters = or_filters,
+            fields = [
+                "name as id",
+                "subject",
+                "response as message",
+            ],
+            order_by  = "creation desc",
+            limit_start = limit_start,
+            limit_page_length = page_size,
+        )
+
+        normalized = [t for t in templates]
+
+        total_pages = max(1, -(-total // page_size))
+
+        return send_old_response(
+            status = "success",
+            message = "Email Templates fetched successfully.",
+            data = {
+                "data": normalized,
+                "pagination": {
+                    "page": page,
+                    "page_size": page_size,
+                    "total": total,
+                    "total_pages": total_pages,
+                    "has_next": page < total_pages,
+                    "has_prev": page > 1,
+                },
+            },
+            status_code = 200,
+            http_status = 200,
+        )
+
+    except Exception as e:
+        frappe.log_error(str(e), "Get All Email Templates API Error")
+        return send_old_response(
+            status = "fail",
+            message = str(e),
+            status_code = 500,
+            http_status = 500,
+        )
