@@ -5,7 +5,7 @@ from custom_api.utils.response import send_old_response, send_response_list
 from frappe.exceptions import DuplicateEntryError
 
 @frappe.whitelist(allow_guest=False, methods=["POST"])
-def get_template(**payload):
+def make_email_template(**payload):
         try:
             template_id = payload.get("id")
             doc_type = payload.get("doc_type")
