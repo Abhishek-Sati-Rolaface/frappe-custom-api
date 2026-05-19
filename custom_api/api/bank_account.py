@@ -402,7 +402,7 @@ def get_by_id():
         bank_account_id,
         [
             "name as id",
-            "account_name",
+            "account_name as accountHolderName",
             "bank",
             "bank_account_no",
             "branch_code",
@@ -421,6 +421,10 @@ def get_by_id():
 
     if not bank_account:
         return send_old_response(status="fail", message=f"Bank Account '{bank_account_id}' not found.", data=None, status_code=404, http_status=404)
+    
+    if bank_account.get("bank"):
+        swift_number = frappe.db.get_value("Bank", bank_account.get("bank"), "swift_number")
+        bank_account["swiftNumber"] = swift_number
 
     if bank_account.get("is_company_account"):
         currency = frappe.db.get_value(
