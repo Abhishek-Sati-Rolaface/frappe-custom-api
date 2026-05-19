@@ -597,7 +597,7 @@ def get_all_payments():
 @require_permission("Payment Entry", "read")
 def get_payment_by_id():
     try:
-        payment_id = frappe.request.args.get("payment_id")
+        payment_id = frappe.request.args.get("id")
 
         if not payment_id:
             return send_response(
