@@ -652,6 +652,23 @@ def get_payment_by_id():
                 {"account": d.account, "amount": d.amount, "description": d.description}
             )
 
+        attachments = frappe.db.get_all(
+                        "File",
+                        filters={
+                            "attached_to_doctype": "Payment Entry",
+                            "attached_to_name": doc.name,
+                        },
+                        fields=[
+                            "name",
+                            "file_name",
+                            "file_url",
+                            "file_size",
+                            "file_type",
+                            "is_private",
+                            "creation",
+                        ],
+                        order_by="creation desc",
+                    )
         detailed_data = {
             "header": {
                 "payment_id": doc.name,
@@ -666,7 +683,6 @@ def get_payment_by_id():
                 "party": doc.party,
                 "party_name": doc.party_name,
                 "contact_person": doc.contact_person,
-                "contact_email": doc.contact_email,
             },
             "transaction_info": {
                 "mode_of_payment": doc.mode_of_payment,
@@ -699,6 +715,9 @@ def get_payment_by_id():
             "taxes": taxes,
             "deductions": deductions,
             "remarks": doc.remarks,
+            "contact_email": doc.contact_email,
+            "attachments": attachments
+
         }
 
         return send_response(
