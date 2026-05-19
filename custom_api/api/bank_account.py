@@ -389,3 +389,51 @@ def update():
             message=str(e),
             data=None, status_code=500, http_status=500
         )
+
+@frappe.whitelist(allow_guest=False, methods=["GET"])
+def get_by_id():
+    bank_account_id = frappe.request.args.get("id")
+
+    if not bank_account_id:
+        return send_old_response(status="fail", message="'bankAccountId' is required.", data=None, status_code=400, http_status=400)
+
+    bank_account = frappe.db.get_value(
+        "Bank Account",
+        bank_account_id,
+        [
+            "name",
+            "account_name",
+            "bank",
+            "bank_account_no",
+            "branch_code",
+            "iban",
+            "is_company_account",
+            "is_default",
+            "disabled",
+            "company",
+            "account as ledgerAccount",
+            "party_type as accountFor",
+            "party as partyName",
+            "last_integration_date as dateAdded"
+        ],
+        as_dict=True
+    )
+
+    if not bank_account:
+        return send_old_response(status="fail", message=f"Bank Account '{bank_account_id}' not found.", data=None, status_code=404, http_status=404)
+
+    if bank_account.get("is_company_account"):
+        currency = frappe.db.get_value(
+            "Account",
+            bank_account.get("ledgerAccount"),
+            "account_currency"
+        )
+        bank_account["currency"] = currency
+
+    return send_response(
+        status="success",
+        message="Bank Account fetched successfully.",
+        data=bank_account,
+        status_code=200,
+        http_status=200
+    )
