@@ -5,7 +5,7 @@ from custom_api.utils.response import send_old_response, send_response_list
 from frappe.exceptions import DuplicateEntryError
 
 @frappe.whitelist(allow_guest=False, methods=["POST"])
-def get_by_id(**payload):
+def get_template(**payload):
         try:
             template_id = payload.get("id")
             doc_type = payload.get("doc_type")
@@ -164,6 +164,33 @@ def get_all():
 
     except Exception as e:
         frappe.log_error(str(e), "Get All Email Templates API Error")
+        return send_old_response(
+            status = "fail",
+            message = str(e),
+            status_code = 500,
+            http_status = 500,
+        )
+    
+@frappe.whitelist(allow_guest=False, methods=["GET"])
+def get_by_id():
+    try:
+        template_name = frappe.request.args.get("id")
+        template = frappe.get_doc("Email Template", template_name)
+        data = {
+                "id": template.name,
+                "subject": template.subject,
+                "message": template.response,
+            }
+        return send_old_response(
+            status = "success",
+            message = "Email Template fetched successfully.",
+            data = data,
+            status_code = 200,
+            http_status = 200,
+        )
+
+    except Exception as e:
+        frappe.log_error(str(e), "Get Email Template API Error")
         return send_old_response(
             status = "fail",
             message = str(e),
