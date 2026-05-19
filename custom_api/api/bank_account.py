@@ -425,6 +425,13 @@ def get_by_id():
     if bank_account.get("bank"):
         swift_number = frappe.db.get_value("Bank", bank_account.get("bank"), "swift_number")
         bank_account["swiftNumber"] = swift_number
+    if bank_account.get("partyName"):
+        if bank_account.get("accountFor") == "Customer":
+            bank_account["partyName"] = frappe.db.get_value("Customer", bank_account.get("partyName"), "customer_name")
+        if bank_account.get("accountFor") == "Supplier":
+            bank_account["partyName"] = frappe.db.get_value("Supplier", bank_account.get("partyName"), "supplier_name")
+        if bank_account.get("accountFor") == "Employee":
+            bank_account["partyName"] = frappe.db.get_value("Employee", bank_account.get("partyName"), "employee_name")
 
     if bank_account.get("is_company_account"):
         currency = frappe.db.get_value(
