@@ -401,7 +401,7 @@ def get_by_id():
         "Bank Account",
         bank_account_id,
         [
-            "name",
+            "name as id",
             "account_name",
             "bank",
             "bank_account_no",
