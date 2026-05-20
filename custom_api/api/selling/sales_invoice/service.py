@@ -59,6 +59,8 @@ def create_sales_invoice(data):
             "warehouse": item.get("warehouse", data.get("warehouse")),
             "batch_no": batch_no,
             "item_tax_template": _get_item_tax_template(item_code, data.get("tax_category")),
+            "discount_percentage": item.get("discount", 0),
+
         })
 
         invoice.append("custom_item_box_detail", _build_sales_invoice_box_detail(item))
@@ -133,6 +135,7 @@ def update_sales_invoice(invoice_id, data):
                 "warehouse": item.get("warehouse", invoice.set_warehouse),
                 "batch_no": batch_no,
                 "item_tax_template": _get_item_tax_template(item_code, data.get("tax_category")), 
+                "discount_percentage": item.get("discount", 0),
             })
             invoice.append("custom_item_box_detail", _build_sales_invoice_box_detail(item))
 
@@ -218,6 +221,8 @@ def get_sales_invoice_by_id(invoice_id):
             "costCenter": item.cost_center,
             "itemTaxTemplate": item.item_tax_template,
             "taxInfo": tax,
+            "discount": item.discount_percentage,
+            "discount_amount": item.discount_amount
         }
 
         if item.batch_no:
