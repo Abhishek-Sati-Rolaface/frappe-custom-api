@@ -425,13 +425,48 @@ def get_by_id():
     if bank_account.get("bank"):
         swift_number = frappe.db.get_value("Bank", bank_account.get("bank"), "swift_number")
         bank_account["swiftNumber"] = swift_number
+
     if bank_account.get("partyName"):
         if bank_account.get("accountFor") == "Customer":
-            bank_account["partyName"] = frappe.db.get_value("Customer", bank_account.get("partyName"), "customer_name")
-        if bank_account.get("accountFor") == "Supplier":
-            bank_account["partyName"] = frappe.db.get_value("Supplier", bank_account.get("partyName"), "supplier_name")
-        if bank_account.get("accountFor") == "Employee":
-            bank_account["partyName"] = frappe.db.get_value("Employee", bank_account.get("partyName"), "employee_name")
+            customer = frappe.db.get_value(
+                "Customer",
+                bank_account.get("partyName"),
+                ["customer_name", "default_currency"],
+                as_dict=True
+            )
+            if customer:
+                bank_account["partyName"] = customer.customer_name
+                bank_account["currency"] = customer.default_currency
+
+
+    if bank_account.get("accountFor") == "Supplier":
+
+        supplier = frappe.db.get_value(
+            "Supplier",
+            bank_account.get("partyName"),
+            ["supplier_name", "default_currency"],
+            as_dict=True
+        )
+
+        if supplier:
+            bank_account["partyName"] = supplier.supplier_name
+            bank_account["currency"] = supplier.default_currency
+
+
+    if bank_account.get("accountFor") == "Employee":
+
+        employee = frappe.db.get_value(
+            "Employee",
+            bank_account.get("partyName"),
+            ["employee_name"],
+            as_dict=True
+        )
+
+        if employee:
+            bank_account["partyName"] = employee.employee_name
+
+            # Employee usually doesn't have currency directly
+            bank_account["currency"] = frappe.defaults.get_global_default("currency")
 
     if bank_account.get("is_company_account"):
         currency = frappe.db.get_value(
