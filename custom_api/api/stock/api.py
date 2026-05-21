@@ -140,6 +140,7 @@ def get_batch_wise_stock_report(
             item_details_map[item["item_code"]]["packing_unit"] = item_metadata.packing_unit
             item_details_map[item["item_code"]]["packing_size"] = item_metadata.packing_size
             item_details_map[item["item_code"]]["taxInfo"] = _get_tax(item.name, tax_category)
+            item_details_map[item["item_code"]]["price_list"] = frappe.db.get_value("Item Price", {"item_code": item["item_code"], "price_list": "Standard Selling"}, "price_list_rate")
 
         # apply item_group filter
         if item_group:
@@ -357,7 +358,7 @@ def get_batch_wise_stock_report(
 
             item_info = item_details_map.get(code, {
                 "item_name": "", "item_group": "", "stock_uom": "", "description": "", "packing_size": "", "packing_unit": "",
-                "taxInfo": ""
+                "taxInfo": "", "price_list": 0.0,
             })
             o = opening_map.get(code, {
                 "opening_qty":    0.0,
@@ -472,6 +473,7 @@ def get_batch_wise_stock_report(
                     "total_sell_value":    sell_value,
                     "sell_currency":       sell_currency,
                     "batches":             batch_rows,
+                    "price_list":          item_info.get("price_list", 0.0),
                 }
     # ── Step 6b: Append non-stock items (maintain_stock=0, for sale) ─────────
     non_stock_items = frappe.get_all(
@@ -530,7 +532,8 @@ def get_batch_wise_stock_report(
             "total_sell_value":    sell_info["sell_value"],
             "sell_currency":       sell_info["sell_currency"],
             "batches":             [],
-            "is_service_item": 1
+            "is_service_item": 1,
+            "price_list": frappe.db.get_value("Item Price", {"item_code": item["item_code"], "price_list": "Standard Selling"}, "price_list_rate"),
         }
 
     # ── Step 7: Pagination ────────────────────────────────────────────────────

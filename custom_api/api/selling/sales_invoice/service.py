@@ -55,12 +55,11 @@ def create_sales_invoice(data):
         invoice.append("items", {
             "item_code": item_code,
             "qty": item.get("quantity"),
-            "rate": item.get("rate"),
             "warehouse": item.get("warehouse", data.get("warehouse")),
             "batch_no": batch_no,
             "item_tax_template": _get_item_tax_template(item_code, data.get("tax_category")),
             "discount_percentage": item.get("discount", 0),
-
+            "price_list_rate": item.get("rate"),
         })
 
         invoice.append("custom_item_box_detail", _build_sales_invoice_box_detail(item))
