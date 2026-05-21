@@ -5,7 +5,9 @@ from custom_api.utils.response import send_response
 @frappe.whitelist(allow_guest=False, methods=["GET"])
 def get_all_warehouse():
     company = frappe.defaults.get_user_default("Company")
-    ware_house = get_warehouses(company)
+    disabled = frappe.request.args.get("is_disabled", None)
+
+    ware_house = get_warehouses(company, disabled)
     return send_response(
         status="success",
         message="Warehouse fetched successfully.",

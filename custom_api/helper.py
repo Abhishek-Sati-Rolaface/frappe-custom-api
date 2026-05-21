@@ -1,6 +1,14 @@
 import frappe
-def get_warehouses(company):
-    warehouses = frappe.db.get_all("Warehouse", filters={"company": company, "is_group": 0}, pluck="name")
+def get_warehouses(company, disabled):
+    filters = {
+                "company": company,
+                "is_group": 0,
+            }
+
+    if disabled is not None:
+        filters["disabled"] = disabled
+
+    warehouses = frappe.db.get_all("Warehouse", filters=filters, pluck="name")   
     return warehouses
 
 STATUS_MAP = {
