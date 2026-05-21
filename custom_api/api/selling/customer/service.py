@@ -23,7 +23,14 @@ def create_customer(data):
 
     # 1. Insert and save the core document first
     customer = frappe.get_doc(doc_args).insert(ignore_permissions=True)
+    registration_no = data.get("registration_no")
 
+    if registration_no:
+        customer.append("custom_extended_details", {
+            "registration_no": registration_no
+        })
+
+    customer.save(ignore_permissions=True)
     # 2. Process links. The sync functions will use db_set to update primary fields. 
     # Because customer is already in the DB, this works perfectly without a second save().
     sync_addresses(customer, data.get("addresses"), is_update=False)
@@ -55,6 +62,13 @@ def update_customer(customer_id, data):
         raw_status = data.get("status")
         status = str(raw_status).strip().lower()
         customer.disabled = 0 if status == "active" else 1
+    
+    if data.get("registration_no") is not None:
+        customer.set("custom_extended_details", [])
+
+        customer.append("custom_extended_details", {
+            "registration_no": data.get("registration_no")
+        })
 
     # 3. SAVE THE MAIN DOCUMENT FIRST
     # This prevents the Timestamp Mismatch because we secure our core updates 
@@ -72,6 +86,11 @@ def update_customer(customer_id, data):
 def get_customer_by_id(customer_id):
     customer = frappe.get_doc("Customer", customer_id)
 
+    registration_no = None
+
+    if customer.custom_extended_details:
+        registration_no = customer.custom_extended_details[0].registration_no
+
     return {
         "id": customer.name,
         "name": customer.customer_name,
@@ -82,6 +101,7 @@ def get_customer_by_id(customer_id):
         "email": customer.email_id,
         "customerGroup": customer.customer_group,
         "customerTaxCategory": customer.tax_category,
+        "registration_no": registration_no,
         "status": "Active" if not customer.disabled else "Inactive",
         "contacts": get_linked_contacts("Customer", customer_id),
         "addresses": get_linked_addresses("Customer", customer_id),

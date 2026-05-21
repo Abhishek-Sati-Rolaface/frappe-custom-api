@@ -5,11 +5,11 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "registration_license_no"
+  "registration_no"
  ],
  "fields": [
   {
-   "fieldname": "registration_license_no",
+   "fieldname": "registration_no",
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Registration No"
@@ -19,7 +19,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-05-21 11:57:30.195048",
+ "modified": "2026-05-21 12:40:51.927479",
  "modified_by": "Administrator",
  "module": "Custom Api",
  "name": "Custom Customer Extended Details",
