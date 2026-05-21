@@ -130,7 +130,7 @@ def update_sales_invoice(invoice_id, data):
             invoice.append("items", {
                 "item_code": item_code,
                 "qty": item.get("quantity"),
-                "rate": item.get("rate"),
+                "price_list_rate": item.get("rate"),
                 "warehouse": item.get("warehouse", invoice.set_warehouse),
                 "batch_no": batch_no,
                 "item_tax_template": _get_item_tax_template(item_code, data.get("tax_category")), 
@@ -214,7 +214,7 @@ def get_sales_invoice_by_id(invoice_id):
             "itemName": item.item_name,
             "uom": item.uom ,
             "quantity": item.qty,
-            "rate": item.rate,
+            "rate": item.price_list_rate,
             "warehouse": item.warehouse,
             "batchNo": item.batch_no,
             "costCenter": item.cost_center,
