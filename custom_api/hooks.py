@@ -250,4 +250,6 @@ doc_events = {
 
 override_whitelisted_methods = {
     "frappe.client.delete": "custom_api.overrides.frappe_client.delete",
+    "frappe.core.doctype.communication.email.make": "custom_api.overrides.frappe_email.make"
+
 }
