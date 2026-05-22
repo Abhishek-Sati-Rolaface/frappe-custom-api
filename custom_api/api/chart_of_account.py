@@ -50,6 +50,7 @@ def get_chart_of_accounts():
         root_type = frappe.request.args.get("root_type")
         is_group = frappe.request.args.get("is_group")
         parent_account = frappe.request.args.get("parent_account")
+        balance_filter = frappe.request.args.get("balance_filter")  # "non_zero" | "zero" | None
 
         if account_type:
             filters["account_type"] = account_type
@@ -144,6 +145,30 @@ def get_chart_of_accounts():
 
         tree = build_tree(accounts)
         rollup_balances(tree)
+
+        # ── Balance filter: prune tree after rollup ────────────────────────
+        if balance_filter in ("non_zero", "zero"):
+            def prune_tree(nodes):
+                result = []
+                for node in nodes:
+                    # Recurse into children first
+                    node["children"] = prune_tree(node.get("children", []))
+
+                    balance = flt(node.get("balance", 0))
+                    has_matching_children = bool(node["children"])
+
+                    if balance_filter == "non_zero":
+                        # Keep if own balance non-zero OR has surviving children
+                        if balance != 0 or has_matching_children:
+                            result.append(node)
+                    elif balance_filter == "zero":
+                        # Keep if own balance is zero OR has surviving children
+                        if balance == 0 or has_matching_children:
+                            result.append(node)
+                return result
+
+            tree = prune_tree(tree)
+
         return send_response(
             status="success",
             message="Chart of accounts fetched successfully.",
