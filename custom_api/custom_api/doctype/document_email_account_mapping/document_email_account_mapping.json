@@ -12,6 +12,7 @@
   {
    "fieldname": "reference_doctype",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Reference Doctype",
    "options": "DocType"
   }
@@ -20,7 +21,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-05-23 15:20:05.666007",
+ "modified": "2026-05-23 18:06:02.613552",
  "modified_by": "Administrator",
  "module": "Custom Api",
  "name": "Document Email Account Mapping",
