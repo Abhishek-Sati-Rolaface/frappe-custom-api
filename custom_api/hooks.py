@@ -253,3 +253,10 @@ override_whitelisted_methods = {
     "frappe.core.doctype.communication.email.make": "custom_api.overrides.frappe_email.make"
 
 }
+
+scheduler_events = {
+    # ── Runs every 60 seconds via Frappe's own scheduler ──────────────────
+    "all": [
+        "frappe.email.queue.flush"
+    ]
+}
