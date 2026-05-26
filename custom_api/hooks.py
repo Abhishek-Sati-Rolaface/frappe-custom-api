@@ -246,9 +246,9 @@ doc_events = {
     "Purchase Invoice": {
         "validate": "custom_api.api.buying.purchase_invoice.before_validate_hooks.before_validate"
     },
-    "Sales Order Item": {
-        "validate": "custom_api.barcode_validation.validate_barcode_on_sale"
-    }
+    # "Sales Order Item": {
+    #     "validate": "custom_api.barcode_validation.validate_barcode_on_sale"
+    # }
 }
 
 override_whitelisted_methods = {
