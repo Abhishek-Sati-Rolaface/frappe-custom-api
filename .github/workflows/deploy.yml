@@ -34,6 +34,7 @@ jobs:
             . "$BENCH_DIR/env/bin/activate"
 
             echo "⬇️ Pull latest code..."
+            git config --global --add safe.directory "$BENCH_DIR/apps/custom_api"
             cd apps/custom_api
             git fetch origin staging && git reset --hard origin/staging || { echo "❌ Git pull failed"; exit 1; }
             cd "$BENCH_DIR"
@@ -41,7 +42,6 @@ jobs:
             echo "🎨 Build assets..."
             bench build --verbose 2>&1 | grep -v "Browserslist: caniuse-lite is outdated" || true
 
-            # Dynamically fetch all sites
             SITES=$(ls "$BENCH_DIR/sites/" | grep -E "^api\.")
 
             echo "🌐 Sites found:"
