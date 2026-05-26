@@ -27,12 +27,11 @@ jobs:
             BENCH_DIR="/srv/apps/erp/backend/rolaface-izayne-bench"
             BENCH="/home/frappe/.local/bin/bench"
 
-            cd "$BENCH_DIR"
-
+            export PYTHONPATH="/home/frappe/.local/lib/python3.14/site-packages"
             export NVM_DIR="/home/frappe/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
-            . "$BENCH_DIR/env/bin/activate"
+            cd "$BENCH_DIR"
 
             echo "⬇️ Pull latest code..."
             git config --global --add safe.directory "$BENCH_DIR/apps/custom_api"
