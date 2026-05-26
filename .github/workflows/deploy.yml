@@ -25,6 +25,7 @@ jobs:
           script: |
             set -e
             BENCH_DIR="/srv/apps/erp/backend/rolaface-izayne-bench"
+            BENCH="/home/frappe/.local/bin/bench"
 
             cd "$BENCH_DIR"
 
@@ -35,12 +36,12 @@ jobs:
 
             echo "⬇️ Pull latest code..."
             git config --global --add safe.directory "$BENCH_DIR/apps/custom_api"
-            cd apps/custom_api
+            cd "$BENCH_DIR/apps/custom_api"
             git fetch origin staging && git reset --hard origin/staging || { echo "❌ Git pull failed"; exit 1; }
             cd "$BENCH_DIR"
 
             echo "🎨 Build assets..."
-            bench build --verbose 2>&1 | grep -v "Browserslist: caniuse-lite is outdated" || true
+            $BENCH build --verbose 2>&1 | grep -v "Browserslist: caniuse-lite is outdated" || true
 
             SITES=$(ls "$BENCH_DIR/sites/" | grep -E "^api\.")
 
@@ -54,17 +55,17 @@ jobs:
               echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
               echo "📦 Backup..."
-              bench --site "$SITE" backup || { echo "❌ Backup failed: $SITE"; exit 1; }
+              $BENCH --site "$SITE" backup || { echo "❌ Backup failed: $SITE"; exit 1; }
 
               echo "🔧 Running patches..."
-              bench --site "$SITE" run-patch custom_api.patches.v1_0.add_barcode_fields 2>&1 || echo "⚠️ Patch already applied or warning"
+              $BENCH --site "$SITE" run-patch custom_api.patches.v1_0.add_barcode_fields 2>&1 || echo "⚠️ Patch already applied or warning"
 
               echo "⚙️ Migrating..."
-              bench --site "$SITE" migrate || { echo "❌ Migration failed: $SITE"; exit 1; }
+              $BENCH --site "$SITE" migrate || { echo "❌ Migration failed: $SITE"; exit 1; }
               echo "✅ Migration done: $SITE"
 
               echo "🧹 Clear cache..."
-              bench --site "$SITE" clear-cache || { echo "❌ Clear cache failed: $SITE"; exit 1; }
+              $BENCH --site "$SITE" clear-cache || { echo "❌ Clear cache failed: $SITE"; exit 1; }
 
             done
 
