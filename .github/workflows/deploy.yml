@@ -2,8 +2,17 @@ name: Deploy ERP
 
 on:
   push:
-    branches:
-      - staging
+    branches:              echo '⬇️ Pull latest code...'
+              cd apps/custom_api
+              git fetch origin staging && git reset --hard origin/staging || { echo '❌ Git pull failed'; exit 1; }
+              cd "$BENCH_DIR"
+
+              echo '🔧 Running patches...'
+              bench --site "$SITE" run-patch custom_api.patches.v1_0.add_barcode_fields 2>&1 || echo "⚠️ Patch already applied or warning"
+
+              echo '⚙️ Run migrations...'
+              bench --site "$SITE" migrate 2>&1 || true
+              echo '✅ Migration done' staging
 
 jobs:
   deploy:

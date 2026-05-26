@@ -245,6 +245,9 @@ after_request = ["custom_api.utils.hooks.pagination_hook.inject_pagination_metad
 doc_events = {
     "Purchase Invoice": {
         "validate": "custom_api.api.buying.purchase_invoice.before_validate_hooks.before_validate"
+    },
+    "Sales Order Item": {
+        "validate": "custom_api.barcode_validation.validate_barcode_on_sale"
     }
 }
 
