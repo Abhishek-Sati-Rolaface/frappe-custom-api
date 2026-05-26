@@ -58,7 +58,7 @@ jobs:
               $BENCH --site "$SITE" backup || { echo "❌ Backup failed: $SITE"; exit 1; }
 
               echo "🔧 Running patches..."
-              $BENCH --site "$SITE" run-patch custom_api.patches.v1_0.add_barcode_fields 2>&1 || echo "⚠️ Patch already applied or warning"
+              $BENCH --site "$SITE" run-patch custom_api.patches.v1_0.create_batch_barcode_field
 
               echo "⚙️ Migrating..."
               $BENCH --site "$SITE" migrate || { echo "❌ Migration failed: $SITE"; exit 1; }
