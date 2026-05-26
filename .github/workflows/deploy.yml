@@ -23,44 +23,53 @@ jobs:
           timeout: 60s
           command_timeout: 600s
           script: |
-            SITE="api.erp.udvell.rolaface.com"
+            set -e
             BENCH_DIR="/srv/apps/erp/backend/rolaface-izayne-bench"
 
-            echo "📂 Switching to bench directory..."
             cd "$BENCH_DIR"
 
-            su - frappe -c "
-              cd \"$BENCH_DIR\"
+            export NVM_DIR="/home/frappe/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
-              export NVM_DIR=~/.nvm
-              [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
-              nvm use 24
+            . "$BENCH_DIR/env/bin/activate"
 
-              source env/bin/activate
+            echo "⬇️ Pull latest code..."
+            cd apps/custom_api
+            git fetch origin staging && git reset --hard origin/staging || { echo "❌ Git pull failed"; exit 1; }
+            cd "$BENCH_DIR"
 
-              echo '📦 Backup...'
-              bench --site \"$SITE\" backup || { echo '❌ Backup failed'; exit 1; }
+            echo "🎨 Build assets..."
+            bench build --verbose 2>&1 | grep -v "Browserslist: caniuse-lite is outdated" || true
 
-              echo '⬇️ Pull latest code...'
-              cd apps/custom_api
-              git fetch origin staging && git reset --hard origin/staging || { echo '❌ Git pull failed'; exit 1; }
-              cd \"$BENCH_DIR\"
+            # Dynamically fetch all sites
+            SITES=$(ls "$BENCH_DIR/sites/" | grep -E "^api\.")
 
-              echo '🔧 Running patches...'
-              bench --site \"$SITE\" run-patch custom_api.patches.v1_0.add_barcode_fields 2>&1 || echo '⚠️ Patch already applied or warning'
+            echo "🌐 Sites found:"
+            echo "$SITES"
 
-              echo '⚙️ Run migrations...'
-              bench --site \"$SITE\" migrate 2>&1 || true
-              echo '✅ Migration done'
+            for SITE in $SITES; do
+              echo ""
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "🌐 Processing: $SITE"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-              echo '🎨 Build assets...'
-              bench build --verbose 2>&1 | grep -v 'Browserslist: caniuse-lite is outdated' || true
+              echo "📦 Backup..."
+              bench --site "$SITE" backup || { echo "❌ Backup failed: $SITE"; exit 1; }
 
-              echo '🧹 Clear cache...'
-              bench --site \"$SITE\" clear-cache || { echo '❌ Clear cache failed'; exit 1; }
-            " || { echo '❌ Deploy script failed'; exit 1; }
+              echo "🔧 Running patches..."
+              bench --site "$SITE" run-patch custom_api.patches.v1_0.add_barcode_fields 2>&1 || echo "⚠️ Patch already applied or warning"
 
+              echo "⚙️ Migrating..."
+              bench --site "$SITE" migrate || { echo "❌ Migration failed: $SITE"; exit 1; }
+              echo "✅ Migration done: $SITE"
+
+              echo "🧹 Clear cache..."
+              bench --site "$SITE" clear-cache || { echo "❌ Clear cache failed: $SITE"; exit 1; }
+
+            done
+
+            echo ""
             echo "🔄 Restarting services..."
-            supervisorctl restart rolaface-izayne-bench-web: rolaface-izayne-bench-workers: || { echo '❌ Service restart failed'; exit 1; }
+            supervisorctl restart "rolaface-izayne-bench-web:*" "rolaface-izayne-bench-workers:*" || { echo "❌ Service restart failed"; exit 1; }
 
             echo "✅ Deploy complete!"
