@@ -22,9 +22,10 @@ def build_items(items, supplier, po_number = None):
         item_code = item.get("itemCode")
         mfg_date = item.get("mfgDate")
         exp_date = item.get("expDate")
+        barcode = item.get("barCode", None)
 
         if batch_no:
-            ensure_batch(item_code, batch_no, mfg_date, exp_date)
+            ensure_batch(item_code, batch_no, mfg_date, exp_date, barcode)
 
         if not item_code:
             frappe.throw("item_code is required")

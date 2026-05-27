@@ -304,18 +304,21 @@ def build_sales_invoice_filters(args):
 
     return frappe_filters                           
 
-def ensure_batch(item_code, batch_no, mfg_date=None, exp_date=None):
+def ensure_batch(item_code, batch_no, mfg_date=None, exp_date=None, barcode=None):
     if not batch_no or not item_code:
         return
     if not frappe.db.exists("Batch", batch_no):
-        frappe.get_doc(
-            {
+        item_payload = {
                 "doctype": "Batch",
                 "batch_id": batch_no,
                 "item": item_code,
                 "manufacturing_date": mfg_date,
                 "expiry_date": exp_date,
             }
+        if barcode:
+            item_payload["custom_barcode"] = barcode
+        frappe.get_doc(
+            item_payload
         ).insert(ignore_permissions=True)
 
 
