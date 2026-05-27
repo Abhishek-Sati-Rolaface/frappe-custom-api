@@ -35,31 +35,22 @@ import frappe
 
 @frappe.whitelist()
 def get_item_from_batch_barcode(barcode):
-    # Batch name se dhundho (jo aapka "batch-055" hai)
+    """Batch ke custom_barcode se item aur batch fetch karta hai"""
+
     batch = frappe.db.get_value(
         "Batch",
-        {"name": barcode},          # batch name = scanned barcode
-        ["name", "item"],
+        {"custom_barcode": str(barcode)},
+        ["name", "item", "batch_id", "expiry_date"],
         as_dict=True
     )
-
-    # Agar name se nahi mila toh batch_id se try karo
-    if not batch:
-        batch = frappe.db.get_value(
-            "Batch",
-            {"batch_id": barcode},
-            ["name", "item"],
-            as_dict=True
-        )
 
     if not batch:
         return None
 
-    # Item details lo
     item = frappe.db.get_value(
         "Item",
         batch.item,
-        ["item_code", "item_name", "stock_uom"],
+        ["item_name", "stock_uom"],
         as_dict=True
     )
 
@@ -67,8 +58,10 @@ def get_item_from_batch_barcode(barcode):
         return None
 
     return {
-        "item_code": item.item_code,
+        "item_code": batch.item,
         "item_name": item.item_name,
-        "batch_no": batch.name,
-        "uom": item.stock_uom
+        "batch_no": batch.batch_id,
+        "uom": item.stock_uom,
+        "expiry_date": str(batch.expiry_date) if batch.expiry_date else None,
+        "barcode": barcode
     }
