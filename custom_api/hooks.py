@@ -266,6 +266,7 @@ scheduler_events = {
 
 jinja = {
     "methods": [
-        "custom_api.helper.get_frontend_url",
-    ]
+        "custom_api.helper.get_frontend_url"
+    ],
+    "filters": ["custom_api.utils.jinja_filters.generate_barcode"]
 }
