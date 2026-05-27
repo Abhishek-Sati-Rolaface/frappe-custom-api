@@ -263,3 +263,7 @@ scheduler_events = {
         "frappe.email.queue.flush"
     ]
 }
+
+jinja = {
+    "filters": ["custom_api.utils.jinja_filters.generate_barcode"]
+}
