@@ -263,3 +263,9 @@ scheduler_events = {
         "frappe.email.queue.flush"
     ]
 }
+
+jinja = {
+    "methods": [
+        "custom_api.helper.get_frontend_url",
+    ]
+}
