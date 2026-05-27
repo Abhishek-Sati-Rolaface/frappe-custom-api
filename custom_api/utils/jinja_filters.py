@@ -1,23 +1,32 @@
+import frappe
+import base64
+from io import BytesIO
+
 
 def generate_barcode(value):
-    """Code128 barcode SVG generate karta hai"""
+    """PNG barcode generate karta hai — SVG se zyada reliable hai PDF me"""
     if not value:
         return ""
-    
     try:
         import barcode
-        from barcode.writer import SVGWriter
-        from io import BytesIO
+        from barcode.writer import ImageWriter
 
         CODE128 = barcode.get_barcode_class("code128")
         buffer = BytesIO()
-        CODE128(str(value), writer=SVGWriter()).write(buffer)
 
-        svg_content = buffer.getvalue().decode("utf-8")
+        CODE128(str(value), writer=ImageWriter()).write(buffer, options={
+            "module_height": 15.0,
+            "module_width": 0.8,
+            "quiet_zone": 6.5,
+            "write_text": False,
+            "dpi": 300
+        })
 
-        # Sirf <svg> tag extract karo (DOCTYPE remove karo)
-        start = svg_content.find("<svg")
-        return svg_content[start:] if start != -1 else ""
+        buffer.seek(0)
+        img_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+        return f'<img src="data:image/png;base64,{img_base64}" style="width:100%; max-width:350px; height:80px; image-rendering:pixelated;">'
 
     except Exception as e:
-        return f"<p style='color:red;'>Barcode Error: {e}</p>"
+        frappe.log_error(str(e), "Barcode Generation Error")
+        return f"<p style='color:red;'>Error: {e}</p>"
