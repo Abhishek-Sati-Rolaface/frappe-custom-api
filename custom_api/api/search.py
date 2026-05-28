@@ -500,7 +500,7 @@ def get_party_details(party_type, party, cost_center=None):
     )
 
 
-@frappe.whitelist(allow_guest=False, methods=["GET"])
+@frappe.whitelist(allow_guest=True, methods=["GET"])
 def get_currencies():
     try:
         txt = frappe.request.args.get("search", "").strip()
