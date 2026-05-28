@@ -5,6 +5,13 @@ from custom_api.api.organization.company.utlis.address_utils import create_or_up
 def build_company_response(company):
     addresses = get_company_addresses(company.name)
     terms =  get_company_terms(company)
+    fiscal_year = frappe.db.get_value(
+        "Fiscal Year",
+        filters={"disabled": 0},
+        fieldname=["name", "year_start_date", "year_end_date"],
+        as_dict=True,
+        order_by="year_start_date desc"
+    )
     return {
         "tpin": company.tax_id,
         "companyName": company.company_name,
@@ -36,6 +43,13 @@ def build_company_response(company):
                 "revaluationFrequency"          : company.auto_err_frequency or "", 
                 "autoExchangeRateRevaluation"   : company.auto_exchange_rate_revaluation or 0,
                 "unrealizedExchangeGainLossAccount": company.unrealized_exchange_gain_loss_account or "",
+            },
+        "fiscalYear": {
+                "name": fiscal_year.name if fiscal_year else None,
+                "startDate": fiscal_year.year_start_date if fiscal_year else None,
+                "endDate": fiscal_year.year_end_date if fiscal_year else None,
+                "startMonth": fiscal_year.year_start_date.strftime("%B") if fiscal_year else None,
+                "endMonth": fiscal_year.year_end_date.strftime("%B") if fiscal_year else None,
             },
     }
 
