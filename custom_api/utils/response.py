@@ -75,3 +75,6 @@ def send_response_list_sale(status="success", message="", data=None, pagination=
 
     frappe.local.response = frappe._dict(response_payload)
     frappe.local.response.http_status_code = http_status
+
+
+    
