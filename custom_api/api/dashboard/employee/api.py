@@ -77,7 +77,7 @@ def employee_dashboard(employee_id=None):
             fields=["leave_type", "total_leaves_allocated" ],
         )
 
-        # B-2: Approved leave applications (leaves taken)
+
         applications = frappe.db.get_all(
             "Leave Application",
             filters={
@@ -117,7 +117,8 @@ def employee_dashboard(employee_id=None):
 
         leave_types_list.sort(key=lambda x: x["leaveType"])
 
-        # B-5: Grand totals across all leave types
+
+
         total_allocated = sum(lt["allocated"] for lt in leave_types_list)
         total_used      = sum(lt["used"]      for lt in leave_types_list)
         total_remaining = max(total_allocated - total_used, 0.0)
@@ -130,6 +131,29 @@ def employee_dashboard(employee_id=None):
             "leaveTypes":     leave_types_list,
         }
 
+        checkins = frappe.db.get_all(
+            "Employee Checkin",
+            filters= {
+                "employee":employee_id,
+                "time": ["between", [f"{today} 00:00:00", f"{today} 23:59:59"]]
+            },
+            fields=["log_type","time"]
+        )
+        in_time = None
+        out_time = None
+        for row in checkins:
+            if row.get("log_type") == "IN":
+                in_time = row.get("time")
+            if row.get("log_type") == "OUT":
+                out_time = row.get("time")
+
+    
+        attendance_data = {
+            "asofDate":today,
+            "inTime": in_time,
+            "outTime": out_time,
+        }
+
 
         return send_old_response(
             status="success",
@@ -137,6 +161,7 @@ def employee_dashboard(employee_id=None):
             data={
                 "employeeDetails": employee_details,
                 "leaveBalance":    leave_balance,
+                "checkins":      attendance_data,
             },
             status_code=200,
             http_status=200,
