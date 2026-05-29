@@ -257,7 +257,28 @@ def employee_dashboard(employee_id=None):
         upcoming_birthdays = {
         "upcoming": upcoming_birthdays_list[:4]
         }
+        
 
+        expense_claims = frappe.db.get_all(
+           "Expense Claim",
+            filters={
+                "employee":employee_id,
+                "approval_status":"Draft"
+            },
+            fields=["name","grand_total","approval_status"]
+        )
+
+        for expense_claim in expense_claims:
+            description = frappe.db.get_value(
+                                "Expense Claim Detail",
+                                {
+                                    "parent": expense_claim.name,
+                                    "parenttype": "Expense Claim"
+                                },
+                                ["description"],
+                                as_dict=True,
+                            )
+            expense_claim["description"] = description.description
 
 
         return send_old_response(
@@ -268,7 +289,8 @@ def employee_dashboard(employee_id=None):
                 "leaveBalance":    leave_balance,
                 "checkins":        attendance_data,
                 "holidays":        upcoming_holidays,
-                "birthdays":       upcoming_birthdays
+                "birthdays":       upcoming_birthdays,
+                "expenseClaim":    expense_claims
             },
             status_code=200,
             http_status=200,
