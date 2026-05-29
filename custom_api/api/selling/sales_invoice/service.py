@@ -34,7 +34,7 @@ def create_sales_invoice(data):
         "due_date": data.get("dueDate"),
         "tax_category": data.get("tax_category"),
         "update_stock": 1 if data.get("updateStock") else 0,
-        "set_posting_time": 1 if data.get("updateStock") else 0,
+        "set_posting_time": 1 ,
         "set_warehouse": data.get("warehouse"),
         "customer_address": data.get("billingAddress"),
         "shipping_address_name": data.get("shippingAddress"),
@@ -112,7 +112,7 @@ def update_sales_invoice(invoice_id, data):
     if cost_center: invoice.cost_center = cost_center
     if data.get("updateStock") is not None:
         invoice.update_stock = 1 if data.get("updateStock") else 0
-        invoice.set_posting_time = 1 if data.get("updateStock") else 0
+        invoice.set_posting_time = 1
 
     if "items" in data:
         invoice.set("items", [])
