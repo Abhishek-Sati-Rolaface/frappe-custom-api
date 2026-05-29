@@ -1,6 +1,7 @@
 from custom_api.utils.response import send_old_response
 import frappe
-from frappe.utils import flt, nowdate
+from frappe.utils import flt, nowdate , getdate
+from datetime import date
 
 
 @frappe.whitelist(allow_guest=False, methods=["GET"])
@@ -37,8 +38,9 @@ def employee_dashboard(employee_id=None):
                 "employee_name",     
                 "image",            
                 "date_of_joining",
-                "leave_approver",    
-                "holiday_list",     
+                "leave_approver",  
+                "expense_approver",
+                "shift_request_approver",
             ],
             as_dict=True,
         )
@@ -49,6 +51,19 @@ def employee_dashboard(employee_id=None):
             leave_approver_name = frappe.db.get_value(
                 "User", emp.leave_approver, "full_name"
             )
+
+        expense_approver_name = None
+        if emp.expense_approver:
+            expense_approver_name = frappe.db.get_value(
+                "User", emp.expense_approver,"full_name"
+            )
+
+        shift_request_approver_name = None
+        if emp.shift_request_approver:
+            shift_request_approver_name = frappe.db.get_value(
+                "User", emp.shift_request_approver,"full_name"
+            )
+
 
         employee_details = {
             "employeeId":          emp.name,
@@ -61,7 +76,8 @@ def employee_dashboard(employee_id=None):
             "dateOfJoining":       str(emp.date_of_joining) if emp.date_of_joining else None,
             "leaveApproverId":     emp.leave_approver,
             "leaveApproverName":   leave_approver_name,
-            "holidayList":         emp.holiday_list,
+            "expenseApproverName": expense_approver_name,
+            "shiftApproverName" :  shift_request_approver_name,
         }
 
         today = nowdate()
@@ -154,6 +170,85 @@ def employee_dashboard(employee_id=None):
             "outTime": out_time,
         }
 
+        # appraisal = frappe.db.get_all(
+        #     "Appraisal Cycle",
+        #     filters={
+                    
+        #     },
+        #     fields=["name"]
+        # )
+
+        holidays = frappe.db.get_all(
+            "Holiday List Assignment",
+            filters={
+                "assigned_to":employee_id
+            },
+            fields=["holiday_list"]
+        )
+        
+        upcoming_holiday_list = []
+        for holiday in holidays:
+            temp = frappe.db.get_all(
+                                        "Holiday",
+                                        filters={
+                                            "parent": holiday.holiday_list,
+                                            "parenttype": "Holiday List",
+                                            "holiday_date": [">=", today],
+                                        },
+                                            fields=["holiday_date", "description"],
+                                            order_by="holiday_date asc",
+                                            limit=4,
+                                        )        
+            for h in temp:
+                if h:
+                    upcoming_holiday_list.append({"date": str(h.holiday_date), "description": h.description or ""})
+        
+        upcoming_holidays = {
+        "upcoming": upcoming_holiday_list if upcoming_holiday_list else None,
+        }
+ 
+        birthdays = frappe.db.get_all(
+            "Employee",
+            filters={
+                "status":"Active",
+                "date_of_birth": ["is", "set"]
+            },
+            fields=["employee_name","date_of_birth"],
+        )
+
+        today = getdate(nowdate())
+        upcoming_birthdays_list = []
+
+        for emp in birthdays:
+            dob = getdate(emp.date_of_birth)
+            next_birthday=date(
+                today.year,
+                dob.month,
+                dob.day    
+            )
+
+            if next_birthday < today:
+                next_birthday = date(
+                today.year + 1,
+                dob.month,
+                dob.day
+            )
+            
+            days_left = (next_birthday - today).days
+
+            upcoming_birthdays_list.append({
+            "employeeName": emp.employee_name,
+            "dateOfBirth": str(emp.date_of_birth),
+            "daysLeft": days_left
+            })
+
+        upcoming_birthdays_list.sort(key=lambda x: x["daysLeft"])
+
+        upcoming_birthdays = {
+        "upcoming": upcoming_birthdays_list[:4]
+        }
+
+
 
         return send_old_response(
             status="success",
@@ -161,7 +256,9 @@ def employee_dashboard(employee_id=None):
             data={
                 "employeeDetails": employee_details,
                 "leaveBalance":    leave_balance,
-                "checkins":      attendance_data,
+                "checkins":        attendance_data,
+                "holidays":        upcoming_holidays,
+                "birthdays":       upcoming_birthdays
             },
             status_code=200,
             http_status=200,
