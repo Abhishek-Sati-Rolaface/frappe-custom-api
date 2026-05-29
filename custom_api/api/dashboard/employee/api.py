@@ -151,17 +151,27 @@ def employee_dashboard(employee_id=None):
             "Employee Checkin",
             filters= {
                 "employee":employee_id,
-                "time": ["between", [f"{today} 00:00:00", f"{today} 23:59:59"]]
             },
-            fields=["log_type","time"]
+            fields=["log_type","time"],
+            order_by="time asc"
         )
+        current_in_time = None
+        current_out_time = None
         in_time = None
         out_time = None
         for row in checkins:
             if row.get("log_type") == "IN":
-                in_time = row.get("time")
-            if row.get("log_type") == "OUT":
-                out_time = row.get("time")
+                current_in_time = row.get("time")
+                current_out_time = None
+            elif row.log_type == "OUT" and current_in_time:
+                current_out_time = row.time
+
+        if current_out_time:
+            in_time = current_in_time
+            out_time = current_out_time
+        else:
+            in_time = current_in_time
+            out_time = None
 
     
         attendance_data = {
