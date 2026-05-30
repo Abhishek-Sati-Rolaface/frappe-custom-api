@@ -167,7 +167,9 @@ def get_barcode_image(value):
 
         frappe.local.response.filename = f"barcode_{value}.png"
         frappe.local.response.filecontent = buffer.getvalue()
-        frappe.local.response.type = "png"
+        frappe.local.response.type = "download"
+        frappe.local.response["Content-Type"] = "image/png"
 
     except Exception as e:
         frappe.log_error(str(e), "Barcode Image Error")
+        frappe.throw(str(e))
