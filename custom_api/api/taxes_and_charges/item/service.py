@@ -42,7 +42,7 @@ def get_item_tax_templates_service(args):
     templates = frappe.get_all(
         "Item Tax Template",
         filters=filters,
-        fields=["name", "title", "company", "disabled", "modified"],
+        fields=["name", "title", "company", "disabled", "modified", "custom_description as description"],
         order_by=order_by,
         limit_start=limit_start,
         limit_page_length=limit_page_length
@@ -50,11 +50,19 @@ def get_item_tax_templates_service(args):
 
     # Fetch child taxes
     for template in templates:
-        template["taxes"] = frappe.get_all(
+        taxes = frappe.get_all(
             "Item Tax Template Detail",
             filters={"parent": template["name"]},
             fields=["tax_type", "tax_rate"]
         )
+        for tax in taxes:
+            tax["tax_type_name"] = frappe.db.get_value(
+                "Account",
+                tax["tax_type"],
+                "account_name"
+            )
+
+        template["taxes"] = taxes
 
     return {
         "templates": templates,

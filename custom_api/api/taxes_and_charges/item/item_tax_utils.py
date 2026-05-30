@@ -15,7 +15,7 @@ def map_item_tax_template(doc, data):
     doc.title = data.get("title")
     doc.company = company.name
     doc.disabled = data.get("disabled", 0)
-
+    doc.custom_description = data.get("description", "")
     taxes = data.get("taxes", [])
 
     for row in taxes:
