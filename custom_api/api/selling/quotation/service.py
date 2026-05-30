@@ -7,6 +7,7 @@ from .utils import (
     get_extended_item_detail,
     sync_taxes,
     sync_quotation_terms,
+    get_naming_series_for_quotation
 )
 from custom_api.api.item.utils.item_utils import _get_tax
 from ....api.buying.purchase_order.utils import _get_item_tax_template
@@ -18,10 +19,20 @@ def create_quotation(data):
 
     currency = data.get("currency") or company_doc.default_currency
 
+    document_type = data.get("documentType") or data.get("document_type")
+    if not document_type:
+        extended_details = data.get("extendedDetails") or data.get("extended_details", [])
+        if extended_details and isinstance(extended_details, list):
+            document_type = extended_details[0].get("documentType") or extended_details[0].get("document_type")
+    
+    document_type = document_type or "Quotation"
+    naming_series = get_naming_series_for_quotation(document_type)
+
     quotation = frappe.new_doc("Quotation")
 
     quotation.update(
         {
+            "naming_series": naming_series,
             "title": data.get("title"),
             "quotation_to": "Customer",
             "party_name": data.get("customerId"),
@@ -36,6 +47,10 @@ def create_quotation(data):
             "order_type": data.get("orderType", "Sales"),
         }
     )
+
+    quotation.append("custom_extended_details", {
+        "document_type": document_type
+    })
 
     for item in data.get("items", []):
         quotation.append(
@@ -98,6 +113,18 @@ def update_quotation(quotation_id, data):
 
     if currency:
         quotation.currency = currency
+
+    document_type = data.get("documentType") or data.get("document_type")
+    if not document_type:
+        extended_details = data.get("extendedDetails") or data.get("extended_details")
+        if extended_details and isinstance(extended_details, list):
+            document_type = extended_details[0].get("documentType") or extended_details[0].get("document_type")
+
+    if document_type:
+        quotation.set("custom_extended_details", [])
+        quotation.append("custom_extended_details", {
+            "document_type": document_type
+        })
 
     if "items" in data:
         quotation.set("items", [])
@@ -166,11 +193,22 @@ def get_quotation_by_id(quotation_id):
         "netTotal": quotation.net_total,
         "grandTotal": quotation.grand_total,
         "inWords": quotation.in_words,
+        "detailedLostReason": quotation.order_lost_reason,
+        "documentType": "Quotation", # Default, overridden below
+        "lostReason": None,
         "items": [],
         "taxes": [],
         "charges": [],
         "terms": {},
     }
+
+    ext_details = quotation.get("custom_extended_details", [])
+    if ext_details:
+        data["documentType"] = ext_details[0].document_type
+
+    lost_rsns = quotation.get("lost_reasons", [])
+    if lost_rsns:
+        data["lostReason"] = lost_rsns[0].lost_reason
 
     for item in quotation.items:
         tax_info = _get_tax(item.item_code, quotation.tax_category)
@@ -265,15 +303,10 @@ def get_quotation_by_id(quotation_id):
     return data
 
 
-def get_quotations(filters=None, page=1, page_size=20, search=None):
+def get_quotations(filters=None, page=1, page_size=20, search=None, sort_by="creation", sort_order="desc"):
     filters = filters or {}
-    allowed_filters = {
-        key: filters.get(key)
-        for key in ["party_name", "status", "from_date", "to_date", "company"]
-        if filters.get(key) is not None
-    }
-
-    frappe_filters = build_quotation_filters(allowed_filters)
+    
+    frappe_filters = build_quotation_filters(filters)
 
     or_filters = []
     if search:
@@ -284,9 +317,12 @@ def get_quotations(filters=None, page=1, page_size=20, search=None):
             ["party_name", "like", f"%{search}%"],
             ["status", "like", f"%{search}%"],
             ["currency", "like", f"%{search}%"],
+            ["order_lost_reason", "like", f"%{search}%"],
         ]
 
     start = (page - 1) * page_size
+    
+    order_string = f"{sort_by} {sort_order}" if sort_by else "creation desc"
 
     quotations = frappe.get_all(
         "Quotation",
@@ -303,10 +339,11 @@ def get_quotations(filters=None, page=1, page_size=20, search=None):
             "grand_total",
             "currency",
             "status",
+            "order_lost_reason"
         ],
         limit_start=start,
         limit_page_length=page_size,
-        order_by="creation desc",
+        order_by=order_string,
     )
 
     total_quotations = len(
@@ -320,7 +357,31 @@ def get_quotations(filters=None, page=1, page_size=20, search=None):
 
     total_pages = (total_quotations + page_size - 1) // page_size
 
+    quotation_names = [q.name for q in quotations]
+    
+    extended_map = {}
+    lost_reasons_map = {}
+
+    if quotation_names:
+        ext_data = frappe.get_all(
+            "Custom Quotation Extended Details",
+            filters={"parent": ["in", quotation_names]},
+            fields=["parent", "document_type"]
+        )
+        for d in ext_data:
+            extended_map[d.parent] = d.document_type
+
+        lr_data = frappe.get_all(
+            "Quotation Lost Reason Detail",
+            filters={"parent": ["in", quotation_names]},
+            fields=["parent", "lost_reason"]
+        )
+        for lr in lr_data:
+            lost_reasons_map[lr.parent] = lr.lost_reason
+
+
     for qt in quotations:
+        qt_name = qt.name
         qt["id"] = qt.pop("name")
         qt["title"] = qt.pop("title")
         qt["customerId"] = qt.pop("party_name")
@@ -329,6 +390,10 @@ def get_quotations(filters=None, page=1, page_size=20, search=None):
         qt["validTill"] = qt.pop("valid_till")
         qt["total"] = qt.pop("grand_total")
         qt["baseGrandTotal"] = qt.pop("base_grand_total")
+        qt["detailedLostReason"] = qt.pop("order_lost_reason")
+        
+        qt["documentType"] = extended_map.get(qt_name, "Quotation")
+        qt["lostReason"] = lost_reasons_map.get(qt_name, None)
 
     return quotations, total_quotations, total_pages
 

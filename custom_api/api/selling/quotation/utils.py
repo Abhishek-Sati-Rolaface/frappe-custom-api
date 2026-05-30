@@ -3,6 +3,24 @@ import json
 from typing import Dict, Any
 from frappe.utils import flt, cint, add_days
 
+def get_naming_series_for_quotation(document_type: str) -> str:
+    meta = frappe.get_meta("Quotation")
+    naming_series_field = meta.get_field("naming_series")
+    
+    if not naming_series_field or not naming_series_field.options:
+        frappe.throw("Naming Series options for Quotation are not configured in the system.")
+
+    series_list = [s.strip() for s in naming_series_field.options.split('\n') if s.strip()]
+    
+    if not series_list:
+        frappe.throw("Naming Series options for Quotation are empty. Please configure them in Document Naming Settings.")
+
+    if document_type == "Proforma Invoice":
+        if len(series_list) < 2:
+            frappe.throw("Proforma Invoice naming series not found. Please add a second line to the Quotation Naming Series options.")
+        return series_list[1]
+    
+    return series_list[0]
 
 def validate_quotation_payload(data: Dict[str, Any], is_update=False):
     if not is_update and not data.get("customerId"):
