@@ -289,3 +289,13 @@ def get_extended_item_detail(item_code):
         filters={"parent": item_code},
         fields=["hsn_code", "packing_unit", "packing_size"],
     )
+
+def ensure_lost_reason(lost_reason):
+    if not lost_reason:
+        return
+    
+    if not frappe.db.exists("Quotation Lost Reason", lost_reason):
+        frappe.get_doc({
+            "doctype": "Quotation Lost Reason",
+            "order_lost_reason": lost_reason
+        }).insert(ignore_permissions=True)

@@ -3,6 +3,7 @@ import frappe
 from frappe.utils import flt
 from .utils import (
     build_quotation_filters,
+    ensure_lost_reason,
     get_extended_item_detail,
     sync_taxes,
     sync_quotation_terms,
@@ -451,10 +452,7 @@ def update_quotation_status(quotation_id, action, payload=None):
                 "Lost Reason is mandatory when marking a quotation as lost."
             )
 
-        if not frappe.db.exists("Quotation Lost Reason", lost_reason):
-            raise frappe.ValidationError(
-                f"Quotation Lost Reason '{lost_reason}' does not exist."
-            )
+        ensure_lost_reason(lost_reason)
 
         quotation.set("lost_reasons", [])
         quotation.append("lost_reasons", {"lost_reason": lost_reason})
