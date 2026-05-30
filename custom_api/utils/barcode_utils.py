@@ -142,3 +142,32 @@ def get_item_batches(item_code):
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Get Item Batches Error")
         return {"success": False, "message": str(e)}
+
+
+@frappe.whitelist(allow_guest=True)
+def get_barcode_image(value):
+    """Barcode PNG image directly return karta hai"""
+    try:
+        import barcode
+        from barcode.writer import ImageWriter
+        from io import BytesIO
+
+        CODE128 = barcode.get_barcode_class("code128")
+        buffer = BytesIO()
+
+        CODE128(str(value), writer=ImageWriter()).write(buffer, options={
+            "module_height": 15.0,
+            "module_width": 0.8,
+            "quiet_zone": 6.5,
+            "write_text": False,
+            "dpi": 300
+        })
+
+        buffer.seek(0)
+
+        frappe.local.response.filename = f"barcode_{value}.png"
+        frappe.local.response.filecontent = buffer.getvalue()
+        frappe.local.response.type = "png"
+
+    except Exception as e:
+        frappe.log_error(str(e), "Barcode Image Error")
