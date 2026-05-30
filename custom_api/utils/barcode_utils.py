@@ -225,7 +225,7 @@ def get_barcode_image(value):
             "module_height": 15.0,
             "module_width": 0.8,
             "quiet_zone": 6.5,
-            "write_text": False,
+            "write_text": True,
             "dpi": 300
         })
 
@@ -243,10 +243,10 @@ def get_barcode_image(value):
 
 @frappe.whitelist()
 def search_item_batches(search_term):
-    """Item name search karke saare matching items with batches fetch karo"""
+    """Item name search matching items with batches fetch """
     try:
         if not search_term:
-            frappe.throw("Search term required hai")
+            frappe.throw("Search term required ")
 
         # Search karo items me
         items = frappe.db.get_all(
@@ -265,7 +265,7 @@ def search_item_batches(search_term):
                 "search_term": search_term,
                 "total_items": 0,
                 "results": [],
-                "message": "Koi item nahi mila"
+                "message": "No items found"
             }
 
         results = []
