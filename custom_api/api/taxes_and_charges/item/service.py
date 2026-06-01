@@ -42,7 +42,7 @@ def get_item_tax_templates_service(args):
     templates = frappe.get_all(
         "Item Tax Template",
         filters=filters,
-        fields=["name", "title", "company", "disabled", "modified", "custom_description as description"],
+        fields=["name", "title", "company", "disabled", "modified"],
         order_by=order_by,
         limit_start=limit_start,
         limit_page_length=limit_page_length
