@@ -121,6 +121,11 @@ def build_references(references, pe):
 
             total_amount = frappe.db.get_value(
                 reference_doctype, reference_name, "base_grand_total") or 0
+        
+        if reference_doctype == "Expense Claim":
+            claim = frappe.get_doc("Expense Claim", reference_name)
+            total_amount = claim.grand_total
+            outstanding = claim.grand_total - claim.total_amount_reimbursed
 
         else:
             outstanding = frappe.db.get_value(
@@ -251,7 +256,7 @@ def create_payment_entry():
                     status_code=404,
                     http_status=404
                 )
-        if party_type in ["Customer", "Supplier"]:  #Later on we need handle case for Emplyee and Shareholder as well
+        if party_type in ["Customer", "Supplier", "Employee"]:  #Later on we need handle case for Shareholder as well
             if not references or len(references) == 0:
                 return send_old_response(
                     status="error",
@@ -349,8 +354,8 @@ def create_payment_entry():
         frappe.log_error(frappe.get_traceback(), "Create Payment Entry API Error")
         if db := getattr(frappe.local, "db", None):
             db.rollback(chain=True)
-        
-        frappe.db.rollback()
+        else:
+            frappe.db.rollback()
 
         return send_old_response(
             status="fail",
