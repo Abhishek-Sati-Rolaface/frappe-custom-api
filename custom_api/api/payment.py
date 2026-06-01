@@ -127,6 +127,18 @@ def build_references(references, pe):
             total_amount = claim.grand_total
             outstanding = claim.grand_total - claim.total_amount_reimbursed
 
+        if reference_doctype == "Employee Advance":
+            advance = frappe.get_doc("Employee Advance", reference_name)
+            if advance.docstatus != 1:
+                frappe.throw(f"Employee Advance {reference_name} is not submitted.")
+            paid_amount = (advance.paid_amount)
+            claimed_amount = (advance.claimed_amount)
+            return_amount = (advance.return_amount)
+
+            total_amount  = paid_amount
+            outstanding   = paid_amount - claimed_amount - return_amount
+            outstanding = max(outstanding, 0.0)
+            
         else:
             outstanding = frappe.db.get_value(
                 reference_doctype, reference_name, "outstanding_amount"
