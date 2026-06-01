@@ -298,6 +298,18 @@ def build_quotation_filters(args):
     if args.get("company"):
         frappe_filters["company"] = args["company"]
 
+    doc_type = args.get("documentType") or args.get("document_type")
+    if doc_type:
+        matching_parents = frappe.get_all(
+            "Custom Quotation Extended Details",
+            filters={"document_type": doc_type},
+            pluck="parent"
+        )
+        if matching_parents:
+            frappe_filters["name"] = ["in", matching_parents]
+        else:
+            frappe_filters["name"] = "---not-found---"
+
     return frappe_filters
 
 
