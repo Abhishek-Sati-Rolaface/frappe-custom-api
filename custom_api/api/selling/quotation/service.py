@@ -313,8 +313,8 @@ def get_quotations(filters=None, page=1, page_size=20, search=None, sort_by="cre
         search = str(search).strip()
         or_filters = [
             ["name", "like", f"%{search}%"],
-            ["title", "like", f"%{search}%"],
             ["party_name", "like", f"%{search}%"],
+            ["customer_name", "like", f"%{search}%"],
             ["status", "like", f"%{search}%"],
             ["currency", "like", f"%{search}%"],
             ["order_lost_reason", "like", f"%{search}%"],
@@ -330,9 +330,9 @@ def get_quotations(filters=None, page=1, page_size=20, search=None, sort_by="cre
         or_filters=or_filters if search else None,
         fields=[
             "name",
-            "title",
             "quotation_to",
             "party_name",
+            "customer_name",
             "transaction_date",
             "valid_till",
             "base_grand_total",
@@ -383,8 +383,8 @@ def get_quotations(filters=None, page=1, page_size=20, search=None, sort_by="cre
     for qt in quotations:
         qt_name = qt.name
         qt["id"] = qt.pop("name")
-        qt["title"] = qt.pop("title")
-        qt["customerId"] = qt.pop("party_name")
+        qt["customer"] = qt.pop("party_name")
+        qt["customerName"] = qt.pop("customer_name")
         qt["quotationTo"] = qt.pop("quotation_to")
         qt["postingDate"] = qt.pop("transaction_date")
         qt["validTill"] = qt.pop("valid_till")
