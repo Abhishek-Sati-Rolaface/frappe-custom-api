@@ -145,7 +145,7 @@ def get_company_naming_settings():
         return send_response(status="error", message=str(e), status_code=500, http_status=500)
 
 
-@frappe.whitelist(allow_guest=False, methods=["POST", "PUT"])
+@frappe.whitelist(allow_guest=False, methods=["POST", "PUT", "PATCH"])
 def update_company_naming_settings():
     try:
         data = parse_api_payload()

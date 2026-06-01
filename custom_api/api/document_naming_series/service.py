@@ -171,17 +171,22 @@ def get_bulk_naming_settings():
     return settings
 
 def update_bulk_naming_settings(payload_data):
+    current_settings = get_bulk_naming_settings()
+    
+    for key, val in payload_data.items():
+        if key in FRONTEND_DOCTYPE_MAP:
+            current_settings[key] = val
+            
     doctype_prefixes = {}
     
-    for key, prefix in payload_data.items():
+    for key, doctype in FRONTEND_DOCTYPE_MAP.items():
+        prefix = current_settings.get(key)
         if not prefix:
             continue
             
-        doctype = FRONTEND_DOCTYPE_MAP.get(key)
-        if doctype:
-            if doctype not in doctype_prefixes:
-                doctype_prefixes[doctype] = []
-            doctype_prefixes[doctype].append(prefix)
+        if doctype not in doctype_prefixes:
+            doctype_prefixes[doctype] = []
+        doctype_prefixes[doctype].append(prefix)
             
     for doctype, prefixes in doctype_prefixes.items():
         new_options = "\n".join(prefixes)
