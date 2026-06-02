@@ -74,6 +74,7 @@ def create_purchase_invoice_service(data):
         "contact_person": data.get("supplierContact"),
         "update_stock": data.get("updateStock", False),
         "posting_date": data.get("poDate"),
+        "due_date": data.get("dueDate"),
         "set_warehouse": data.get("warehouse"),
         "currency": currency,
         "credit_to": account,
@@ -158,6 +159,7 @@ def get_purchase_invoice_by_id(pi_id):
         "supplierId": pi_doc.supplier,
         "supplierName": pi_doc.supplier_name,
         "piDate": str(pi_doc.posting_date) if pi_doc.posting_date else None,
+        "dueDate": str(pi_doc.due_date) if pi_doc.due_date else None,
         "currency": pi_doc.currency,
         "billingAddress": pi_doc.billing_address,
         "billingAddressDisplay": pi_doc.billing_address_display,
@@ -198,6 +200,7 @@ def update_pi_service(pi_id, data):
     pi_doc.contact_person = data.get("supplierContact","")
     pi_doc.update_stock = data.get("updateStock", pi_doc.update_stock)
     pi_doc.posting_date = data.get("poDate")
+    pi_doc.due_date = data.get("dueDate")
     pi_doc.set_warehouse = data.get("warehouse")
     pi_doc.currency = currency
     pi_doc.tax_category = data.get("taxCategory")
