@@ -4,6 +4,8 @@ from frappe.email.doctype.email_template.email_template import get_email_templat
 from custom_api.utils.response import send_old_response, send_response_list
 from frappe.exceptions import DuplicateEntryError
 
+TEMPLATE_TYPES = ["Sales Invoice", "Purchase Order", "Payment Entry"]
+
 @frappe.whitelist(allow_guest=False, methods=["POST"])
 def make_email_template(**payload):
         try:
@@ -125,11 +127,14 @@ def get_all():
                 ["subject", "like", wildcard],
             ]
 
-        total = frappe.db.count("Email Template")
+        total = frappe.db.count("Email Template",
+                                filters={"name": ["in", TEMPLATE_TYPES]}
+                                )
 
         templates = frappe.db.get_all(
             "Email Template",
             or_filters = or_filters,
+            filters = [["name", "in", TEMPLATE_TYPES]],
             fields = [
                 "name as id",
                 "subject",
