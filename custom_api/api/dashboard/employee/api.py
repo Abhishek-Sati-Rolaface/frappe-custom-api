@@ -1,7 +1,7 @@
 from custom_api.utils.response import send_old_response
 import frappe
 from frappe.utils import flt, nowdate , getdate
-from datetime import date
+from datetime import datetime, date
 
 
 @frappe.whitelist(allow_guest=False, methods=["GET"])
@@ -147,46 +147,47 @@ def employee_dashboard(employee_id=None):
             "leaveTypes":     leave_types_list,
         }
 
+        today_str = nowdate()
+
         checkins = frappe.db.get_all(
             "Employee Checkin",
             filters= {
                 "employee":employee_id,
+                "time": ["between", [today_str + " 00:00:00", today_str + " 23:59:59"]],
             },
-            fields=["log_type","time"],
+            fields=["log_type", "time"],
             order_by="time asc"
         )
-        current_in_time = None
-        current_out_time = None
-        in_time = None
-        out_time = None
+        completed_pairs = []
+        active_in = None
+
         for row in checkins:
-            if row.get("log_type") == "IN":
-                current_in_time = row.get("time")
-                current_out_time = None
-            elif row.log_type == "OUT" and current_in_time:
-                current_out_time = row.time
+            if row.log_type == "IN":
+                active_in = row.time
+            elif row.log_type == "OUT" and active_in is not None:
+                completed_pairs.append((active_in, row.time))
+                active_in = None
+        print("completed_pairs: ",completed_pairs)
+        total_seconds = 0
+        for in_t, out_t in completed_pairs:
+            delta = (out_t - in_t).total_seconds()
+            print("delta: ",delta)
+            if delta > 0:
+                total_seconds += delta
+        display_in_time = active_in  
+        display_out_time = None
 
-        if current_out_time:
-            in_time = current_in_time
-            out_time = current_out_time
-        else:
-            in_time = current_in_time
-            out_time = None
+        if active_in is None and completed_pairs:
+            display_in_time = completed_pairs[-1][0]
+            display_out_time = completed_pairs[-1][1]
 
-    
         attendance_data = {
-            "asofDate":today,
-            "inTime": in_time,
-            "outTime": out_time,
-        }
-
-        # appraisal = frappe.db.get_all(
-        #     "Appraisal Cycle",
-        #     filters={
-                    
-        #     },
-        #     fields=["name"]
-        # )
+        "asofDate": today_str,
+        "inTime": str(display_in_time) if display_in_time else None,
+        "outTime": str(display_out_time) if display_out_time else None,
+        "totalWorkedSeconds": int(total_seconds),  
+        "isActive": active_in is not None,   
+        }      
 
         holidays = frappe.db.get_all(
             "Holiday List Assignment",
