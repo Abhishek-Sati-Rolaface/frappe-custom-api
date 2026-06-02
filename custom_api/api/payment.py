@@ -122,12 +122,12 @@ def build_references(references, pe):
             total_amount = frappe.db.get_value(
                 reference_doctype, reference_name, "base_grand_total") or 0
         
-        if reference_doctype == "Expense Claim":
+        elif reference_doctype == "Expense Claim":
             claim = frappe.get_doc("Expense Claim", reference_name)
             total_amount = claim.grand_total
             outstanding = claim.grand_total - claim.total_amount_reimbursed
 
-        if reference_doctype == "Employee Advance":
+        elif reference_doctype == "Employee Advance":
             advance = frappe.get_doc("Employee Advance", reference_name)
             if advance.docstatus != 1:
                 frappe.throw(f"Employee Advance {reference_name} is not submitted.")
@@ -151,7 +151,7 @@ def build_references(references, pe):
             "total_amount":       total_amount,
             "outstanding_amount": outstanding,
             "allocated_amount":   allocated_amount,
-            "excahange_rate":      get_exchange_rate(from_currency=pe.paid_from_account_currency, to_currency=pe.company_currency, transaction_date=pe.posting_date)
+            "exchange_rate":      get_exchange_rate(from_currency=pe.paid_from_account_currency, to_currency=pe.company_currency, transaction_date=pe.posting_date)
         })
 
 
