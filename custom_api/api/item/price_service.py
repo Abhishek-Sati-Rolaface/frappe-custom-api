@@ -20,7 +20,7 @@ def create_item_prices(item_doc, data: dict):
             buying=0
         )
 
-    if buying_price:
+    if buying_price or data.get("vendorInfo").get("preferredVendor"):
         _create_price(
             item_code=item_doc.name,
             price=buying_price,
