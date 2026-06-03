@@ -57,7 +57,7 @@ def get_accounts_payable():
         filters = frappe._dict(
             {
                 "company": frappe.defaults.get_user_default("Company"),
-                "report_date": _get_arg("report_date", today()),
+                "report_date": _get_arg("posting_date", today()),
                 "cost_center": _get_arg("cost_center"),
                 "party_account": _get_arg("payable_account"),
                 "party_type": _get_arg("party_type"),
@@ -222,7 +222,7 @@ def get_accounts_payable():
 
             processed_rows.append(
                 {
-                    "report_date": row.get("posting_date"),
+                    "posting_date": row.get("posting_date"),
                     "supplier": supplier,
                     "party_type": row.get("party_type"),
                     "payable_account": row.get("party_account"),
