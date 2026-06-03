@@ -16,6 +16,7 @@ def get_batch_wise_stock_report(
     search=None,
     page=1,
     page_size=20,
+    get_service_item=1
 ):
     page      = int(page)
     page_size = int(page_size)
@@ -23,7 +24,7 @@ def get_batch_wise_stock_report(
     params    = frappe.request.args
     tax_category = params.get("taxCategory")
     company_currency = frappe.defaults.get_user_default("Currency")
-
+    get_service_item = int(get_service_item)
     # ── Step 1: Build SQL conditions ──────────────────────────────────────────
     conditions = [
         f"company = {frappe.db.escape(company)}",
@@ -475,66 +476,67 @@ def get_batch_wise_stock_report(
                     "batches":             batch_rows,
                     "price_list":          item_info.get("price_list", 0.0),
                 }
-    # ── Step 6b: Append non-stock items (maintain_stock=0, for sale) ─────────
-    non_stock_items = frappe.get_all(
-        "Item",
-        filters={
-            "is_stock_item":  0,
-            "is_sales_item":  1,
-            "disabled":       0,
-        },
-        fields=["item_code", "item_name", "item_group", "stock_uom", "description", "name"],
-        limit=0,
-    )
-
-    for item in non_stock_items:
-        code = item["item_code"]
-
-        # ── Skip if already present from movement rows ────────────────────────
-        if code in items_map:
-            continue
-
-        # ── Fetch custom metadata (packing info + tax) ────────────────────────
-        item_metadata = frappe.db.get_value(
-            "Custom Item Details",
-            {"parent": item.name},
-            ["*"],
-            as_dict=True,
+    if get_service_item:
+        # ── Step 6b: Append non-stock items (maintain_stock=0, for sale) ─────────
+        non_stock_items = frappe.get_all(
+            "Item",
+            filters={
+                "is_stock_item":  0,
+                "is_sales_item":  1,
+                "disabled":       0,
+            },
+            fields=["item_code", "item_name", "item_group", "stock_uom", "description", "name"],
+            limit=0,
         )
 
-        packing_size = item_metadata.packing_size if item_metadata else ""
-        packing_unit = item_metadata.packing_unit if item_metadata else ""
-        tax_info     = _get_tax(item.name, tax_category)
+        for item in non_stock_items:
+            code = item["item_code"]
 
-        # ── Buy/sell values from invoices ─────────────────────────────────────
-        buy_info  = item_buy_map.get(code,  {"buy_value": 0.0, "buy_currency":  company_currency})
-        sell_info = item_sell_map.get(code, {"sell_value": 0.0, "sell_currency": company_currency})
+            # ── Skip if already present from movement rows ────────────────────────
+            if code in items_map:
+                continue
 
-        items_map[code] = {
-            "item_code":           code,
-            "item_name":           item["item_name"]  or "",
-            "item_group":          item["item_group"] or "",
-            "stock_uom":           item["stock_uom"]  or "",
-            "description":         item["description"] or "",
-            "packingSize":         packing_size,
-            "packingUnit":         packing_unit,
-            "taxInfo":             tax_info,
-            "total_opening_qty":   0.0,
-            "total_opening_value": 0.0,
-            "total_in_qty":        0.0,
-            "total_in_value":      0.0,
-            "total_out_qty":       0.0,
-            "total_out_value":     0.0,
-            "total_bal_qty":       0.0,
-            "total_bal_val":       0.0,
-            "total_buy_value":     buy_info["buy_value"],
-            "buy_currency":        buy_info["buy_currency"],
-            "total_sell_value":    sell_info["sell_value"],
-            "sell_currency":       sell_info["sell_currency"],
-            "batches":             [],
-            "is_service_item": 1,
-            "price_list": frappe.db.get_value("Item Price", {"item_code": item["item_code"], "price_list": "Standard Selling"}, "price_list_rate"),
-        }
+            # ── Fetch custom metadata (packing info + tax) ────────────────────────
+            item_metadata = frappe.db.get_value(
+                "Custom Item Details",
+                {"parent": item.name},
+                ["*"],
+                as_dict=True,
+            )
+
+            packing_size = item_metadata.packing_size if item_metadata else ""
+            packing_unit = item_metadata.packing_unit if item_metadata else ""
+            tax_info     = _get_tax(item.name, tax_category)
+
+            # ── Buy/sell values from invoices ─────────────────────────────────────
+            buy_info  = item_buy_map.get(code,  {"buy_value": 0.0, "buy_currency":  company_currency})
+            sell_info = item_sell_map.get(code, {"sell_value": 0.0, "sell_currency": company_currency})
+
+            items_map[code] = {
+                "item_code":           code,
+                "item_name":           item["item_name"]  or "",
+                "item_group":          item["item_group"] or "",
+                "stock_uom":           item["stock_uom"]  or "",
+                "description":         item["description"] or "",
+                "packingSize":         packing_size,
+                "packingUnit":         packing_unit,
+                "taxInfo":             tax_info,
+                "total_opening_qty":   0.0,
+                "total_opening_value": 0.0,
+                "total_in_qty":        0.0,
+                "total_in_value":      0.0,
+                "total_out_qty":       0.0,
+                "total_out_value":     0.0,
+                "total_bal_qty":       0.0,
+                "total_bal_val":       0.0,
+                "total_buy_value":     buy_info["buy_value"],
+                "buy_currency":        buy_info["buy_currency"],
+                "total_sell_value":    sell_info["sell_value"],
+                "sell_currency":       sell_info["sell_currency"],
+                "batches":             [],
+                "is_service_item": 1,
+                "price_list": frappe.db.get_value("Item Price", {"item_code": item["item_code"], "price_list": "Standard Selling"}, "price_list_rate"),
+            }
 
     # ── Step 7: Pagination ────────────────────────────────────────────────────
     result        = list(items_map.values())
