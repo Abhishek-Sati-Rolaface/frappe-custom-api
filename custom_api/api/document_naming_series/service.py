@@ -170,12 +170,61 @@ def get_bulk_naming_settings():
             
     return settings
 
+# def update_bulk_naming_settings(payload_data):
+#     current_settings = get_bulk_naming_settings()
+    
+#     for key, val in payload_data.items():
+#         if key in FRONTEND_DOCTYPE_MAP:
+#             current_settings[key] = val
+            
+#     doctype_prefixes = {}
+    
+#     for key, doctype in FRONTEND_DOCTYPE_MAP.items():
+#         prefix = current_settings.get(key)
+#         if not prefix:
+#             continue
+            
+#         if doctype not in doctype_prefixes:
+#             doctype_prefixes[doctype] = []
+#         doctype_prefixes[doctype].append(prefix)
+            
+#     for doctype, prefixes in doctype_prefixes.items():
+#         new_options = "\n".join(prefixes)
+#         make_property_setter(doctype, "naming_series", "options", new_options, "Text")
+        
+#         for pref in prefixes:
+#             db_key = _get_db_key(pref)
+#             frappe.db.sql("""
+#                 INSERT INTO `tabSeries` (name, current) 
+#                 VALUES (%s, 0) 
+#                 ON DUPLICATE KEY UPDATE name=name
+#             """, (db_key,))
+            
+#     return get_bulk_naming_settings()
+
 def update_bulk_naming_settings(payload_data):
     current_settings = get_bulk_naming_settings()
+    skipped_updates = []
     
-    for key, val in payload_data.items():
+    for key, new_val in payload_data.items():
         if key in FRONTEND_DOCTYPE_MAP:
-            current_settings[key] = val
+            old_val = current_settings.get(key)
+            
+            if old_val and old_val != new_val:
+                old_db_key = _get_db_key(old_val)
+                counter_data = frappe.db.sql("SELECT current FROM `tabSeries` WHERE name = %s", (old_db_key,))
+                current_count = counter_data[0][0] if counter_data else 0
+                
+                if current_count > 0:
+                    # Capture the exact frontend key and a detailed reason
+                    skipped_updates.append({
+                        "field": key,
+                        "doctype": FRONTEND_DOCTYPE_MAP[key],
+                        "reason": f"Already in use (Counter: {current_count})"
+                    })
+                    continue 
+            
+            current_settings[key] = new_val
             
     doctype_prefixes = {}
     
@@ -200,4 +249,4 @@ def update_bulk_naming_settings(payload_data):
                 ON DUPLICATE KEY UPDATE name=name
             """, (db_key,))
             
-    return get_bulk_naming_settings()
+    return get_bulk_naming_settings(), skipped_updates
