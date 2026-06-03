@@ -145,7 +145,7 @@ def get_company_naming_settings():
         return send_response(status="error", message=str(e), status_code=500, http_status=500)
 
 
-@frappe.whitelist(allow_guest=False, methods=["POST", "PUT"])
+@frappe.whitelist(allow_guest=False, methods=["POST", "PUT", "PATCH"])
 def update_company_naming_settings():
     try:
         data = parse_api_payload()
@@ -158,13 +158,23 @@ def update_company_naming_settings():
                 http_status=400,
             )
 
-        updated_settings = service.update_bulk_naming_settings(data)
+        updated_settings, skipped = service.update_bulk_naming_settings(data)
         frappe.db.commit()
 
+        if skipped:
+            msg = "Update partially successful. Some fields were skipped because they are in use."
+            status_val = "partial_success"
+        else:
+            msg = "Company naming series configured successfully."
+            status_val = "success"
+
         return send_response(
-            status="success",
-            message="Company naming series configured successfully.",
-            data=updated_settings,
+            status=status_val,
+            message=msg,
+            data={
+                "settings": updated_settings,
+                "warnings": skipped
+            },
             status_code=200,
             http_status=200,
         )

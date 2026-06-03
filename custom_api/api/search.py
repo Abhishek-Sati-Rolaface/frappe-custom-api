@@ -107,9 +107,18 @@ def get_payable_accounts():
         filters = frappe._dict(
             {"company": company, "account_type": "Payable", "is_group": 0}
         )
+
         data = _fetch_paginated_autosuggest(
-            "Account", filters, ["name", "account_name"]
+            doctype="Account",
+            filters=filters,
+            search_fields=["name", "account_name"],
+            field_map={
+                "value": "name",
+                "label": "account_name",
+                "description": "name",
+            },
         )
+
         return send_response_list(
             "success", "Payable Accounts fetched successfully.", data
         )
@@ -125,9 +134,18 @@ def get_receivable_accounts():
         filters = frappe._dict(
             {"company": company, "account_type": "Receivable", "is_group": 0}
         )
+
         data = _fetch_paginated_autosuggest(
-            "Account", filters, ["name", "account_name"]
+            doctype="Account",
+            filters=filters,
+            search_fields=["name", "account_name"],
+            field_map={
+                "value": "name",
+                "label": "account_name",
+                "description": "name",
+            },
         )
+
         return send_response_list(
             "success", "Receivable Accounts fetched successfully.", data
         )
@@ -140,11 +158,26 @@ def get_receivable_accounts():
 def get_cost_centers():
     try:
         company = frappe.defaults.get_user_default("Company")
-        filters = frappe._dict({"company": company})
+
+        filters = frappe._dict({
+            "company": company,
+            "is_group": 0,
+        })
+
         data = _fetch_paginated_autosuggest(
-            "Cost Center", filters, ["name", "cost_center_name"]
+            doctype="Cost Center",
+            filters=filters,
+            search_fields=["name", "cost_center_name"],
+            field_map={
+                "value": "name",
+                "label": "cost_center_name",
+                "description": "name",
+            },
         )
-        return send_response_list("success", "Cost Centers fetched successfully.", data)
+
+        return send_response_list(
+            "success", "Cost Centers fetched successfully.", data
+        )
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Get Cost Centers API Error")
         return send_response("fail", str(e), None, 500, 500)
@@ -194,7 +227,7 @@ def get_suppliers():
             },
         )
 
-        return send_response_list("success","Suppliers fetched successfully.",data,)
+        return send_response_list("success","Suppliers fetched successfully.",data)
 
     except Exception as e:
         frappe.log_error(frappe.get_traceback(),"Get Suppliers API Error")
