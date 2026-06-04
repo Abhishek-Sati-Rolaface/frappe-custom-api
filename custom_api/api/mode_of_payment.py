@@ -1,7 +1,7 @@
 from custom_api.utils.response import send_old_response
 import frappe
 from frappe.utils import ceil
-from frappe.desk.search import build_for_autosuggest, search_widget
+from frappe.desk.search import search_widget
 
 @frappe.whitelist(allow_guest=False, methods=["POST"])
 def create():
@@ -198,13 +198,14 @@ def get_default_accounts():
                         ["Account","is_group","=",0],
                         ["Account","company","=",f"{company}"]
                         ],
+                filter_fields='["name", "account_name", "account_type"]',
                 reference_doctype="Mode of Payment Account",
+                as_dict=True
 	        )
-    response =  build_for_autosuggest(results, doctype="Account")
     return send_old_response(
         status="success",
         message="Mode of Payment updated successfully.",
-        data=response,
+        data=results,
         status_code=200,
         http_status=200,
     )
