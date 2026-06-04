@@ -117,8 +117,8 @@ def get_customers(page, page_size, search):
             ["name", "like", f"%{search}%"],
             ["customer_name", "like", f"%{search}%"],
             ["customer_type", "like", f"%{search}%"],
-            ["email_id", "like", f"%{search}"],
-            ["tax_category", "like", f"%{search}"],
+            ["email_id", "like", f"%{search}%"],
+            ["tax_category", "like", f"%{search}%"],
         ]
     customers = frappe.get_all(
         "Customer",
