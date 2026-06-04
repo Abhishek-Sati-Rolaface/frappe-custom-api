@@ -53,28 +53,33 @@ def get():
         )
 
 @frappe.whitelist()
-def get_tax_accounts(txt="", start=0, page_len=100):
+def get_tax_accounts(search="", start=0, page_len=100):
 
     company = frappe.defaults.get_user_default("Company")
 
-    accounts = tax_account_query(
-        doctype="Account",
-        txt=txt,
-        searchfield="name",
-        start=start,
-        page_len=page_len,
-        filters={
-            "company": company,
-            "account_type": ["Tax", "Chargeable", "Income Account",
-                              "Expenses Included In Valuation"
-                            ]
-        }
-    )
+    accounts = frappe.get_all(
+                    "Account",
+                    filters={
+                        "company":      company,
+                        "account_type": ["in", ["Tax", "Chargeable", "Income Account",
+                                                "Expenses Included In Valuation"]],
+                        "is_group":     0,
+                        "disabled":     0,
+                        "name":         ["like", f"%{search}%"] if search else ["like", "%%"],
+                    },
+                    fields=["name", "account_name", "account_type"],
+                    start=start,
+                    page_length=page_len,
+                    order_by="name asc"
+                )
 
     result = []
     for acc in accounts:
-        result.append({"name": acc[0], "description": acc[1] })
-
+        result.append({
+            "name":         acc["name"],
+            "account_name": acc["account_name"],
+            "account_type": acc["account_type"],
+        })
     return send_response_list(
             status="success",
             message="Tax accounts retrieved successfully",
