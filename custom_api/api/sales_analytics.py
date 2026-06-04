@@ -21,21 +21,45 @@ def _get_arg(key, default=None):
 def _calculate_sales_kpis(rows):
     total_value = 0
     entity_totals = {}
+    analyzed_count = 0
+
+    if not rows:
+        return {
+            "total_sales_value": 0.0,
+            "total_entities_analyzed": 0,
+            "average_value_per_entity": 0.0,
+            "top_performers": []
+        }
+
+    indents = [r.get("indent", 0) for r in rows]
+    min_indent = min(indents)
+    max_indent = max(indents)
+
+    is_tree = min_indent != max_indent
 
     for r in rows:
+        indent = r.get("indent", 0)
         entity = r.get("entity_name") or r.get("entity") or "Unknown"
         row_total = _format_currency(r.get("total"))
 
-        total_value += row_total
-        entity_totals[entity] = row_total
+        if is_tree:
+            if indent == min_indent:
+                total_value += row_total
+            else:
+                entity_totals[entity] = row_total
+                analyzed_count += 1
+        else:
+            total_value += row_total
+            entity_totals[entity] = row_total
+            analyzed_count += 1
 
     top_entities = sorted(entity_totals.items(), key=lambda x: x[1], reverse=True)[:5]
 
     return {
         "total_sales_value": _format_currency(total_value),
-        "total_entities_analyzed": len(rows),
+        "total_entities_analyzed": analyzed_count,
         "average_value_per_entity": (
-            _format_currency(total_value / len(rows)) if len(rows) else 0.0
+            _format_currency(total_value / analyzed_count) if analyzed_count else 0.0
         ),
         "top_performers": [
             {"entity": e, "total_value": _format_currency(v)} for e, v in top_entities
