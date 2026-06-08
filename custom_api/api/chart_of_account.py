@@ -119,6 +119,8 @@ def get_chart_of_accounts():
 
         for acc in accounts:
             balance_data = balance_map.get(acc["name"])
+            if acc["account_number"]:
+                    acc["account_name"] = f"{acc['account_number']} - {acc['account_name']}"
             if balance_data:
                 raw_balance = balance_data["balance"]
                 acc["account_currency"] = balance_data["account_currency"]
