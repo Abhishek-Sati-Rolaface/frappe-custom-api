@@ -202,6 +202,10 @@ def get_default_accounts():
                 reference_doctype="Mode of Payment Account",
                 as_dict=True
 	        )
+    for result in results:
+        if result.get("account_number"):
+            result["account_name"] = f"{result['account_number']} - {result['account_name']}"
+
     return send_old_response(
         status="success",
         message="Mode of Payment updated successfully.",
