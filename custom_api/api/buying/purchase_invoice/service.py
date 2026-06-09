@@ -153,6 +153,16 @@ def get_purchase_invoice_by_id(pi_id):
             "expDate": batch_info.expiry_date if batch_info else "",
             "description": description
         })
+    
+    attachments = frappe.db.get_all(
+        "File",
+        filters={
+            "attached_to_doctype": "Purchase Invoice",
+            "attached_to_name": pi_doc.name,
+        },
+        fields=["name", "file_name", "file_url", "file_size"],
+        order_by="creation desc",
+    )
 
     return {
         "piId": pi_doc.name,
@@ -186,7 +196,8 @@ def get_purchase_invoice_by_id(pi_id):
         "updateStock": pi_doc.update_stock,
         "lpoNumber": purchase_order,
         "outstanding_amount": pi_doc.outstanding_amount,
-        "status": pi_doc.status
+        "status": pi_doc.status,
+        "attachments": attachments
     }
 
 def update_pi_service(pi_id, data):
