@@ -98,13 +98,14 @@ def get():
             ["default_account"],
             as_dict=True
         )
-        account_details = frappe.db.get_value("Account", account["default_account"], 
-                                              ["account_name", "account_currency", "account_number"], 
-                                              as_dict=True)
-        mop["defaultAccount"] = account.get("default_account") if account else None
-        mop["company"] = company
-        mop["currency"] = account_details.get("account_currency") if account_details else None
-        mop["accountName"] = (f"{account_details.get('account_number')} - " if account_details.get('account_number') else "") + account_details.get("account_name") if account_details else None
+        if account:
+            account_details = frappe.db.get_value("Account", account.get("default_account"), 
+                                                ["account_name", "account_currency", "account_number"], 
+                                                as_dict=True)
+            mop["defaultAccount"] = account.get("default_account") if account else None
+            mop["company"] = company
+            mop["currency"] = account_details.get("account_currency") if account_details else None
+            mop["accountName"] = (f"{account_details.get('account_number')} - " if account_details.get('account_number') else "") + account_details.get("account_name") if account_details else None
 
     return send_old_response(
         status="success",
