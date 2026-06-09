@@ -408,6 +408,7 @@ def parties_and_accounts():
                 filters = frappe._dict(
                     {"account_type": "Bank", "company": company, "is_group": 0}
                 )
+                filter_fields = '["account_name", "name", "account_number"]'
 
             response = search_widget(
                 doc_filter,
