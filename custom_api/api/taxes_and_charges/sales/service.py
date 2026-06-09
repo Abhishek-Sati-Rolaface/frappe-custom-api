@@ -144,9 +144,10 @@ def get_sales_tax_template_service(name):
             "account_head": row.account_head,
             "rate": row.rate,
             "tax_amount":row.tax_amount,
-            "description": row.description
+            "description": row.description,
+            "account_head_name": frappe.db.get_value("Account", row.account_head, "account_name")
         })
-
+       
     return template_data
 
 def delete_sales_tax_template_service(name):
