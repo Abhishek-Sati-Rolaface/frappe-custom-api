@@ -81,6 +81,10 @@ def get_sales_tax_templates_service(args):
             filters={"parent": template["name"]},
             fields=["name", "charge_type", "account_head", "rate", "tax_amount", "description"]
         )
+        for tax in template["taxes"]:
+            account_detail = frappe.db.get_value("Account", tax["account_head"], ["account_name", "account_number"], as_dict=True) if tax["account_head"] else None
+            if account_detail:
+                tax["account_head_name"] = f"{account_detail.get('account_number')} - {account_detail.get('account_name')}" if account_detail.get('account_number') else account_detail.get('account_name')
 
     return {
         "templates": templates,
