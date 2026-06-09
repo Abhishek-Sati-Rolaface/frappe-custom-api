@@ -161,6 +161,7 @@ def get_purchase_invoice_by_id(pi_id):
         "piDate": str(pi_doc.posting_date) if pi_doc.posting_date else None,
         "dueDate": str(pi_doc.due_date) if pi_doc.due_date else None,
         "currency": pi_doc.currency,
+        "exchangeRate": pi_doc.conversion_rate,
         "billingAddress": pi_doc.billing_address,
         "billingAddressDisplay": pi_doc.billing_address_display,
         "shippingAddress": pi_doc.shipping_address,
