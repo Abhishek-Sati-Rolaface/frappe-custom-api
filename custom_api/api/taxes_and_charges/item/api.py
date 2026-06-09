@@ -1,5 +1,5 @@
 from erpnext.controllers.queries import tax_account_query
-from custom_api.api.taxes_and_charges.item.service import get_item_tax_templates_service, update_item_tax_status_service, upsert_item_tax_template
+from custom_api.api.taxes_and_charges.item.service import get_item_tax_template_service, get_item_tax_templates_service, update_item_tax_status_service, upsert_item_tax_template
 import frappe
 from custom_api.utils.response import send_old_response, send_response_list
 
@@ -103,6 +103,34 @@ def update_item_template_tax_status():
 
     except Exception as e:
         frappe.log_error(str(e), "Update Item Tax Status API Error")
+
+        return send_old_response(
+            status="fail",
+            message=str(e),
+            status_code=500,
+            http_status=500
+        )
+
+@frappe.whitelist(methods=["GET"])
+def get_item_tax_template_by_id():
+    try:
+        name = frappe.request.args.get("name")
+
+        if not name:
+            frappe.throw("Item Tax Template 'name' is required")
+
+        data = get_item_tax_template_service(name)
+
+        return send_old_response(
+            status="success",
+            message="Item Tax Template retrieved successfully",
+            data=data,
+            status_code=200,
+            http_status=200
+        )
+
+    except Exception as e:
+        frappe.log_error(str(e), "Get Item Tax Template API Error")
 
         return send_old_response(
             status="fail",

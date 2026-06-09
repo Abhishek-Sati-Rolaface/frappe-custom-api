@@ -102,3 +102,19 @@ def update_item_tax_status_service(data):
         "name": doc.name,
         "disabled": doc.disabled
     }
+
+def get_item_tax_template_service(name):
+    if not frappe.db.exists("Item Tax Template", name):
+        frappe.throw(f"Item Tax Template '{name}' not found", exc=frappe.DoesNotExistError)
+
+    doc = frappe.get_doc("Item Tax Template", name).as_dict()
+
+    for tax in doc.get("taxes", []):
+        tax["account_name"] = frappe.db.get_value(
+                "Account",
+                tax["tax_type"],
+                "account_name"
+            )
+    return doc
+
+
