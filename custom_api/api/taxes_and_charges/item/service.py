@@ -110,11 +110,9 @@ def get_item_tax_template_service(name):
     doc = frappe.get_doc("Item Tax Template", name).as_dict()
 
     for tax in doc.get("taxes", []):
-        tax["account_name"] = frappe.db.get_value(
-                "Account",
-                tax["tax_type"],
-                "account_name"
-            )
+        account_detail = frappe.db.get_value("Account", tax["tax_type"], ["account_name", "account_number"], as_dict=True) if tax["tax_type"] else None
+        if account_detail:
+            tax["account_name"] = f"{account_detail.get('account_number')} - {account_detail.get('account_name')}" if account_detail.get('account_number') else account_detail.get('account_name')
     return doc
 
 
