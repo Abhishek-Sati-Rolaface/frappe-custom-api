@@ -469,12 +469,14 @@ def get_by_id():
             bank_account["currency"] = frappe.defaults.get_global_default("currency")
 
     if bank_account.get("is_company_account"):
-        currency = frappe.db.get_value(
+        account_details = frappe.db.get_value(
             "Account",
             bank_account.get("ledgerAccount"),
-            "account_currency"
+            ["account_currency", "account_number", "account_name"],
+            as_dict=True
         )
-        bank_account["currency"] = currency
+        bank_account["currency"] = account_details.get("account_currency")
+        bank_account["ledgerAccountName"] = f"{account_details.get('account_number')} - {account_details.get('account_name')}" if account_details.get("account_number") else account_details.get("account_name")
 
     return send_response(
         status="success",
