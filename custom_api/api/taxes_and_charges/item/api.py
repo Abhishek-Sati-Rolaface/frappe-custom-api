@@ -67,7 +67,7 @@ def get_tax_accounts(search="", start=0, page_len=100):
                         "disabled":     0,
                         "name":         ["like", f"%{search}%"] if search else ["like", "%%"],
                     },
-                    fields=["name", "account_name", "account_type"],
+                    fields=["name", "account_name", "account_type", "account_number"],
                     start=start,
                     page_length=page_len,
                     order_by="name asc"
@@ -77,7 +77,7 @@ def get_tax_accounts(search="", start=0, page_len=100):
     for acc in accounts:
         result.append({
             "name":         acc["name"],
-            "account_name": acc["account_name"],
+            "account_name": (f"{acc['account_number']} - " if acc.get("account_number") else "") + acc["account_name"],
             "account_type": acc["account_type"],
         })
     return send_response_list(
