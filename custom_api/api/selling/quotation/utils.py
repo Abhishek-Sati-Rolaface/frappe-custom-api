@@ -312,6 +312,13 @@ def build_quotation_filters(args):
 
     return frappe_filters
 
+def _build_quotation_box_detail(item: dict) -> dict:
+    return {
+        "item_code": item.get("itemCode"),
+        "batch_no": item.get("batchNo") or item.get("batch_no"),
+        "box_start": item.get("boxStart") or item.get("box_start"),
+        "box_end": item.get("boxEnd") or item.get("box_end"),
+    }
 
 def get_extended_item_detail(item_code):
     return frappe.get_all(
