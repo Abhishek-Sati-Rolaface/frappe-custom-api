@@ -442,7 +442,7 @@ def parties_and_accounts():
 def get_party_details(party_type, party, cost_center=None):
     company_default_bank_account = ""
     party_bank_account = ""
-    company_account_ledger = company_account_ledger_currency = party_bank_account_details = ""
+    company_account_ledger = company_account_ledger_currency = party_bank_account_details = company_ledger_account_name = ""
 
     company = frappe.defaults.get_user_default("Company")
     company_currency = frappe.defaults.get_user_default("Currency")
@@ -541,7 +541,7 @@ def get_party_details(party_type, party, cost_center=None):
             # "company_bank_account_id": company_default_bank_account,
             # "company_bank_account_display_name": f"{company_account_ledger["account_name"]} {company_account_ledger["bank"]}-{company_account_ledger_currency}",
             "company_account_ledger": company_account_ledger["account"] if company_account_ledger else None,
-            "company_account_ledger_name": company_ledger_account_name,
+            "company_account_ledger_name": company_ledger_account_name if company_ledger_account_name else None,
             "company_account_ledger_currency": company_account_ledger_currency,
             "company_default_currency": company_currency,
             "total_outstanding_amount": total_outstanding
