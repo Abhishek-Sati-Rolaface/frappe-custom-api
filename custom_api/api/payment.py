@@ -66,7 +66,7 @@ def get_ledger_account():
             searchfield=None,
             page_length=10,
             filters=filters,
-            filter_fields='["account_currency"]',
+            filter_fields='["account_currency", "account_name"]',
             reference_doctype="Payment Entry",
             ignore_user_permissions=0,
             as_dict=True,
