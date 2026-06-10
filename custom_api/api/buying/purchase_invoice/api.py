@@ -38,11 +38,12 @@ def get():
 def create():
     data = frappe.local.form_dict
     try:
-        create_purchase_invoice_service(data)
+        pi_name = create_purchase_invoice_service(data)
 
         return send_old_response(
                     status="success",
                     message="Purchase Invoice created successfully",
+                    data={"name": pi_name},
                     status_code=201,
                     http_status=201
                 )

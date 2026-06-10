@@ -115,6 +115,7 @@ def create_purchase_invoice_service(data):
         pi_doc.run_method("set_missing_values")
         pi_doc.run_method("calculate_taxes_and_totals")
         pi_doc.save(ignore_permissions=True)
+    return pi_doc.name
 
 def get_purchase_invoice_by_id(pi_id):
     pi_doc = frappe.get_doc("Purchase Invoice", pi_id)
