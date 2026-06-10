@@ -147,18 +147,20 @@ def get():
     ]
 
     currency_map = {}
+    ledger_account_map = {}
     if account_names:
         account_records = frappe.db.get_all(
             "Account",
             filters={"name": ["in", account_names]},
-            fields=["name", "account_currency as currency"]
+            fields=["name", "account_currency as currency", "account_name", "account_number"]
         )
         currency_map = {a["name"]: a["currency"] for a in account_records}
-
+        ledger_account_map = {a["name"]: f"{a['account_number']} - {a['account_name']}" if a.get("account_number") else a["account_name"] for a in account_records}
     for ba in bank_accounts:
         ba["name"] = f"{ba["accountHolderName"]} - {ba["bankName"]}"
         if ba.get("is_company_account"):
             ba["currency"] = currency_map.get(ba.get("ledgerAccount"))
+            ba["ledgerAccountName"] = ledger_account_map.get(ba.get("ledgerAccount"))
 
     return send_response(
         status="success",
