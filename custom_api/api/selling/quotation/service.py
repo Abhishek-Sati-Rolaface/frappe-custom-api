@@ -7,7 +7,8 @@ from .utils import (
     get_extended_item_detail,
     sync_taxes,
     sync_quotation_terms,
-    get_naming_series_for_quotation
+    get_naming_series_for_quotation,
+    _build_quotation_box_detail
 )
 from custom_api.api.item.utils.item_utils import _get_tax
 from ....api.buying.purchase_order.utils import _get_item_tax_template
@@ -69,6 +70,8 @@ def create_quotation(data):
                 ),
             },
         )
+        
+        quotation.append("custom_item_box_detail", _build_quotation_box_detail(item))
 
     sync_taxes(quotation, data)
 
@@ -128,6 +131,7 @@ def update_quotation(quotation_id, data):
 
     if "items" in data:
         quotation.set("items", [])
+        quotation.set("custom_item_box_detail", [])
         for item in data.get("items"):
             quotation.append(
                 "items",
@@ -148,6 +152,8 @@ def update_quotation(quotation_id, data):
                     ),
                 },
             )
+            
+            quotation.append("custom_item_box_detail", _build_quotation_box_detail(item))
 
     sync_taxes(quotation, data)
 
@@ -167,6 +173,8 @@ def get_quotation_by_id(quotation_id):
         if quotation.quotation_to == "Customer"
         else None
     )
+
+    box_details = quotation.get("custom_item_box_detail", [])
 
     data = {
         "id": quotation.name,
@@ -194,7 +202,7 @@ def get_quotation_by_id(quotation_id):
         "grandTotal": quotation.grand_total,
         "inWords": quotation.in_words,
         "detailedLostReason": quotation.order_lost_reason,
-        "documentType": "Quotation", # Default, overridden below
+        "documentType": "Quotation", 
         "lostReason": None,
         "items": [],
         "taxes": [],
@@ -224,7 +232,18 @@ def get_quotation_by_id(quotation_id):
             "amount": item.amount,
             "isAlternative": bool(item.is_alternative),
             "taxInfo": tax_info,
+            "batchNo": getattr(item, "batch_no", None),
+            "boxStart": None,
+            "boxEnd": None
         }
+        for box in box_details:
+            if box.item_code == item.item_code:
+                item_data["boxStart"] = box.box_start
+                item_data["boxEnd"] = box.box_end
+                
+                if not item_data["batchNo"] and box.batch_no:
+                    item_data["batchNo"] = box.batch_no
+                break
 
         metadata = get_extended_item_detail(item.item_code)
         if metadata:
