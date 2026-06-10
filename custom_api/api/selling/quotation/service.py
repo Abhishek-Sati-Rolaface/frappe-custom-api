@@ -226,7 +226,7 @@ def get_quotation_by_id(quotation_id):
             "itemName": item.item_name,
             "uom": item.uom,
             "quantity": item.qty,
-            "rate": item.price_list_rate,
+            "rate": item.rate,
             "discount": item.discount_percentage,
             "discountAmount": item.discount_amount,
             "amount": item.amount,
