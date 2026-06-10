@@ -381,6 +381,7 @@ def get_sales_invoices(filters=None, page=1, page_size=20, search=None):
             "tax_category",
             "cost_center",
             "status",
+            "debit_to"
         ],
         limit_start=start,
         limit_page_length=page_size,
@@ -399,6 +400,10 @@ def get_sales_invoices(filters=None, page=1, page_size=20, search=None):
     total_pages = (total_invoices + page_size - 1) // page_size
 
     for inv in invoices:
+        account_details = frappe.db.get_value("Account", inv.debit_to, ["account_name", "account_number"], as_dict=True)
+        
+        inv["gl_account_name"] = f"{account_details.get('account_number', '')} - {account_details.get('account_name', '')}" if account_details.get("account_number") else account_details.get("account_name")
+        inv["gl_account"] = inv.pop("debit_to")
         inv["id"] = inv.pop("name")
         inv["customerId"] = inv.pop("customer")
         inv["customerName"] = inv.pop("customer_name")
