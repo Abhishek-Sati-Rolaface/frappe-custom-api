@@ -456,6 +456,16 @@ def get_party_details(party_type, party, cost_center=None):
         )
 
     party_account = get_party_account(party_type, party, company)
+    party_account_name = None
+    if party_account:
+        party_account_details = frappe.db.get_value(
+                                                    "Account",
+                                                    party_account,
+                                                    ["account_name", "account_number"],
+                                                    as_dict=True,
+                                                )
+        party_account_name = (f"{party_account_details.get('account_number')} - " if party_account_details.get('account_number') else "") + party_account_details.get("account_name") if party_account_details else None
+
     account_currency = get_account_currency(party_account)
     _party_name = (
         "title" if party_type == "Shareholder" else party_type.lower() + "_name"
@@ -473,13 +483,18 @@ def get_party_details(party_type, party, cost_center=None):
                 ["account", "bank", "bank_account_no", "account_name"],
                 as_dict=1,
             )
-            company_account_ledger_currency = (
-                frappe.db.get_value(
-                    "Account", company_account_ledger["account"], "account_currency"
-                )
-                if company_account_ledger["account"]
-                else None
-            )
+            company_account_ledger_currency = None
+            company_ledger_account_name = None
+            if company_account_ledger and company_account_ledger.get("account"):
+                gl_account_details = frappe.db.get_value(
+                                                        "Account",
+                                                        company_account_ledger["account"],
+                                                        ["account_currency", "account_name", "account_number"],
+                                                        as_dict=True,
+                                                    )
+                company_account_ledger_currency = gl_account_details.get("account_currency")
+                company_ledger_account_name = (f"{gl_account_details.get('account_number')} - " if gl_account_details.get('account_number') else "") + gl_account_details.get("account_name") if gl_account_details else None
+
         if party_bank_account:
             party_bank_account_details = frappe.get_cached_value(
                                             "Bank Account",
@@ -511,6 +526,7 @@ def get_party_details(party_type, party, cost_center=None):
         message="Bank Account created successfully.",
         data={
             "party_ledger_account": party_account,
+            "party_ledger_account_name": party_account_name,
             "party_name": party_name,
             "party": {
                         "id": party_bank_account,
@@ -525,6 +541,7 @@ def get_party_details(party_type, party, cost_center=None):
             # "company_bank_account_id": company_default_bank_account,
             # "company_bank_account_display_name": f"{company_account_ledger["account_name"]} {company_account_ledger["bank"]}-{company_account_ledger_currency}",
             "company_account_ledger": company_account_ledger["account"] if company_account_ledger else None,
+            "company_account_ledger_name": company_ledger_account_name,
             "company_account_ledger_currency": company_account_ledger_currency,
             "company_default_currency": company_currency,
             "total_outstanding_amount": total_outstanding
