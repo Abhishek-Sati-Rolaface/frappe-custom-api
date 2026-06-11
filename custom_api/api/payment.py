@@ -684,6 +684,8 @@ def get_payment_by_id():
                         ],
                         order_by="creation desc",
                     )
+        paid_from_account_details = frappe.db.get_value("Account", doc.paid_from, ["account_name", "account_number"], as_dict=True)
+        paid_to_account_details = frappe.db.get_value("Account", doc.paid_to, ["account_name", "account_number"], as_dict=True)
         detailed_data = {
             "header": {
                 "payment_id": doc.name,
@@ -702,8 +704,10 @@ def get_payment_by_id():
             "transaction_info": {
                 "mode_of_payment": doc.mode_of_payment,
                 "paid_from": doc.paid_from,
+                "paid_from_account_name": f"{paid_from_account_details.get('account_number', '')} - {paid_from_account_details.get('account_name', '')}" if paid_from_account_details["account_number"] else paid_from_account_details.get("account_name"),
                 "paid_from_currency": doc.paid_from_account_currency,
                 "paid_to": doc.paid_to,
+                "paid_to_account_name": f"{paid_to_account_details.get('account_number', '')} - {paid_to_account_details.get('account_name', '')}" if paid_to_account_details["account_number"] else paid_to_account_details.get("account_name"),
                 "paid_to_currency": doc.paid_to_account_currency,
                 "bank": doc.bank,
                 "bank_account_no": doc.bank_account_no,
