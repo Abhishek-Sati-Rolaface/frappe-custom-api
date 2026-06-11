@@ -160,7 +160,8 @@ def get_sales_invoice_by_id(invoice_id):
 
     box_details = invoice.get("custom_item_box_detail", [])
     custom_details = invoice.get("custom_details", [])
-
+    acount_details = frappe.db.get_value("Account", invoice.debit_to, ["account_name", "account_number"], as_dict=True)
+    gl_account_name = f"{acount_details.get('account_number', '')} - {acount_details.get('account_name', '')}" if acount_details.get("account_number") else acount_details.get("account_name")
     data = {
         "id": invoice.name,
         "customerId": invoice.customer,
@@ -197,6 +198,8 @@ def get_sales_invoice_by_id(invoice_id):
         "charges": [],
         "terms": {},
         "contact_email": invoice.contact_email,
+        "gl_account": invoice.debit_to,
+        "gl_account_name": gl_account_name,
     }
 
     payment_mode = custom_details[0].payment_mode if custom_details else None
