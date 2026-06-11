@@ -1,6 +1,6 @@
 from custom_api.api.organization.company.service import (get_company_details, update_company_details, upload_file, remove_attach,
-                                                         save_company_terms)
-from custom_api.utils.response import send_old_response
+                                                         save_company_terms, get_company_defaults_data, update_company_defaults_data)
+from custom_api.utils.response import send_old_response, send_response
 import frappe
 
 @frappe.whitelist(allow_guest=False, methods=["GET"])
@@ -117,4 +117,62 @@ def upload_company_documents():
             message=str(e),
             status_code=500,
             http_status=500
+        )
+    
+@frappe.whitelist(allow_guest=False, methods=["GET"])
+def get_company_defaults():
+    try:
+        data = get_company_defaults_data()
+ 
+        return send_response(
+            status="success",
+            message="Company defaults retrieved successfully.",
+            data=data,
+            status_code=200,
+            http_status=200,
+        )
+ 
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Get Company Defaults API Error")
+        return send_response(
+            status="error",
+            message=str(e),
+            status_code=500,
+            http_status=500,
+        )
+    
+@frappe.whitelist(allow_guest=False, methods=["PUT"])
+def update_company_defaults():
+    try:
+        data = update_company_defaults_data(
+            frappe.local.form_dict
+        )
+
+        return send_response(
+            status="success",
+            message="Company defaults updated successfully.",
+            data=data,
+            status_code=200,
+            http_status=200,
+        )
+
+    except frappe.ValidationError as e:
+        return send_response(
+            status="error",
+            message=str(e),
+            status_code=400,
+            http_status=400,
+        )
+
+    except Exception as e:
+        frappe.log_error(
+            frappe.get_traceback(),
+            "Update Company Defaults API Error"
+        )
+
+        return send_response(
+            status="error",
+            message=str(e),
+            status_code=500,
+            http_status=500,
         )
