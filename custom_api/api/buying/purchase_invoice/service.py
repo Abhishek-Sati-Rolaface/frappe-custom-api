@@ -165,6 +165,9 @@ def get_purchase_invoice_by_id(pi_id):
         order_by="creation desc",
     )
 
+    account_details = frappe.db.get_value("Account", pi_doc.credit_to, ["account_name", "account_number"], as_dict=True)
+    gl_account_name = f"{account_details.get('account_number', '')} - {account_details.get('account_name', '')}" if account_details.get("account_number") else account_details.get("account_name")
+
     return {
         "piId": pi_doc.name,
         "supplierId": pi_doc.supplier,
@@ -199,7 +202,9 @@ def get_purchase_invoice_by_id(pi_id):
         "lpoNumber": purchase_order,
         "outstanding_amount": pi_doc.outstanding_amount,
         "status": pi_doc.status,
-        "attachments": attachments
+        "attachments": attachments,
+        "gl_account": pi_doc.credit_to,
+        "gl_account_name": gl_account_name
     }
 
 def update_pi_service(pi_id, data):
