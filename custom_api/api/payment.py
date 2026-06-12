@@ -184,19 +184,29 @@ def create_payment_entry():
 
         # ── Required fields ───────────────────────────────────────────────────
         if data.get("payment_type") == "Internal Transfer":
-            required = ["paid_from", "paid_to"]
+            FIELD_LABELS = {
+                            "paid_from": "Paid From Account",
+                            "paid_to": "Paid To Account"
+                            }
         else:
-            required = [
-                "payment_type", "party_type", "party_id",
-                "mode_of_payment", "payment_date",
-                "paid_from", "paid_to",
-                "paid_from_amount"
-            ]
-        missing = validate_required(data, required)
+            FIELD_LABELS = {
+                            "payment_type": "Payment Type",
+                            "party_type": "Party Type",
+                            "party_id": "Party",
+                            "mode_of_payment": "Mode of Payment",
+                            "payment_date": "Payment Date",
+                            "paid_from": "Paid From Account",
+                            "paid_to": "Paid To Account",
+                            "paid_from_amount": "Amount",
+                            "reference_no": "Reference Number",
+                            "reference_date": "Reference Date",
+                        }
+
+        missing = validate_required(data, FIELD_LABELS)
         if missing:
             return send_old_response(
                 status="error",
-                message=f"'{missing}' is required.",
+                message=f"{FIELD_LABELS[missing]} is required.",
                 data=None,
                 status_code=400,
                 http_status=400
