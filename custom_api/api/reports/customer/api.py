@@ -84,7 +84,7 @@ def generate_customer_statement_pdf():
     customer = frappe.db.get_value(
         "Customer",
         customer_id,
-        ["name", "customer_name", "creation"],
+        ["name", "customer_name", "creation", "tax_id"],
         as_dict=True
     )
 
@@ -112,8 +112,8 @@ def generate_customer_statement_pdf():
     pdf_options = {
         "page-size": "A4",
         "margin-top": "15mm",
-        "margin-right": "15mm",
-        "margin-bottom": "15mm",
+        "margin-right": "10mm",
+        "margin-bottom": "10mm",
         "margin-left": "15mm",
         "encoding": "UTF-8",
         "no-outline": None
