@@ -305,9 +305,25 @@ def create_payment_entry():
                     http_status=400
                 )
         if (paid_from_currency == paid_to_currency) and (paid_from_currency != company_currency):
-            exchange_rate = get_exchange_rate(from_currency = paid_from_currency, to_currency = company_currency, transaction_date = payment_date)
-            if exchange_rate < 1:
-                frappe.throw(f"Unable to find exchange rate for {paid_from_currency} to {paid_to_currency} for key date {payment_date}. Please create a Currency Exchange record manually")
+            source_exchange_rate = target_exchange_rate = get_exchange_rate(from_currency = paid_from_currency, 
+                                                                            to_currency = company_currency, 
+                                                                            transaction_date = payment_date
+                                                                            )
+
+            if source_exchange_rate < 1:
+                frappe.throw(f"""Unable to find exchange rate for {paid_from_currency} to {paid_to_currency} for key date {payment_date}. 
+                                  Please create a Currency Exchange record manually""")
+        else:
+            if paid_from_currency == company_currency:
+                source_exchange_rate = 1.0
+            else:
+                source_exchange_rate = exchange_rate
+
+            if paid_to_currency == company_currency:
+                target_exchange_rate = 1.0
+            else:
+                target_exchange_rate = exchange_rate
+
         # ── Create Payment Entry ──────────────────────────────────────────────
         pe = frappe.new_doc("Payment Entry")
         pe.payment_type               = payment_type
@@ -322,8 +338,8 @@ def create_payment_entry():
         pe.paid_to_account_currency   = paid_to_currency
         pe.paid_amount                = paid_amount
         pe.received_amount            = received_amount
-        pe.source_exchange_rate       = exchange_rate
-        pe.target_exchange_rate       = exchange_rate
+        pe.source_exchange_rate       = source_exchange_rate
+        pe.target_exchange_rate       = target_exchange_rate
         pe.reference_no               = reference_no
         pe.reference_date             = reference_date
 
