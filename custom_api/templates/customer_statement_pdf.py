@@ -93,10 +93,11 @@ def customer_statement_pdf_html_template():
         margin-top:4px;
     }
     
-    .address-value {
+    .customer-detail {
         font-size:13px;
         color:#334155;
         margin-top:4px;
+        font-weight:normal;
         line-height:1.4;
     }
 
@@ -279,16 +280,18 @@ def customer_statement_pdf_html_template():
         <table class="customer-table">
             <tr>
                 <td width="50%">
-                <div class="label">Customer</div>
-                <div class="value">{{ customer.customer_name or customer.name }}</div>
-                <div class="address-value">
-                    {{ (customer.primary_address or "-") | replace("<br><br>", ", ") | replace("<br>", ", ") | replace("\\n", " ") | trim(", ") }}
-                </div>
-                <div class="muted">
-                    Tax ID: {{ customer.tax_id or "-" }}
-                </div>
-            </td>
-                <td width="50%" align="right">
+                    <div class="label">Customer</div>
+                    <div class="value">{{ customer.customer_name or customer.name }}</div>
+                    <div class="customer-detail">{{ customer.email_id or "-" }}</div>
+                    <div class="customer-detail">{{ customer.mobile_no or "-" }}</div>
+                    <div class="customer-detail">
+                        {{ (customer.primary_address or "-") | replace("<br><br>", ", ") | replace("<br>", ", ") | replace("\\n", " ") | trim(", ") }}
+                    </div>
+                    <div class="customer-detail">
+                        Tax ID: {{ customer.tax_id or "-" }}
+                    </div>
+                </td>
+                <td width="50%" align="right" style="vertical-align: top;">
                     <div class="label">Statement Period</div>
                     <div class="value">
                         {% if from_date and to_date %}
