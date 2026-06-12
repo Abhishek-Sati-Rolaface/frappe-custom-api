@@ -65,7 +65,7 @@ def get_customer_statement():
 
 @frappe.whitelist(allow_guest=False, methods=["GET"])
 @require_permission("Customer", "report")
-def download_customer_statement_pdf():
+def generate_customer_statement_pdf():
     customer_id = frappe.form_dict.get("id")
     from_date = frappe.form_dict.get("from_date")
     to_date = frappe.form_dict.get("to_date")
