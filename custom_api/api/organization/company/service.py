@@ -91,3 +91,97 @@ def save_company_terms(company, data):
     frappe.db.commit()
 
     return result
+
+
+COMPANY_DEFAULT_FIELDS = [
+    # Basic Info
+    "company_name",
+    "abbr",
+    "default_currency",
+
+    # Payroll
+    "default_payroll_payable_account",
+    "default_employee_advance_account",
+
+    # Accounts
+    "default_bank_account",
+    "default_cash_account",
+    "default_receivable_account",
+    "default_payable_account",
+    "default_expense_account",
+    "default_income_account",
+    "round_off_account",
+    "round_off_cost_center",
+    "write_off_account",
+    "exchange_gain_loss_account",
+    "unrealized_exchange_gain_loss_account",
+    "default_deferred_revenue_account",
+    "default_deferred_expense_account",
+    "default_advance_received_account",
+    "default_advance_paid_account",
+
+    # Cost Center & Finance
+    "cost_center",
+    "default_finance_book",
+
+    # HR & Leave
+    "default_holiday_list",
+
+    # Selling / Buying
+    "default_selling_terms",
+    "default_buying_terms",
+    "default_in_transit_warehouse",
+]
+
+def get_company_defaults_data():
+    company = frappe.defaults.get_user_default("Company")
+
+    if not company:
+        company = frappe.db.get_single_value(
+            "Global Defaults",
+            "default_company"
+        )
+
+    if not company:
+        frappe.throw("No default company found for the current user.")
+
+    data = frappe.db.get_value(
+        "Company",
+        company,
+        COMPANY_DEFAULT_FIELDS,
+        as_dict=True,
+    )
+
+    if not data:
+        frappe.throw(f"Company '{company}' does not exist.")
+
+    return data
+
+
+def update_company_defaults_data(data):
+    company = frappe.defaults.get_user_default("Company")
+
+    if not company:
+        company = frappe.db.get_single_value(
+            "Global Defaults",
+            "default_company"
+        )
+
+    if not company:
+        frappe.throw("No default company found for the current user.")
+
+    company_doc = frappe.get_doc("Company", company)
+
+    for field in COMPANY_DEFAULT_FIELDS:
+        if field in data:
+            company_doc.set(field, data.get(field))
+
+    company_doc.save()
+    frappe.db.commit()
+
+    return frappe.db.get_value(
+        "Company",
+        company_doc.name,
+        COMPANY_DEFAULT_FIELDS,
+        as_dict=True,
+    )

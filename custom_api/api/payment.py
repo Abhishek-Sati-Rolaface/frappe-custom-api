@@ -184,19 +184,29 @@ def create_payment_entry():
 
         # ── Required fields ───────────────────────────────────────────────────
         if data.get("payment_type") == "Internal Transfer":
-            required = ["paid_from", "paid_to"]
+            FIELD_LABELS = {
+                            "paid_from": "Paid From Account",
+                            "paid_to": "Paid To Account"
+                            }
         else:
-            required = [
-                "payment_type", "party_type", "party_id",
-                "mode_of_payment", "payment_date",
-                "paid_from", "paid_to",
-                "paid_from_amount"
-            ]
-        missing = validate_required(data, required)
+            FIELD_LABELS = {
+                            "payment_type": "Payment Type",
+                            "party_type": "Party Type",
+                            "party_id": "Party",
+                            "mode_of_payment": "Mode of Payment",
+                            "payment_date": "Payment Date",
+                            "paid_from": "Paid From Account",
+                            "paid_to": "Paid To Account",
+                            "paid_from_amount": "Amount",
+                            "reference_no": "Reference Number",
+                            "reference_date": "Reference Date",
+                        }
+
+        missing = validate_required(data, FIELD_LABELS)
         if missing:
             return send_old_response(
                 status="error",
-                message=f"'{missing}' is required.",
+                message=f"{FIELD_LABELS[missing]} is required.",
                 data=None,
                 status_code=400,
                 http_status=400
@@ -295,9 +305,25 @@ def create_payment_entry():
                     http_status=400
                 )
         if (paid_from_currency == paid_to_currency) and (paid_from_currency != company_currency):
-            exchange_rate = get_exchange_rate(from_currency = paid_from_currency, to_currency = company_currency, transaction_date = payment_date)
-            if exchange_rate < 1:
-                frappe.throw(f"Unable to find exchange rate for {paid_from_currency} to {paid_to_currency} for key date {payment_date}. Please create a Currency Exchange record manually")
+            source_exchange_rate = target_exchange_rate = get_exchange_rate(from_currency = paid_from_currency, 
+                                                                            to_currency = company_currency, 
+                                                                            transaction_date = payment_date
+                                                                            )
+
+            if source_exchange_rate < 1:
+                frappe.throw(f"""Unable to find exchange rate for {paid_from_currency} to {paid_to_currency} for key date {payment_date}. 
+                                  Please create a Currency Exchange record manually""")
+        else:
+            if paid_from_currency == company_currency:
+                source_exchange_rate = 1.0
+            else:
+                source_exchange_rate = exchange_rate
+
+            if paid_to_currency == company_currency:
+                target_exchange_rate = 1.0
+            else:
+                target_exchange_rate = exchange_rate
+
         # ── Create Payment Entry ──────────────────────────────────────────────
         pe = frappe.new_doc("Payment Entry")
         pe.payment_type               = payment_type
@@ -312,8 +338,8 @@ def create_payment_entry():
         pe.paid_to_account_currency   = paid_to_currency
         pe.paid_amount                = paid_amount
         pe.received_amount            = received_amount
-        pe.source_exchange_rate       = exchange_rate
-        pe.target_exchange_rate       = exchange_rate
+        pe.source_exchange_rate       = source_exchange_rate
+        pe.target_exchange_rate       = target_exchange_rate
         pe.reference_no               = reference_no
         pe.reference_date             = reference_date
 
