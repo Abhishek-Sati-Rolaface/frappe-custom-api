@@ -1,4 +1,4 @@
-def get_pdf_html_template():
+def customer_statement_pdf_html_template():
     return """
     <!DOCTYPE html>
     <html>
@@ -16,7 +16,8 @@ def get_pdf_html_template():
         font-family:Arial,Helvetica,sans-serif;
         font-size:11px;
         color:#334155;
-        padding:20px;
+        padding:0; 
+        margin:0;
         line-height:1.5;
         background:#ffffff;
     }
@@ -42,6 +43,7 @@ def get_pdf_html_template():
         font-weight:700;
         color:#0f172a;
         margin-bottom:4px;
+        line-height: 1;
     }
 
     .company-meta{
@@ -55,6 +57,7 @@ def get_pdf_html_template():
         color:#0f172a;
         text-transform:uppercase;
         letter-spacing:1px;
+        line-height: 1;
     }
 
     .statement-date{
@@ -89,17 +92,37 @@ def get_pdf_html_template():
         font-weight:700;
         margin-top:4px;
     }
+    
+    .address-value {
+        font-size:13px;
+        color:#334155;
+        margin-top:4px;
+        line-height:1.4;
+    }
 
     .muted{
         color:#64748b;
         font-size:11px;
+        margin-top: 4px;
     }
 
     .metrics{
         width:100%;
-        border-collapse:separate;
-        border-spacing:8px;
+        border-collapse:collapse;
+        table-layout:fixed;
         margin-bottom:24px;
+    }
+
+    .metrics td {
+        padding: 0 4px;
+    }
+
+    .metrics td:first-child {
+        padding-left: 0;
+    }
+
+    .metrics td:last-child {
+        padding-right: 0;
     }
 
     .metric{
@@ -107,6 +130,7 @@ def get_pdf_html_template():
         border-radius:8px;
         padding:16px;
         background:#ffffff;
+        height: 100%;
     }
 
     .metric.invoiced{ background:#f8fafc; }
@@ -138,6 +162,7 @@ def get_pdf_html_template():
     .ledger{
         width:100%;
         border-collapse:collapse;
+        table-layout: fixed;
     }
 
     .ledger thead{ display:table-header-group; }
@@ -147,15 +172,16 @@ def get_pdf_html_template():
         color:#475569;
         text-transform:uppercase;
         font-size:10px;
-        padding:12px 10px;
+        padding:12px 8px;
         border-bottom:2px solid #cbd5e1;
         text-align:left;
     }
 
     .ledger td{
-        padding:12px 10px;
+        padding:12px 8px;
         border-bottom:1px solid #e2e8f0;
         vertical-align:middle;
+        word-wrap: break-word;
     }
 
     .ledger tbody tr:nth-child(even){ background:#fafafa; }
@@ -177,6 +203,16 @@ def get_pdf_html_template():
     .credit{ color:#16a34a; font-weight:700; }
     .balance{ color:#0f172a; font-weight:700; }
 
+    .discrepancy-clause {
+        margin-top: 24px;
+        padding: 12px 16px;
+        background-color: #f8fafc;
+        border-left: 4px solid #94a3b8;
+        border-radius: 4px;
+        font-size: 11px;
+        color: #475569;
+    }
+
     .footer{
         margin-top:24px;
         padding-top:12px;
@@ -184,6 +220,10 @@ def get_pdf_html_template():
         text-align:center;
         color:#94a3b8;
         font-size:10px;
+    }
+    
+    .nowrap {
+        white-space: nowrap;
     }
     </style>
     </head>
@@ -198,7 +238,7 @@ def get_pdf_html_template():
                     frappe.defaults.get_user_default("Company")
                 ) %}
 
-                <td style="width:50%;">
+                <td style="width:50%; vertical-align: top;">
                     <div class="company-name">
                         {{ company.company_name }}
                     </div>
@@ -223,7 +263,7 @@ def get_pdf_html_template():
 
                     </div>
                 </td>
-                <td style="width:50%;" align="right">
+                <td style="width:50%; vertical-align: top;" align="right">
                     <div class="statement-title">
                         Customer Statement
                     </div>
@@ -241,6 +281,9 @@ def get_pdf_html_template():
                 <td width="50%">
                 <div class="label">Customer</div>
                 <div class="value">{{ customer.customer_name or customer.name }}</div>
+                <div class="address-value">
+                    {{ (customer.primary_address or "-") | replace("<br><br>", ", ") | replace("<br>", ", ") | replace("\\n", " ") | trim(", ") }}
+                </div>
                 <div class="muted">
                     Tax ID: {{ customer.tax_id or "-" }}
                 </div>
@@ -265,23 +308,31 @@ def get_pdf_html_template():
 
     <table class="metrics">
         <tr>
-            <td class="metric invoiced">
-                <div class="metric-label">Total Invoiced</div>
-                <div class="metric-value">{{ frappe.format_value(summary.totalInvoiced, {"fieldtype":"Currency"}) }}</div>
+            <td>
+                <div class="metric invoiced">
+                    <div class="metric-label">Total Invoiced</div>
+                    <div class="metric-value">{{ frappe.format_value(summary.totalInvoiced, {"fieldtype":"Currency"}) }}</div>
+                </div>
             </td>
-            <td class="metric collected">
-                <div class="metric-label">Total Collected</div>
-                <div class="metric-value">{{ frappe.format_value(summary.totalCollected, {"fieldtype":"Currency"}) }}</div>
+            <td>
+                <div class="metric collected">
+                    <div class="metric-label">Total Collected</div>
+                    <div class="metric-value">{{ frappe.format_value(summary.totalCollected, {"fieldtype":"Currency"}) }}</div>
+                </div>
             </td>
-            <td class="metric outstanding">
-                <div class="metric-label">Outstanding</div>
-                <div class="metric-value">{{ frappe.format_value(summary.netOutstanding, {"fieldtype":"Currency"}) }}</div>
+            <td>
+                <div class="metric outstanding">
+                    <div class="metric-label">Outstanding</div>
+                    <div class="metric-value">{{ frappe.format_value(summary.netOutstanding, {"fieldtype":"Currency"}) }}</div>
+                </div>
             </td>
-            <td class="metric overdue">
-                <div class="metric-label">Overdue</div>
-                <div class="metric-value">
-                    {% set overdue_amount = (summary.netOutstanding if not aging else (aging.get('1_30', 0) + aging.get('31_60', 0) + aging.get('61_90', 0) + aging.get('90_plus', 0))) %}
-                    {{ frappe.format_value(overdue_amount, {"fieldtype":"Currency"}) }}
+            <td>
+                <div class="metric overdue">
+                    <div class="metric-label">Overdue</div>
+                    <div class="metric-value">
+                        {% set overdue_amount = (summary.netOutstanding if not aging else (aging.get('1_30', 0) + aging.get('31_60', 0) + aging.get('61_90', 0) + aging.get('90_plus', 0))) %}
+                        {{ frappe.format_value(overdue_amount, {"fieldtype":"Currency"}) }}
+                    </div>
                 </div>
             </td>
         </tr>
@@ -294,10 +345,10 @@ def get_pdf_html_template():
     <table class="ledger">
         <thead>
             <tr>
-                <th style="width:10%">Date</th>
+                <th style="width:12%" class="nowrap">Date</th>
                 <th style="width:12%">Type</th>
-                <th style="width:14%">Reference</th>
-                <th style="width:28%">Remarks</th>
+                <th style="width:16%">Reference</th>
+                <th style="width:24%">Remarks</th>
                 <th style="width:12%" class="text-right">Debit</th>
                 <th style="width:12%" class="text-right">Credit</th>
                 <th style="width:12%" class="text-right">Balance</th>
@@ -306,7 +357,7 @@ def get_pdf_html_template():
         <tbody>
         {% for row in ledger %}
             <tr>
-                <td>{{ frappe.utils.formatdate(row.date) }}</td>
+                <td class="nowrap">{{ frappe.utils.formatdate(row.date) }}</td>
                 <td>
                     {% if row.type == 'Sales Invoice' %}
                         <span class="badge invoice">Invoice</span>
@@ -318,7 +369,7 @@ def get_pdf_html_template():
                         <span class="badge credit-note">{{ row.type }}</span>
                     {% endif %}
                 </td>
-                <td>{{ row.ref }}</td>
+                <td class="nowrap">{{ row.ref }}</td>
                 <td>{{ row.note or '-' }}</td>
                 
                 <td class="text-right {% if row.debit %}debit{% endif %}">
@@ -329,7 +380,7 @@ def get_pdf_html_template():
                     {{ frappe.format_value(row.credit, {"fieldtype":"Currency"}) if row.credit else '-' }}
                 </td>
                 
-                <td class="text-right balance">
+                <td class="text-right balance nowrap">
                     {{ frappe.format_value(row.balance, {"fieldtype":"Currency"}) }}
                 </td>
             </tr>
@@ -342,6 +393,10 @@ def get_pdf_html_template():
         {% endfor %}
         </tbody>
     </table>
+
+    <div class="discrepancy-clause">
+        <strong>Discrepancy Note:</strong> Kindly notify us of any discrepancies in this statement within 7 days of receipt. If no discrepancies are reported within this period, the statement will be considered accurate and accepted.
+    </div>
 
     <div class="footer">
         This is a system generated customer statement and does not require a signature.

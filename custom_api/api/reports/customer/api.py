@@ -2,12 +2,12 @@ import frappe
 import json
 from frappe import _
 from frappe.utils.pdf import get_pdf
+from custom_api.templates.customer_statement_pdf import customer_statement_pdf_html_template
 
 from custom_api.permission import require_permission
 from custom_api.utils.response import send_response
 
 from .service import get_customer_statement_data
-from .utils import get_pdf_html_template
 
 @frappe.whitelist(allow_guest=False, methods=["GET"])
 @require_permission("Customer", "report")
@@ -84,7 +84,7 @@ def generate_customer_statement_pdf():
     customer = frappe.db.get_value(
         "Customer",
         customer_id,
-        ["name", "customer_name", "creation", "tax_id"],
+        ["name", "customer_name", "creation", "tax_id", "primary_address"],
         as_dict=True
     )
 
@@ -99,7 +99,7 @@ def generate_customer_statement_pdf():
         search_term=search_term
     )
 
-    html_template = get_pdf_html_template()
+    html_template = customer_statement_pdf_html_template()
     html = frappe.render_template(html_template, {
         "customer": customer,
         "from_date": from_date,
