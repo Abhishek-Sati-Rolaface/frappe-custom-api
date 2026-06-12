@@ -416,11 +416,10 @@ def get_sales_invoices(filters=None, page=1, page_size=20, search=None):
         inv["total"] = inv.pop("grand_total")
         inv["baseGrandTotal"] = inv.pop("base_grand_total")
         inv["exchangeRate"] = inv.pop("conversion_rate")
-        inv["outstandingAmount"] = inv.pop("outstanding_amount")
         inv["baseOutstandingAmount"] = (
-            inv["outstandingAmount"] * inv["exchangeRate"]
+            inv["outstanding_amount"] * inv["exchangeRate"]
             if inv["exchangeRate"]
-            else inv["outstandingAmount"]
+            else inv["outstanding_amount"]
         )
         inv["costCenter"] = inv.pop("cost_center")
         inv["taxCategory"] = inv.pop("tax_category")
