@@ -20,7 +20,7 @@ def customer_statement_pdf_html_template():
         background:#ffffff;
     }
     .text-right{
-        text-align:right;
+        text-align:right !important;
     }
     .header{
         width:100%;
@@ -145,26 +145,55 @@ def customer_statement_pdf_html_template():
     .ledger{
         width:100%;
         border-collapse:collapse;
-        table-layout: fixed;
+        table-layout:fixed;
     }
-    .ledger thead{ display:table-header-group; }
+    .ledger thead{
+        display:table-header-group;
+    }
     .ledger th{
         background:#f8fafc;
         color:#475569;
         text-transform:uppercase;
         font-size:9px;
-        padding:10px 6px;
+        padding:8px 2px;
         border-bottom:2px solid #cbd5e1;
         text-align:left;
     }
     .ledger td{
-        padding:8px 6px;
+        padding:8px 2px;
         border-bottom:1px solid #e2e8f0;
         vertical-align:middle;
-        word-wrap: break-word;
-        font-size: 9px;
+        word-wrap:break-word;
+        font-size:9px;
     }
-    .ledger tbody tr:nth-child(even){ background:#fafafa; }
+    .ledger th.text-right,
+    .ledger td.text-right{
+        text-align:right !important;
+    }
+    .ledger tbody tr:nth-child(even){
+        background:#fafafa;
+    }
+    .debit{
+        color:#dc2626;
+        font-size:7px;
+        letter-spacing:-0.2px;
+        white-space:nowrap;
+        font-variant-numeric: tabular-nums;
+    }
+    .credit{
+        color:#16a34a;
+        font-size:7px;
+        letter-spacing:-0.2px;
+        white-space:nowrap;
+        font-variant-numeric: tabular-nums;
+    }
+    .balance{
+        color:#0f172a;
+        font-size:7px;
+        letter-spacing:-0.2px;
+        white-space:nowrap;
+        font-variant-numeric: tabular-nums;
+    }
     .badge{
         padding:3px 6px;
         border-radius:12px;
@@ -176,9 +205,6 @@ def customer_statement_pdf_html_template():
     .payment{ background:#dcfce7; color:#15803d; }
     .credit-note{ background:#fef3c7; color:#b45309; }
     .journal{ background:#ede9fe; color:#6d28d9; }
-    .debit{ color:#dc2626; font-weight:700; }
-    .credit{ color:#16a34a; font-weight:700; }
-    .balance{ color:#0f172a; font-weight:700; }
     .statement-footer-section {
         page-break-inside: avoid;
         margin-top: 20px;
@@ -311,13 +337,13 @@ def customer_statement_pdf_html_template():
     <table class="ledger">
         <thead>
             <tr>
-                <th style="width:12%" class="nowrap">Date</th>
-                <th style="width:12%">Type</th>
-                <th style="width:16%">Reference</th>
-                <th style="width:24%">Remarks</th>
-                <th style="width:12%" class="text-right">Debit</th>
-                <th style="width:12%" class="text-right">Credit</th>
-                <th style="width:12%" class="text-right">Balance</th>
+                <th style="width:10%">Date</th>
+                <th style="width:10%">Type</th>
+                <th style="width:15%">Reference</th>
+                <th style="width:20%">Remarks</th>
+                <th style="width:15%" class="text-right">Debit</th>
+                <th style="width:15%" class="text-right">Credit</th>
+                <th style="width:15%" class="text-right">Balance</th>
             </tr>
         </thead>
         <tbody>
@@ -337,15 +363,9 @@ def customer_statement_pdf_html_template():
                 </td>
                 <td class="nowrap">{{ row.ref }}</td>
                 <td>{{ row.note or '-' }}</td>
-                <td class="text-right {% if row.debit %}debit{% endif %}">
-                    {{ frappe.format_value(row.debit, {"fieldtype":"Currency"}) if row.debit else '-' }}
-                </td>
-                <td class="text-right {% if row.credit %}credit{% endif %}">
-                    {{ frappe.format_value(row.credit, {"fieldtype":"Currency"}) if row.credit else '-' }}
-                </td>
-                <td class="text-right balance nowrap">
-                    {{ frappe.format_value(row.balance, {"fieldtype":"Currency"}) }}
-                </td>
+                <td class="text-right {% if row.debit %}debit{% endif %}">{{ frappe.format_value(row.debit, {"fieldtype":"Currency"}) if row.debit else '-' }}</td>
+                <td class="text-right {% if row.credit %}credit{% endif %}">{{ frappe.format_value(row.credit, {"fieldtype":"Currency"}) if row.credit else '-' }}</td>
+                <td class="text-right balance nowrap">{{ frappe.format_value(row.balance, {"fieldtype":"Currency"}) }}</td>
             </tr>
         {% else %}
             <tr>
