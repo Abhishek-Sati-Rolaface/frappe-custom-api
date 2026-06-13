@@ -4,14 +4,12 @@ def customer_statement_pdf_html_template():
     <html>
     <head>
     <meta charset="utf-8">
-
     <style>
     *{
         margin:0;
         padding:0;
         box-sizing:border-box;
     }
-
     body{
         font-family:Arial,Helvetica,sans-serif;
         font-size:11px;
@@ -21,216 +19,192 @@ def customer_statement_pdf_html_template():
         line-height:1.5;
         background:#ffffff;
     }
-
     .text-right{
         text-align:right;
     }
-
     .header{
         width:100%;
-        margin-bottom:24px;
+        margin-bottom:20px;
         border-bottom:2px solid #e2e8f0;
-        padding-bottom:18px;
+        padding-bottom:16px;
     }
-
     .header-table{
         width:100%;
         border-collapse:collapse;
+        table-layout: fixed;
     }
-
     .company-name{
-        font-size:24px;
+        font-size:20px;
         font-weight:700;
         color:#0f172a;
         margin-bottom:4px;
-        line-height: 1;
+        line-height: 1.2;
+        word-wrap: break-word;
+        padding-right: 16px;
     }
-
     .company-meta{
         color:#64748b;
-        font-size:11px;
+        font-size:10px;
     }
-
     .statement-title{
-        font-size:26px;
+        font-size:20px;
         font-weight:700;
         color:#0f172a;
         text-transform:uppercase;
         letter-spacing:1px;
-        line-height: 1;
+        line-height: 1.2;
     }
-
     .statement-date{
         color:#64748b;
-        margin-top:6px;
+        margin-top:4px;
+        font-size: 10px;
     }
-
     .customer-card{
         width:100%;
         border:1px solid #e2e8f0;
         background:#f8fafc;
         border-radius:8px;
-        padding:16px;
-        margin-bottom:24px;
+        padding:14px 16px;
+        margin-bottom:20px;
     }
-
     .customer-table{
         width:100%;
         border-collapse:collapse;
     }
-
     .label{
-        font-size:10px;
+        font-size:9px;
         color:#94a3b8;
         font-weight:700;
         text-transform:uppercase;
     }
-
     .value{
-        font-size:14px;
+        font-size:13px;
         color:#0f172a;
         font-weight:700;
         margin-top:4px;
     }
-    
     .customer-detail {
-        font-size:13px;
+        font-size:11px;
         color:#334155;
-        margin-top:4px;
+        margin-top:2px;
         font-weight:normal;
         line-height:1.4;
     }
-
     .muted{
         color:#64748b;
-        font-size:11px;
+        font-size:10px;
         margin-top: 4px;
     }
-
     .metrics{
         width:100%;
         border-collapse:collapse;
         table-layout:fixed;
         margin-bottom:24px;
     }
-
     .metrics td {
         padding: 0 4px;
     }
-
     .metrics td:first-child {
         padding-left: 0;
     }
-
     .metrics td:last-child {
         padding-right: 0;
     }
-
     .metric{
         border:1px solid #e2e8f0;
         border-radius:8px;
-        padding:16px;
+        padding:12px 8px;
         background:#ffffff;
         height: 100%;
+        word-wrap: break-word;
     }
-
     .metric.invoiced{ background:#f8fafc; }
     .metric.collected{ background:#f0fdf4; }
     .metric.outstanding{ background:#eff6ff; }
     .metric.overdue{ background:#fef2f2; }
-
     .metric-label{
         font-size:10px;
         text-transform:uppercase;
         color:#64748b;
         font-weight:700;
     }
-
     .metric-value{
-        margin-top:8px;
-        font-size:20px;
+        margin-top:6px;
+        font-size:13px;
         font-weight:700;
         color:#0f172a;
+        overflow-wrap: break-word;
+        word-break: break-word;
     }
-
     .section-title{
-        font-size:16px;
+        font-size:14px;
         font-weight:700;
         color:#0f172a;
-        margin-bottom:12px;
+        margin-bottom:10px;
     }
-
     .ledger{
         width:100%;
         border-collapse:collapse;
         table-layout: fixed;
     }
-
     .ledger thead{ display:table-header-group; }
-
     .ledger th{
         background:#f8fafc;
         color:#475569;
         text-transform:uppercase;
-        font-size:10px;
-        padding:12px 8px;
+        font-size:9px;
+        padding:10px 6px;
         border-bottom:2px solid #cbd5e1;
         text-align:left;
     }
-
     .ledger td{
-        padding:12px 8px;
+        padding:8px 6px;
         border-bottom:1px solid #e2e8f0;
         vertical-align:middle;
         word-wrap: break-word;
+        font-size: 9px;
     }
-
     .ledger tbody tr:nth-child(even){ background:#fafafa; }
-
     .badge{
-        padding:4px 8px;
+        padding:3px 6px;
         border-radius:12px;
-        font-size:10px;
+        font-size:8px;
         font-weight:700;
         white-space:nowrap;
     }
-
     .invoice{ background:#dbeafe; color:#1d4ed8; }
     .payment{ background:#dcfce7; color:#15803d; }
     .credit-note{ background:#fef3c7; color:#b45309; }
     .journal{ background:#ede9fe; color:#6d28d9; }
-
     .debit{ color:#dc2626; font-weight:700; }
     .credit{ color:#16a34a; font-weight:700; }
     .balance{ color:#0f172a; font-weight:700; }
-
+    .statement-footer-section {
+        page-break-inside: avoid;
+        margin-top: 20px;
+    }
     .discrepancy-clause {
-        margin-top: 24px;
-        padding: 12px 16px;
+        padding: 10px 14px;
         background-color: #f8fafc;
         border-left: 4px solid #94a3b8;
         border-radius: 4px;
-        font-size: 11px;
+        font-size: 10px;
         color: #475569;
     }
-
     .footer{
-        margin-top:24px;
+        margin-top:12px;
         padding-top:12px;
         border-top:1px solid #e2e8f0;
         text-align:center;
         color:#94a3b8;
-        font-size:10px;
+        font-size:9px;
     }
-    
     .nowrap {
         white-space: nowrap;
     }
     </style>
     </head>
-
     <body>
-
     <div class="header">
         <table class="header-table">
             <tr>
@@ -238,33 +212,26 @@ def customer_statement_pdf_html_template():
                     "Company",
                     frappe.defaults.get_user_default("Company")
                 ) %}
-
-                <td style="width:50%; vertical-align: top;">
+                <td style="width:60%; vertical-align: top;">
                     <div class="company-name">
                         {{ company.company_name }}
                     </div>
-
                     <div class="company-meta">
-
                         {% if company.tax_id %}
                             Tax ID: {{ company.tax_id }}<br>
                         {% endif %}
-
                         {% if company.email %}
                             {{ company.email }}<br>
                         {% endif %}
-
                         {% if company.phone_no %}
                             {{ company.phone_no }}<br>
                         {% endif %}
-
                         {% if company.company_address %}
                             {{ company.company_address }}
                         {% endif %}
-
                     </div>
                 </td>
-                <td style="width:50%; vertical-align: top;" align="right">
+                <td style="width:40%; vertical-align: top;" align="right">
                     <div class="statement-title">
                         Customer Statement
                     </div>
@@ -275,7 +242,6 @@ def customer_statement_pdf_html_template():
             </tr>
         </table>
     </div>
-
     <div class="customer-card">
         <table class="customer-table">
             <tr>
@@ -308,7 +274,6 @@ def customer_statement_pdf_html_template():
             </tr>
         </table>
     </div>
-
     <table class="metrics">
         <tr>
             <td>
@@ -340,11 +305,9 @@ def customer_statement_pdf_html_template():
             </td>
         </tr>
     </table>
-
     <div class="section-title">
         Transaction History
     </div>
-
     <table class="ledger">
         <thead>
             <tr>
@@ -374,15 +337,12 @@ def customer_statement_pdf_html_template():
                 </td>
                 <td class="nowrap">{{ row.ref }}</td>
                 <td>{{ row.note or '-' }}</td>
-                
                 <td class="text-right {% if row.debit %}debit{% endif %}">
                     {{ frappe.format_value(row.debit, {"fieldtype":"Currency"}) if row.debit else '-' }}
                 </td>
-                
                 <td class="text-right {% if row.credit %}credit{% endif %}">
                     {{ frappe.format_value(row.credit, {"fieldtype":"Currency"}) if row.credit else '-' }}
                 </td>
-                
                 <td class="text-right balance nowrap">
                     {{ frappe.format_value(row.balance, {"fieldtype":"Currency"}) }}
                 </td>
@@ -396,15 +356,14 @@ def customer_statement_pdf_html_template():
         {% endfor %}
         </tbody>
     </table>
-
-    <div class="discrepancy-clause">
-        <strong>Discrepancy Note:</strong> Kindly notify us of any discrepancies in this statement within 7 days of receipt. If no discrepancies are reported within this period, the statement will be considered accurate and accepted.
+    <div class="statement-footer-section">
+        <div class="discrepancy-clause">
+            <strong>Discrepancy Note:</strong> Kindly notify us of any discrepancies in this statement within 7 days of receipt. If no discrepancies are reported within this period, the statement will be considered accurate and accepted.
+        </div>
+        <div class="footer">
+            This is a system generated customer statement and does not require a signature.
+        </div>
     </div>
-
-    <div class="footer">
-        This is a system generated customer statement and does not require a signature.
-    </div>
-
     </body>
     </html>
     """
