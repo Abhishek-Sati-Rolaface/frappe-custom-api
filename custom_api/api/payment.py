@@ -165,7 +165,13 @@ def build_taxes(taxes, pe):
             "total":          float(tax.get("total") or 0),
             "description":    tax.get("account_head"),
         })
-
+def build_deduction(deductions, pe):
+    for deduction in deductions:
+        pe.append("deductions", {
+            "account":     deduction.get("account"),
+            "cost_center": deduction.get("cost_center"),
+            "amount":      float(deduction.get("amount") or 0),
+        })
 
 @frappe.whitelist(allow_guest=False, methods=["POST"])
 @require_permission("Payment Entry", "create")
@@ -241,6 +247,7 @@ def create_payment_entry():
         taxes      = data.get("taxes", [])
 
         company = frappe.defaults.get_user_default("Company")
+        deductions = data.get("deductions", [])
 
         # ── Validate payment type ─────────────────────────────────────────────
         valid_payment_types = ["Pay", "Receive", "Internal Transfer"]
@@ -323,6 +330,9 @@ def create_payment_entry():
                 target_exchange_rate = 1.0
             else:
                 target_exchange_rate = exchange_rate
+        total_deduction = 0
+        if deductions:        # @TODO: Need to Handle Deductions case for PI, PO, etc. Currently Only Tested for SI and if amount is in the Base currency
+            total_deduction = sum(float(d.get("amount") or 0) for d in deductions)
 
         # ── Create Payment Entry ──────────────────────────────────────────────
         pe = frappe.new_doc("Payment Entry")
@@ -336,7 +346,7 @@ def create_payment_entry():
         pe.paid_to                    = paid_to
         pe.paid_from_account_currency = paid_from_currency
         pe.paid_to_account_currency   = paid_to_currency
-        pe.paid_amount                = paid_amount
+        pe.paid_amount                = paid_amount - total_deduction
         pe.received_amount            = received_amount
         pe.source_exchange_rate       = source_exchange_rate
         pe.target_exchange_rate       = target_exchange_rate
@@ -363,7 +373,13 @@ def create_payment_entry():
         if taxes:
             build_taxes(taxes, pe)
 
+        # ── Deductions tab ───────────────────────────────────────────────
+        if deductions:
+            build_deduction(deductions, pe)
+
         pe.insert(ignore_permissions=True)
+        import json
+        print(json.dumps(pe.as_dict(), indent=2, default=str))
         pe.submit()
 
         return send_old_response(
