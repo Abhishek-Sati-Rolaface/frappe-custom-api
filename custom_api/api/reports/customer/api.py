@@ -84,7 +84,7 @@ def generate_customer_statement_pdf():
     customer = frappe.db.get_value(
         "Customer",
         customer_id,
-        ["name", "customer_name", "creation", "tax_id", "primary_address"],
+        ["name", "customer_name", "creation", "tax_id", "primary_address", "email_id", "mobile_no"],
         as_dict=True
     )
 
