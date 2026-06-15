@@ -37,7 +37,7 @@ jobs:
             echo "⬇️ Pull latest code..."
             git config --global --add safe.directory "$BENCH_DIR/apps/custom_api"
             cd "$BENCH_DIR/apps/custom_api"
-            git fetch origin staging && git reset --hard origin/staging || { echo "❌ Git pull failed"; exit 1; }
+            git pull upstream staging || { echo "❌ Git pull failed"; exit 1; }
             cd "$BENCH_DIR"
 
             echo "🎨 Build assets..."
