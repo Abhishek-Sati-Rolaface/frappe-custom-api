@@ -427,7 +427,7 @@ def get_all_payments():
         args = frappe.request.args
 
         page = args.get("page", 1)
-        page_size = args.get("page_size", 10)
+        page_size = args.get("pageSize", 10)
 
         try:
             page = int(page)
