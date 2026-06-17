@@ -4,7 +4,7 @@ import frappe
 from custom_api.api.buying.purchase_invoice.service import create_purchase_invoice_service, get_purchase_invoice_by_id, get_purchase_invoice_list, update_pi_service
 
 @frappe.whitelist(allow_guest = False, methods=["GET"])
-@require_permission("Purchase Invoice", "read")
+# @require_permission("Purchase Invoice", "read")
 def get():
     data = frappe.request.args
 

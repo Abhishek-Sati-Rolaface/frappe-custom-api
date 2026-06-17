@@ -119,7 +119,7 @@ def get_sales_invoice_by_id(id):
 
 
 @frappe.whitelist(allow_guest=False, methods=["GET"])
-@require_permission("Sales Invoice", "read")
+# @require_permission("Sales Invoice", "read")
 def get_sales_invoices(page=1, page_size=20):
     data = frappe.local.form_dict
     search = data.get("search")
