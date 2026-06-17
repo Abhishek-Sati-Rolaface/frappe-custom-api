@@ -5,7 +5,8 @@ from frappe.utils import nowdate, date_diff, getdate
 
 def get_customer_statement_data(customer_id, from_date=None, to_date=None, page=None, page_size=None, voucher_type=None, search_term=None):
     customer_summary = _get_customer_summary(customer_id, from_date, to_date)
-    customer_summary["netOutstanding"] = customer_summary["totalInvoiced"] - customer_summary["totalCollected"]
+    # customer_summary["netOutstanding"] = customer_summary["totalInvoiced"] - customer_summary["totalCollected"]
+    customer_summary["netOutstanding"] = customer_summary["totalDebit"] - customer_summary["totalCredit"]
 
     ledger_details = _get_ledger_entries(
         customer_id=customer_id, 
@@ -151,7 +152,6 @@ def _get_ledger_entries(customer_id, from_date, to_date, page, page_size, vouche
         search_wildcard = f"%{search_term}%"
         matched_voucher_names = []
         
-        # Smart Search: Pre-fetch vouchers where the user's search matches the remarks field
         matched_voucher_names.extend(frappe.get_all("Sales Invoice", filters={"remarks": ["like", search_wildcard]}, pluck="name") or [])
         matched_voucher_names.extend(frappe.get_all("Payment Entry", filters={"remarks": ["like", search_wildcard]}, pluck="name") or [])
         matched_voucher_names.extend(frappe.get_all("Journal Entry", filters={"user_remark": ["like", search_wildcard]}, pluck="name") or [])
@@ -189,7 +189,21 @@ def _get_ledger_entries(customer_id, from_date, to_date, page, page_size, vouche
         
     general_ledger_rows = main_ledger_query.run(as_dict=True)
 
-    running_account_balance = 0
+    opening_balance = 0.0
+    if from_date:
+        ob_query = """
+            SELECT COALESCE(SUM(debit_in_account_currency - credit_in_account_currency), 0)
+            FROM `tabGL Entry`
+            WHERE party_type = 'Customer'
+              AND party = %s
+              AND is_cancelled = 0
+              AND posting_date < %s
+        """
+        ob_result = frappe.db.sql(ob_query, (customer_id, from_date))
+        if ob_result and ob_result[0][0]:
+            opening_balance = float(ob_result[0][0])
+
+    running_account_balance = opening_balance
 
     if limit_start_offset > 0:
         inner_balance_query = frappe.qb.from_(general_ledger_table).select(
@@ -206,15 +220,41 @@ def _get_ledger_entries(customer_id, from_date, to_date, page, page_size, vouche
             SELECT COALESCE(SUM(debit_amount - credit_amount), 0) 
             FROM ({compiled_inner_sql}) as previous_entries_subquery
         """)
-        running_account_balance = balance_result[0][0] if balance_result else 0
+        running_account_balance += float(balance_result[0][0]) if balance_result else 0.0
 
     voucher_remarks_mapping = _get_voucher_remarks(general_ledger_rows)
     formatted_ledger_list = []
 
+    if not page or int(page) <= 1:
+        starting_date = from_date
+        if not starting_date:
+            customer_creation_datetime = frappe.db.get_value("Customer", customer_id, "creation")
+            starting_date = getdate(customer_creation_datetime) if customer_creation_datetime else ""
+
+        formatted_ledger_list.append({
+            "date": starting_date,
+            "type": "Opening Balance",
+            "ref": "",
+            "debit": 0.0,
+            "credit": 0.0,
+            "balance": opening_balance,
+            "note": f"Balance Till Date: {frappe.utils.formatdate(from_date)}" if from_date else "Starting Balance"
+        })
+    else:
+        formatted_ledger_list.append({
+            "date": "",
+            "type": "Balance Brought Forward",
+            "ref": "",
+            "debit": 0.0,
+            "credit": 0.0,
+            "balance": running_account_balance,
+            "note": "From previous page"
+        })
+
     for ledger_row in general_ledger_rows:
-        row_debit_amount = ledger_row.get("debit_amount") or 0
-        row_credit_amount = ledger_row.get("credit_amount") or 0
-        running_account_balance += row_debit_amount - row_credit_amount
+        row_debit_amount = ledger_row.get("debit_amount") or 0.0
+        row_credit_amount = ledger_row.get("credit_amount") or 0.0
+        running_account_balance += (row_debit_amount - row_credit_amount)
 
         formatted_ledger_list.append({
             "date": ledger_row.get("posting_date"),
