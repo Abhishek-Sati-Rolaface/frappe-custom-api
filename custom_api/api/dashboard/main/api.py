@@ -394,7 +394,7 @@ def sales_chart(from_date=None, to_date=None, year=None, interval="Monthly"):
         )
 
 @frappe.whitelist(allow_guest=False, methods=["GET"])
-def purchase_chart(from_date=None, to_date=None, year=None):
+def purchase_chart(from_date=None, to_date=None, year=None, interval="Monthly"):
     try:
         company = frappe.defaults.get_user_default("Company") or frappe.get_default("Company")
 
@@ -424,12 +424,20 @@ def purchase_chart(from_date=None, to_date=None, year=None):
         # Process Data in Python Memory
         total_payable = 0.0
         total_paid = 0.0
-        monthly_trend = {}
+        trend_data = {}
 
-        # Pre-fill 12 months for Purchase Chart to maintain UI consistency
+        # 1. Pre-fill trend_data to ensure all periods are returned even if 0
         months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-        for m in months:
-            monthly_trend[m] = {"payable": 0.0, "paid": 0.0}
+        
+        if interval == "Monthly":
+            for m in months:
+                trend_data[m] = {"payable": 0.0, "paid": 0.0}
+        elif interval == "Quarterly":
+            for q in ["Q1", "Q2", "Q3", "Q4"]:
+                trend_data[q] = {"payable": 0.0, "paid": 0.0}
+        elif interval == "Half-Yearly":
+            for h in ["H1", "H2"]:
+                trend_data[h] = {"payable": 0.0, "paid": 0.0}
 
         for inv in invoices:
             payable = flt(inv.base_grand_total)
@@ -439,23 +447,35 @@ def purchase_chart(from_date=None, to_date=None, year=None):
             total_payable += payable
             total_paid += paid
 
-            # Group by Month for Trend
+            # Group by interval for Trend
             if inv.posting_date:
                 date_obj = getdate(inv.posting_date)
-                month_key = months[date_obj.month - 1]
+                year_str = date_obj.strftime("%Y")
+                month = date_obj.month
+
+                if interval == "Yearly":
+                    group_key = year_str
+                elif interval == "Half-Yearly":
+                    group_key = "H1" if month <= 6 else "H2"
+                elif interval == "Quarterly":
+                    group_key = f"Q{((month - 1) // 3) + 1}"
+                else:
+                    # Default to Monthly mapping ("Jan", "Feb", etc.)
+                    group_key = months[month - 1]
                 
-                if month_key not in monthly_trend:
-                    monthly_trend[month_key] = {"payable": 0.0, "paid": 0.0}
+                # Fallback just in case "Yearly" adds a new key
+                if group_key not in trend_data:
+                    trend_data[group_key] = {"payable": 0.0, "paid": 0.0}
                 
-                monthly_trend[month_key]["payable"] += payable
-                monthly_trend[month_key]["paid"] += paid
+                trend_data[group_key]["payable"] += payable
+                trend_data[group_key]["paid"] += paid
 
         chart_data = {
             "totals": {
                 "totalPayable": total_payable,
                 "totalPaid": total_paid
             },
-            "trend": monthly_trend
+            "trend": trend_data
         }
 
         return send_old_response(
