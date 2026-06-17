@@ -22,6 +22,9 @@ def customer_statement_pdf_html_template():
     .text-right{
         text-align:right !important;
     }
+    .text-center{
+        text-align:center !important;
+    }
     .header{
         width:100%;
         margin-bottom:20px;
@@ -33,21 +36,32 @@ def customer_statement_pdf_html_template():
         border-collapse:collapse;
         table-layout: fixed;
     }
+    .document-title-block {
+        text-align: center;
+        margin-bottom: 24px; /* Adds 1-2 lines of padding below the title */
+    }
+    .company-logo {
+        max-height: 45px;
+        max-width: 150px;
+        object-fit: contain;
+        display: inline-block;
+        border-radius: 4px;
+    }
     .company-name{
         font-size:20px;
         font-weight:700;
         color:#0f172a;
-        margin-bottom:4px;
+        margin-bottom:6px;
         line-height: 1.2;
         word-wrap: break-word;
-        padding-right: 16px;
     }
     .company-meta{
         color:#64748b;
-        font-size:10px;
+        font-size:11px;
+        line-height: 1.6;
     }
     .statement-title{
-        font-size:20px;
+        font-size:22px;
         font-weight:700;
         color:#0f172a;
         text-transform:uppercase;
@@ -232,13 +246,23 @@ def customer_statement_pdf_html_template():
     </head>
     <body>
     <div class="header">
+        <div class="document-title-block">
+            <div class="statement-title">
+                Customer Statement
+            </div>
+            <div class="statement-date">
+                Generated on {{ frappe.utils.formatdate(frappe.utils.nowdate()) }}
+            </div>
+        </div>
+
         <table class="header-table">
             <tr>
                 {% set company = frappe.get_doc(
                     "Company",
                     frappe.defaults.get_user_default("Company")
                 ) %}
-                <td style="width:60%; vertical-align: top;">
+                
+                <td style="width:50%; vertical-align: top; padding-right: 10px;">
                     <div class="company-name">
                         {{ company.company_name }}
                     </div>
@@ -257,14 +281,13 @@ def customer_statement_pdf_html_template():
                         {% endif %}
                     </div>
                 </td>
-                <td style="width:40%; vertical-align: top;" align="right">
-                    <div class="statement-title">
-                        Customer Statement
-                    </div>
-                    <div class="statement-date">
-                        Generated on {{ frappe.utils.formatdate(frappe.utils.nowdate()) }}
-                    </div>
+                
+                <td style="width:50%; vertical-align: top;" class="text-right">
+                    {% if company.company_logo %}
+                        <img src="{{ company.company_logo }}" class="company-logo" alt="Company Logo">
+                    {% endif %}
                 </td>
+                
             </tr>
         </table>
     </div>
@@ -293,7 +316,7 @@ def customer_statement_pdf_html_template():
                         {% elif to_date %}
                             Up to {{ frappe.utils.formatdate(to_date) }}
                         {% else %}
-                            All Time
+                            {{ frappe.utils.formatdate(customer.creation) }} to {{ frappe.utils.formatdate(frappe.utils.nowdate()) }}
                         {% endif %}
                     </div>
                 </td>
@@ -305,13 +328,13 @@ def customer_statement_pdf_html_template():
             <td>
                 <div class="metric invoiced">
                     <div class="metric-label">Total Invoiced</div>
-                    <div class="metric-value">{{ frappe.format_value(summary.totalInvoiced, {"fieldtype":"Currency"}) }}</div>
+                    <div class="metric-value">{{ frappe.format_value(summary.totalDebit, {"fieldtype":"Currency"}) }}</div>
                 </div>
             </td>
             <td>
                 <div class="metric collected">
                     <div class="metric-label">Total Collected</div>
-                    <div class="metric-value">{{ frappe.format_value(summary.totalCollected, {"fieldtype":"Currency"}) }}</div>
+                    <div class="metric-value">{{ frappe.format_value(summary.totalCredit, {"fieldtype":"Currency"}) }}</div>
                 </div>
             </td>
             <td>
@@ -378,7 +401,7 @@ def customer_statement_pdf_html_template():
     </table>
     <div class="statement-footer-section">
         <div class="discrepancy-clause">
-            <strong>Discrepancy Note:</strong> Kindly notify us of any discrepancies in this statement within 7 days of receipt. If no discrepancies are reported within this period, the statement will be considered accurate and accepted.
+            <strong>Discrepancy Note:</strong> Kindly notify us of any discrepancies in this statement within 15 days of receipt. If no discrepancies are reported within this period, the statement will be considered accurate and accepted.
         </div>
         <div class="footer">
             This is a system generated customer statement and does not require a signature.
