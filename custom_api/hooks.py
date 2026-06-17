@@ -258,11 +258,10 @@ override_whitelisted_methods = {
 }
 
 scheduler_events = {
-    # ── Runs every 60 seconds via Frappe's own scheduler ──────────────────
-    "all": [
-        "frappe.email.queue.flush"
-    ]
-}
+        "daily": [
+            "custom_api.schedulars.customer_payment_reminder.tasks.send_overdue_payment_reminders"
+        ]
+    }
 
 jinja = {
     "methods": [

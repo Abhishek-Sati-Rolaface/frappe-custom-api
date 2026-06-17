@@ -1,0 +1,30 @@
+    <table style="width:60%; border-collapse: collapse; font-size: 13px; margin: 16px 0;">
+        <thead>
+            <tr style="background-color: #4F46E5; color: white;">
+                <th style="padding: 10px 8px; border: 1px solid #ddd; text-align: left;">#</th>
+                <th style="padding: 10px 8px; border: 1px solid #ddd; text-align: left;">Invoice No</th>
+                <th style="padding: 10px 8px; border: 1px solid #ddd; text-align: left;">Invoice Date</th>
+                <th style="padding: 10px 8px; border: 1px solid #ddd; text-align: left;">status</th>
+                <th style="padding: 10px 8px; border: 1px solid #ddd; text-align: left;">Due Date</th>
+                <th style="padding: 10px 8px; border: 1px solid #ddd; text-align: right;">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inv in invoices %}
+            <tr style="background-color: {{ '#f9f9f9' if loop.index % 2 == 0 else '#ffffff' }};">
+                <td style="padding: 8px; border: 1px solid #ddd;">{{ loop.index }}</td>
+                <td style="padding: 8px; border: 1px solid #ddd;">{{ inv.name }}</td>
+                <td style="padding: 8px; border: 1px solid #ddd;">{{ inv.posting_date or "-" }}</td>
+                <td style="padding: 8px; border: 1px solid #ddd;">{{ inv.status }}</td>
+                <td style="padding: 8px; border: 1px solid #ddd;">{{ inv.due_date }}</td>
+                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ inv.outstanding_amount }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr style="background-color: #f3f4f6; font-weight: bold;">
+                <td colspan="5" style="padding: 8px; border: 1px solid #ddd; text-align: right;">Total Outstanding</td>
+                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ total_outstanding }}</td>
+            </tr>
+        </tfoot>
+    </table>
