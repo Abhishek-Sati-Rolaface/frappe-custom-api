@@ -1,7 +1,8 @@
 from custom_api.api.organization.company.service import (get_company_details, update_company_details, upload_file, remove_attach,
-                                                         save_company_terms, get_company_defaults_data, update_company_defaults_data)
+                                                          get_company_defaults_data, update_company_defaults_data)
 from custom_api.utils.response import send_old_response, send_response
 import frappe
+from custom_api.permission import require_permission
 
 @frappe.whitelist(allow_guest=False, methods=["GET"])
 def get():
@@ -34,6 +35,7 @@ def get():
         )
 
 @frappe.whitelist(allow_guest=False, methods=["POST", "PUT"])
+@require_permission("Company", "write")
 def update():
     try:
         data = frappe.local.form_dict
@@ -74,6 +76,7 @@ def update():
         )
     
 @frappe.whitelist(allow_guest=False, methods=["PATCH"])
+@require_permission("Company", "write")
 def upload_company_documents():
     try:
         company_name = frappe.defaults.get_user_default("Company")
@@ -142,6 +145,7 @@ def get_company_defaults():
         )
     
 @frappe.whitelist(allow_guest=False, methods=["PUT"])
+@require_permission("Company", "write")
 def update_company_defaults():
     try:
         data = update_company_defaults_data(

@@ -2,6 +2,7 @@ import frappe
 import json
 from custom_hrms.utils.response import send_response, send_response_list
 from . import service
+from custom_api.permission import require_permission
 
 def parse_api_payload():
     if frappe.request and frappe.request.data:
@@ -12,6 +13,7 @@ def parse_api_payload():
     return frappe.local.form_dict
 
 @frappe.whitelist(allow_guest=False, methods=["POST"])
+@require_permission("Document Naming Settings", "create")
 def create_naming_series():
     try:
         data = parse_api_payload()
@@ -68,6 +70,7 @@ def get_naming_series():
         return send_response(status="error", message=str(e), status_code=500, http_status=500)
 
 @frappe.whitelist(allow_guest=False, methods=["PUT", "PATCH"])
+@require_permission("Document Naming Settings", "write")
 def update_naming_series():
     try:
         data = parse_api_payload()
@@ -99,6 +102,7 @@ def update_naming_series():
         return send_response(status="error", message=str(e), status_code=500, http_status=500)
 
 @frappe.whitelist(allow_guest=False, methods=["DELETE"])
+@require_permission("Document Naming Settings", "delete")
 def delete_naming_series():
     try:
         doctype = frappe.local.form_dict.get("document_type")
@@ -146,6 +150,7 @@ def get_company_naming_settings():
 
 
 @frappe.whitelist(allow_guest=False, methods=["POST", "PUT", "PATCH"])
+@require_permission("Document Naming Settings", "create")
 def update_company_naming_settings():
     try:
         data = parse_api_payload()
