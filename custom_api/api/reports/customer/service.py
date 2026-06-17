@@ -241,14 +241,16 @@ def _get_ledger_entries(customer_id, from_date, to_date, page, page_size, vouche
             "note": f"Balance Till Date: {frappe.utils.formatdate(from_date)}" if from_date else "Starting Balance"
         })
     else:
+        page_start_date = general_ledger_rows[0].get("posting_date") if general_ledger_rows else ""
+        
         formatted_ledger_list.append({
-            "date": "",
-            "type": "Balance Brought Forward",
+            "date": page_start_date,
+            "type": "Previous Balance",
             "ref": "",
             "debit": 0.0,
             "credit": 0.0,
             "balance": running_account_balance,
-            "note": "From previous page"
+            "note": f"Balance Till Date: {frappe.utils.formatdate(page_start_date)}"
         })
 
     for ledger_row in general_ledger_rows:
