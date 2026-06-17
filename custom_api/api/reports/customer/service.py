@@ -238,7 +238,7 @@ def _get_ledger_entries(customer_id, from_date, to_date, page, page_size, vouche
             "debit": 0.0,
             "credit": 0.0,
             "balance": opening_balance,
-            "note": "Balance brought forward" if from_date else "Starting balance"
+            "note": f"Balance Till Date: {frappe.utils.formatdate(from_date)}" if from_date else "Starting Balance"
         })
     else:
         formatted_ledger_list.append({
