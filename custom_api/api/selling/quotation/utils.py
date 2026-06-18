@@ -52,9 +52,11 @@ def validate_quotation_payload(data: Dict[str, Any], is_update=False):
 
     posting_date = data.get("postingDate")
     valid_till = data.get("validTill")
+    document_type = data.get("documentType") or data.get("document_type")
     if posting_date and valid_till:
         if valid_till < posting_date:
-            raise frappe.ValidationError("validTill date cannot be before postingDate.")
+            field_name = "Due date" if document_type == "Proforma Invoice" else "Valid till date"
+            raise frappe.ValidationError(f"{field_name} cannot be before Posting Date.")
 
     terms = data.get("terms")
     if terms:
