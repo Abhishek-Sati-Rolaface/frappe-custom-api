@@ -72,6 +72,7 @@ def _save_item_metadata(data):
     return [{
         "packing_unit": data.get("packingUnit") or "",
         "packing_size": data.get("packingSize") or "",
+        "pieces_per_box": data.get("piecesPerBox") or "",
         "length": data.get("dimensionLength") or "",
         "width": data.get("dimensionWidth") or "",
         "height": data.get("dimensionHeight") or "",
@@ -310,6 +311,7 @@ def _update_item_metadata(item_doc, data):
     item_doc.append("custom_item_metadata", {
         "packing_unit": data.get("packingUnit") or "",
         "packing_size": data.get("packingSize") or "",
+        "pieces_per_box":data.get("piecesPerBox") or "",
         "length": data.get("dimensionLength") or "",
         "width": data.get("dimensionWidth") or "",
         "height": data.get("dimensionHeight") or "",
