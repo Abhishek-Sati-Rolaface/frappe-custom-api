@@ -227,6 +227,7 @@ def get_sales_invoice_by_id(invoice_id):
             "discount": item.discount_percentage,
             "discount_amount": item.discount_amount
         }
+        
 
         if item.batch_no:
             batch_info = frappe.db.get_value(
@@ -257,6 +258,15 @@ def get_sales_invoice_by_id(invoice_id):
                     "hsnCode": meta.get("hsn_code"),
                     "packingUnit": meta.get("packing_unit"),
                     "packingSize": meta.get("packing_size"),
+                    "isServiceItem": bool(frappe.db.exists(
+                                                        "Item",
+                                                        {
+                                                            "name": item.item_code,
+                                                            "is_stock_item": 0,
+                                                            "is_sales_item": 1,
+                                                            "disabled": 0,
+                                                        },
+                                                    ))
                 }
             )
 
