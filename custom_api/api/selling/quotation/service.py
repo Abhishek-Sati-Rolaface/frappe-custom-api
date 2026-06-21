@@ -113,7 +113,6 @@ def update_quotation(quotation_id, data):
     for k, v in field_map.items():
         if data.get(k) is not None:
             setattr(quotation, v, data.get(k))
-
     if currency:
         quotation.currency = currency
 
@@ -157,8 +156,11 @@ def update_quotation(quotation_id, data):
 
     sync_taxes(quotation, data)
 
-    quotation.save(ignore_permissions=True)
+    if "terms" in data:
+        quotation.payment_terms_template = None
+        quotation.set("payment_schedule", [])
 
+    quotation.save(ignore_permissions=True)
     terms_payload = data.get("terms")
     if terms_payload:
         sync_quotation_terms(quotation, terms_payload)

@@ -84,7 +84,7 @@ def generate_customer_statement_pdf():
     customer = frappe.db.get_value(
         "Customer",
         customer_id,
-        ["name", "customer_name", "creation", "tax_id", "primary_address", "email_id", "mobile_no"],
+        ["name", "customer_name", "creation", "tax_id", "primary_address", "email_id", "mobile_no", "creation"],
         as_dict=True
     )
 
@@ -121,6 +121,6 @@ def generate_customer_statement_pdf():
 
     pdf = get_pdf(html, options=pdf_options)
 
-    frappe.local.response.filename = f"Customer-Statement-{customer_id}.pdf"
+    frappe.local.response.filename = f"Customer_Statement_{customer.customer_name}.pdf"
     frappe.local.response.filecontent = pdf
     frappe.local.response.type = "download"

@@ -188,3 +188,39 @@ def update_company_naming_settings():
         frappe.db.rollback()
         frappe.log_error(frappe.get_traceback(), "Update Bulk Naming Settings Error")
         return send_response(status="error", message=str(e), status_code=500, http_status=500)
+    
+@frappe.whitelist(allow_guest=False, methods=["GET"])
+def get_naming_series_details():
+    try:
+        doctype = frappe.request.args.get("document_type")
+
+        if not doctype:
+            return send_response(
+                status="fail",
+                message="document_type is required.",
+                status_code=400,
+                http_status=400,
+            )
+
+        data = service.get_naming_series_details(doctype)
+
+        return send_response(
+            status="success",
+            message="Naming series details retrieved successfully.",
+            data=data,
+            status_code=200,
+            http_status=200,
+        )
+
+    except Exception as e:
+        frappe.log_error(
+            frappe.get_traceback(),
+            "Get Naming Series Details Error"
+        )
+
+        return send_response(
+            status="error",
+            message=str(e),
+            status_code=500,
+            http_status=500,
+        )

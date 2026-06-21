@@ -1,31 +1,18 @@
 import frappe
 from custom_api.utils.response import send_old_response
 from frappe.utils import flt, getdate, get_datetime
+from custom_api.api.dashboard.sales.service import get_top_recent_sales_data
 
 @frappe.whitelist(allow_guest=False, methods=["GET"])
-def top_recent_sales():
+def top_recent_sales(order_by=None):
+    """
+    API Endpoint: /api/method/your_app_name.api.top_recent_sales
+    Accepts:
+        - order_by (str): Optional custom sorting (e.g., "base_grand_total desc")
+    """
     try:
-        company = frappe.defaults.get_user_default("Company") or frappe.get_default("Company")
-
-        # Fetch the top 10 most recent submitted invoices
-        recent_sales = frappe.get_all(
-            "Sales Invoice",
-            filters={
-                "docstatus": 1,
-                "company": company
-            },
-            fields=[
-                "name", 
-                "customer_name", 
-                "posting_date", 
-                "base_grand_total", 
-                "outstanding_amount", 
-                "status",
-                "currency" # Helpful if you want to display the currency symbol on the frontend
-            ],
-            order_by="posting_date desc, creation desc",
-            limit_page_length=10
-        )
+        # Call the service layer to get raw data
+        recent_sales = get_top_recent_sales_data(order_by=order_by)
 
         return send_old_response(
             status="success",

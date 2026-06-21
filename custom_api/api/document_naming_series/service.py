@@ -1,4 +1,5 @@
 import frappe
+import re
 from frappe.custom.doctype.property_setter.property_setter import make_property_setter
 
 def _get_db_key(prefix):
@@ -170,38 +171,6 @@ def get_bulk_naming_settings():
             
     return settings
 
-# def update_bulk_naming_settings(payload_data):
-#     current_settings = get_bulk_naming_settings()
-    
-#     for key, val in payload_data.items():
-#         if key in FRONTEND_DOCTYPE_MAP:
-#             current_settings[key] = val
-            
-#     doctype_prefixes = {}
-    
-#     for key, doctype in FRONTEND_DOCTYPE_MAP.items():
-#         prefix = current_settings.get(key)
-#         if not prefix:
-#             continue
-            
-#         if doctype not in doctype_prefixes:
-#             doctype_prefixes[doctype] = []
-#         doctype_prefixes[doctype].append(prefix)
-            
-#     for doctype, prefixes in doctype_prefixes.items():
-#         new_options = "\n".join(prefixes)
-#         make_property_setter(doctype, "naming_series", "options", new_options, "Text")
-        
-#         for pref in prefixes:
-#             db_key = _get_db_key(pref)
-#             frappe.db.sql("""
-#                 INSERT INTO `tabSeries` (name, current) 
-#                 VALUES (%s, 0) 
-#                 ON DUPLICATE KEY UPDATE name=name
-#             """, (db_key,))
-            
-#     return get_bulk_naming_settings()
-
 def update_bulk_naming_settings(payload_data):
     current_settings = get_bulk_naming_settings()
     skipped_updates = []
@@ -216,7 +185,6 @@ def update_bulk_naming_settings(payload_data):
                 current_count = counter_data[0][0] if counter_data else 0
                 
                 if current_count > 0:
-                    # Capture the exact frontend key and a detailed reason
                     skipped_updates.append({
                         "field": key,
                         "doctype": FRONTEND_DOCTYPE_MAP[key],
@@ -250,3 +218,83 @@ def update_bulk_naming_settings(payload_data):
             """, (db_key,))
             
     return get_bulk_naming_settings(), skipped_updates
+
+def build_document_number(series, counter):
+    if "#" in series:
+        match = re.search(r"(#+)", series)
+
+        if match:
+            hashes = match.group(1)
+            padded = str(counter).zfill(len(hashes))
+
+            return (
+                series.replace(hashes, padded)
+                .replace(".YYYY.", "")
+                .replace(".YY.", "")
+                .replace(".MM.", "")
+                .replace(".", "")
+            )
+
+    return f"{series}{str(counter).zfill(5)}"
+
+def get_naming_series_details(doctype):
+    if not frappe.db.exists("DocType", doctype):
+        frappe.throw(f"DocType '{doctype}' does not exist.")
+
+    meta = frappe.get_meta(doctype)
+
+    naming_field = meta.get_field("naming_series")
+
+    if not naming_field:
+        frappe.throw(f"DocType '{doctype}' does not support naming_series.")
+
+    options = naming_field.options or ""
+
+    prefixes = [
+        x.strip()
+        for x in options.split("\n")
+        if x.strip()
+    ]
+
+    result = []
+
+    for idx, prefix in enumerate(prefixes):
+        db_key = _get_db_key(prefix)
+
+        db_val = frappe.db.sql(
+            """
+            SELECT current
+            FROM `tabSeries`
+            WHERE name = %s
+            """,
+            (db_key,),
+        )
+
+        counter = db_val[0][0] if db_val else 0
+
+        row = {
+            "prefix": prefix,
+            "counter": counter,
+            "current_document": build_document_number(
+                prefix,
+                counter
+            ),
+            "next_document": build_document_number(
+                prefix,
+                counter + 1
+            )
+        }
+
+        if doctype == "Quotation":
+            row["type"] = (
+                "quotation"
+                if idx == 0
+                else "proforma_invoice"
+            )
+
+        result.append(row)
+
+    return {
+        "document_type": doctype,
+        "series": result
+    }

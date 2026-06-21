@@ -140,6 +140,7 @@ def get_batch_wise_stock_report(
                                                 ["*"], as_dict=True)
             item_details_map[item["item_code"]]["packing_unit"] = item_metadata.packing_unit
             item_details_map[item["item_code"]]["packing_size"] = item_metadata.packing_size
+            item_details_map[item["item_code"]]["pieces_per_box"] = item_metadata.pieces_per_box
             item_details_map[item["item_code"]]["taxInfo"] = _get_tax(item.name, tax_category)
             item_details_map[item["item_code"]]["price_list"] = frappe.db.get_value("Item Price", {"item_code": item["item_code"], "price_list": "Standard Selling"}, "price_list_rate")
 
@@ -460,6 +461,7 @@ def get_batch_wise_stock_report(
                     "description":         item_info.get("description", ""),
                     "packingSize":         item_info.get("packing_size",""),
                     "packingUnit":         item_info.get("packing_unit",""),
+                    "piecesPerBox":        item_info.get("pieces_per_box",""),
                     "taxInfo":             item_info.get("taxInfo", ""),
                     "total_opening_qty":   round(opening_qty,   4),
                     "total_opening_value": opening_value,
@@ -506,6 +508,7 @@ def get_batch_wise_stock_report(
 
             packing_size = item_metadata.packing_size if item_metadata else ""
             packing_unit = item_metadata.packing_unit if item_metadata else ""
+            pieces_per_box = item_metadata.pieces_per_box if item_metadata else ""
             tax_info     = _get_tax(item.name, tax_category)
 
             # ── Buy/sell values from invoices ─────────────────────────────────────
@@ -520,6 +523,7 @@ def get_batch_wise_stock_report(
                 "description":         item["description"] or "",
                 "packingSize":         packing_size,
                 "packingUnit":         packing_unit,
+                "piecesPerBox":        pieces_per_box,
                 "taxInfo":             tax_info,
                 "total_opening_qty":   0.0,
                 "total_opening_value": 0.0,

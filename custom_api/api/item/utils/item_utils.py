@@ -72,6 +72,7 @@ def _save_item_metadata(data):
     return [{
         "packing_unit": data.get("packingUnit") or "",
         "packing_size": data.get("packingSize") or "",
+        "pieces_per_box": data.get("piecesPerBox") or "",
         "length": data.get("dimensionLength") or "",
         "width": data.get("dimensionWidth") or "",
         "height": data.get("dimensionHeight") or "",
@@ -80,6 +81,7 @@ def _save_item_metadata(data):
         "min_stock_level": data.get("inventoryInfo", {}).get("minStockLevel") or "",
         "max_stock_level": data.get("inventoryInfo", {}).get("maxStockLevel") or "",
         "hsn_code": data.get("itemClassCode") or "",
+        "pieces_per_box":data.get("inventoryInfo").get("piecesPerBox") or "",
     }]
 
 def validate_item_payload(data):
@@ -151,6 +153,7 @@ def map_item_response(item, tax_category=None):
             "reorderLevel": item_metadata.get("re_order_level") if item_metadata else "0",
             "minStockLevel": item_metadata.get("min_stock_level") if item_metadata else "0",
             "maxStockLevel": item_metadata.get("max_stock_level") if item_metadata else "0",
+            "piecesPerBox": item_metadata.get("pieces_per_box") if item_metadata else "0"
         },
 
         "batchInfo": {
@@ -308,6 +311,7 @@ def _update_item_metadata(item_doc, data):
     item_doc.append("custom_item_metadata", {
         "packing_unit": data.get("packingUnit") or "",
         "packing_size": data.get("packingSize") or "",
+        "pieces_per_box":data.get("piecesPerBox") or "",
         "length": data.get("dimensionLength") or "",
         "width": data.get("dimensionWidth") or "",
         "height": data.get("dimensionHeight") or "",
