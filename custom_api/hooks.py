@@ -246,6 +246,9 @@ doc_events = {
     "Purchase Invoice": {
         "validate": "custom_api.api.buying.purchase_invoice.before_validate_hooks.before_validate"
     },
+    "Journal Entry": {
+        "validate": "custom_api.api.accounting.journal_entry.before_validate_hooks.before_validate"
+        }
     # "Sales Order Item": {
     #     "validate": "custom_api.barcode_validation.validate_barcode_on_sale"
     # }
