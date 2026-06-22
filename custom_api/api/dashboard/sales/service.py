@@ -5,7 +5,7 @@ def get_top_recent_sales_data(order_by=None):
     company = frappe.defaults.get_user_default("Company") or frappe.get_default("Company")
 
     if not order_by:
-        order_by = "outstanding_amount desc"
+        order_by = "base_grand_total desc"
 
     recent_sales = frappe.get_all(
         "Sales Invoice",
