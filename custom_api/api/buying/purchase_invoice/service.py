@@ -193,6 +193,7 @@ def get_purchase_invoice_by_id(pi_id):
         "totalTaxes": pi_doc.total_taxes_and_charges,
         "grandTotal": pi_doc.grand_total,
         "roundedTotal": pi_doc.rounded_total,
+        "roundingAdjustment": pi_doc.rounding_adjustment,
         "contactPerson": pi_doc.contact_person,
         "contactDisplay": pi_doc.contact_display,
         "paymentType": pi_doc.custom_invoice_metadata[0].payment_mode if pi_doc.custom_invoice_metadata else None,
