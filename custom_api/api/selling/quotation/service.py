@@ -63,7 +63,8 @@ def create_quotation(data):
                 "qty": item.get("quantity"),
                 "uom": item.get("uom"),
                 "discount_percentage": item.get("discount", 0),
-                "rate": item.get("rate"),
+                # "rate": item.get("rate"),
+                "price_list_rate": item.get("rate"),
                 "is_alternative": (
                     1 if item.get("isAlternative") or item.get("is_alternative") else 0
                 ),
@@ -144,7 +145,8 @@ def update_quotation(quotation_id, data):
                     "item_code": item.get("itemCode"),
                     "qty": item.get("quantity"),
                     "uom": item.get("uom"),
-                    "rate": item.get("rate"),
+                    # "rate": item.get("rate"),
+                    "price_list_rate": item.get("rate"),
                     "discount_percentage": item.get("discount", 0),
                     "is_alternative": (
                         1
@@ -235,7 +237,8 @@ def get_quotation_by_id(quotation_id):
             "itemName": item.item_name,
             "uom": item.uom,
             "quantity": item.qty,
-            "rate": item.rate,
+            # "rate": item.rate,
+            "rate": item.price_list_rate,
             "discount": item.discount_percentage,
             "discountAmount": item.discount_amount,
             "amount": item.amount,
