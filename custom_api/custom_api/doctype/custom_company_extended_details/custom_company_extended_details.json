@@ -1,0 +1,50 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-26 19:41:05.800405",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "primary_business_domain",
+  "company_signature",
+  "default_payment_mode"
+ ],
+ "fields": [
+  {
+   "description": "Primary domain your company deals in",
+   "fieldname": "primary_business_domain",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Primary Business Domain",
+   "options": "Product\nService"
+  },
+  {
+   "description": "Company signature that will be there in all its documents",
+   "fieldname": "company_signature",
+   "fieldtype": "Image",
+   "label": "Company Signature"
+  },
+  {
+   "description": "Company default payment mode",
+   "fieldname": "default_payment_mode",
+   "fieldtype": "Link",
+   "label": "Default Payment Mode",
+   "options": "Mode of Payment"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-27 16:13:25.955729",
+ "modified_by": "Administrator",
+ "module": "Custom Api",
+ "name": "Custom Company Extended Details",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}
