@@ -4,7 +4,7 @@ from frappe.email.doctype.email_template.email_template import get_email_templat
 from custom_api.utils.response import send_old_response, send_response_list
 from frappe.exceptions import DuplicateEntryError
 
-TEMPLATE_TYPES = ["Sales Invoice", "Purchase Order", "Payment Entry", "Expense Claim", "Quotation","Customer Statement"]
+TEMPLATE_TYPES = ["Sales Invoice", "Purchase Order", "Payment Entry", "Expense Claim", "Quotation","Customer Statement","Payment Reminder"]
 
 @frappe.whitelist(allow_guest=False, methods=["POST"])
 def make_email_template(**payload):

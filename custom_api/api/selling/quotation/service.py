@@ -28,6 +28,7 @@ def create_quotation(data):
     
     document_type = document_type or "Quotation"
     naming_series = get_naming_series_for_quotation(document_type)
+    payment_mode = data.get("payment_mode")
 
     quotation = frappe.new_doc("Quotation")
 
@@ -50,7 +51,8 @@ def create_quotation(data):
     )
 
     quotation.append("custom_extended_details", {
-        "document_type": document_type
+        "document_type": document_type,
+        "payment_mode": payment_mode
     })
 
     for item in data.get("items", []):
@@ -61,7 +63,8 @@ def create_quotation(data):
                 "qty": item.get("quantity"),
                 "uom": item.get("uom"),
                 "discount_percentage": item.get("discount", 0),
-                "rate": item.get("rate"),
+                # "rate": item.get("rate"),
+                "price_list_rate": item.get("rate"),
                 "is_alternative": (
                     1 if item.get("isAlternative") or item.get("is_alternative") else 0
                 ),
@@ -95,6 +98,7 @@ def update_quotation(quotation_id, data):
     company = quotation.company
     company_doc = frappe.get_cached_doc("Company", company)
     currency = data.get("currency") or company_doc.default_currency
+    payment_mode = data.get("payment_mode")
 
     field_map = {
         "title": "title",
@@ -108,6 +112,7 @@ def update_quotation(quotation_id, data):
         "shippingAddress": "shipping_address_name",
         "salesTaxTemplate": "taxes_and_charges",
         "orderType": "order_type",
+        "payment_mode": payment_mode,
     }
 
     for k, v in field_map.items():
@@ -117,6 +122,7 @@ def update_quotation(quotation_id, data):
         quotation.currency = currency
 
     document_type = data.get("documentType") or data.get("document_type")
+    payment_mode = data.get("paymentMode") or data.get("payment_mode")
     if not document_type:
         extended_details = data.get("extendedDetails") or data.get("extended_details")
         if extended_details and isinstance(extended_details, list):
@@ -125,7 +131,8 @@ def update_quotation(quotation_id, data):
     if document_type:
         quotation.set("custom_extended_details", [])
         quotation.append("custom_extended_details", {
-            "document_type": document_type
+            "document_type": document_type,
+            "payment_mode": payment_mode
         })
 
     if "items" in data:
@@ -138,7 +145,8 @@ def update_quotation(quotation_id, data):
                     "item_code": item.get("itemCode"),
                     "qty": item.get("quantity"),
                     "uom": item.get("uom"),
-                    "rate": item.get("rate"),
+                    # "rate": item.get("rate"),
+                    "price_list_rate": item.get("rate"),
                     "discount_percentage": item.get("discount", 0),
                     "is_alternative": (
                         1
@@ -214,7 +222,8 @@ def get_quotation_by_id(quotation_id):
 
     ext_details = quotation.get("custom_extended_details", [])
     if ext_details:
-        data["documentType"] = ext_details[0].document_type
+        data["documentType"] = ext_details[0].document_type,
+        data["payment_mode"] = ext_details[0].payment_mode
 
     lost_rsns = quotation.get("lost_reasons", [])
     if lost_rsns:
@@ -228,7 +237,8 @@ def get_quotation_by_id(quotation_id):
             "itemName": item.item_name,
             "uom": item.uom,
             "quantity": item.qty,
-            "rate": item.rate,
+            # "rate": item.rate,
+            "rate": item.price_list_rate,
             "discount": item.discount_percentage,
             "discountAmount": item.discount_amount,
             "amount": item.amount,
