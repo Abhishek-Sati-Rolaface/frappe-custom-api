@@ -12,6 +12,11 @@ def build_company_response(company):
         as_dict=True,
         order_by="year_start_date desc"
     )
+    extended_details = (
+        company.custom_extended_details[0]
+        if company.custom_extended_details
+        else None
+    )
     return {
         "tpin": company.tax_id,
         "companyName": company.company_name,
@@ -30,6 +35,16 @@ def build_company_response(company):
             "companyLogoUrl": company.company_logo or "",
             "authorizedSignatureUrl": company.custom_company_signature or ""
         },
+        "primaryBusinessDomain": (
+            extended_details.primary_business_domain
+            if extended_details
+            else None
+        ),
+        "defaultPaymentMode": (
+            extended_details.default_payment_mode
+            if extended_details
+            else None
+        ),
         "address": addresses[0] if addresses else None, # Assuming one address per company for now, can be extended to support multiple addresses in the future
         "terms": terms,
         "accountingSetup": {
@@ -51,6 +66,7 @@ def build_company_response(company):
                 "startMonth": fiscal_year.year_start_date.strftime("%B") if fiscal_year else None,
                 "endMonth": fiscal_year.year_end_date.strftime("%B") if fiscal_year else None,
             },
+        
     }
 
 def map_company_update_fields(company, data):
@@ -58,12 +74,28 @@ def map_company_update_fields(company, data):
     company.company_name = data.get("companyName", company.company_name)
     company.tax_id = data.get("tpin", company.tax_id)
 
-    # Contact Info
+        # Contact Info
     company.email = contact_info.get("companyEmail", company.email)
     company.phone_no = contact_info.get("companyPhone", company.phone_no)
     company.website = contact_info.get("website", company.website)
     company.domain = data.get("industryType", company.domain)
     company.custom_type = data.get("companyType", company.custom_type)
+    company.custom_type = data.get("companyType", company.custom_type)
     company.date_of_incorporation = data.get("dateOfIncorporation", company.date_of_incorporation)
     company.registration_details = data.get("registrationNumber", company.registration_details)
+
+    if not company.custom_extended_details:
+        company.append("custom_extended_details", {})
+
+    extended_details = company.custom_extended_details[0]
+
+    extended_details.primary_business_domain = data.get(
+        "primaryBusinessDomain",
+        extended_details.primary_business_domain,
+    )
+
+    extended_details.default_payment_mode = data.get(
+        "defaultPaymentMode",
+        extended_details.default_payment_mode,
+    )
     create_or_update_company_address( company, data.get("address") )

@@ -1,9 +1,13 @@
 import frappe
-from custom_api.api.organization.company.utlis.utils import build_company_response, map_company_update_fields
+from custom_api.api.organization.company.utlis.utils import (
+    build_company_response,
+    map_company_update_fields,
+)
 from mimetypes import guess_type
 from frappe.utils.image import optimize_image
 from frappe.utils import cint
 from custom_api.api.organization.company.utlis.terms_utils import sync_company_terms
+
 
 def get_company_details():
 
@@ -15,6 +19,7 @@ def get_company_details():
     company = frappe.get_doc("Company", company_name)
 
     return build_company_response(company)
+
 
 def update_company_details(data):
     company_name = frappe.defaults.get_user_default("Company")
@@ -32,6 +37,7 @@ def update_company_details(data):
 
     return company.name
 
+
 def remove_attach(doctype, docname, fieldname):
     old_file = frappe.get_value(
         "File",
@@ -40,41 +46,44 @@ def remove_attach(doctype, docname, fieldname):
             "attached_to_name": docname,
             "attached_to_field": fieldname,
         },
-        "name"
+        "name",
     )
 
     if old_file:
         frappe.delete_doc("File", old_file, ignore_permissions=True)
 
-def upload_file(file, doctype, docname, fieldname, folder="Home", is_private=0, optimize=True):
-	
-	content = file.stream.read()
-	filename = file.filename
 
-	content_type = guess_type(filename)[0]
-	if optimize and content_type and content_type.startswith("image/"):
-		args = {"content": content, "content_type": content_type}
-		if frappe.form_dict.max_width:
-			args["max_width"] = int(frappe.form_dict.max_width)
-		if frappe.form_dict.max_height:
-			args["max_height"] = int(frappe.form_dict.max_height)
-		content = optimize_image(**args)
+def upload_file(
+    file, doctype, docname, fieldname, folder="Home", is_private=0, optimize=True
+):
 
-	frappe.local.uploaded_file = content
-	frappe.local.uploaded_filename = filename
+    content = file.stream.read()
+    filename = file.filename
 
-	return frappe.get_doc(
-			{
-				"doctype": "File",
-				"attached_to_doctype": doctype,
-				"attached_to_name": docname,
-				"attached_to_field": fieldname,
-				"folder": folder,
-				"file_name": filename,
-				"is_private": cint(is_private),
-				"content": content,
-			}
-		).save(ignore_permissions=True)
+    content_type = guess_type(filename)[0]
+    if optimize and content_type and content_type.startswith("image/"):
+        args = {"content": content, "content_type": content_type}
+        if frappe.form_dict.max_width:
+            args["max_width"] = int(frappe.form_dict.max_width)
+        if frappe.form_dict.max_height:
+            args["max_height"] = int(frappe.form_dict.max_height)
+        content = optimize_image(**args)
+
+    frappe.local.uploaded_file = content
+    frappe.local.uploaded_filename = filename
+
+    return frappe.get_doc(
+        {
+            "doctype": "File",
+            "attached_to_doctype": doctype,
+            "attached_to_name": docname,
+            "attached_to_field": fieldname,
+            "folder": folder,
+            "file_name": filename,
+            "is_private": cint(is_private),
+            "content": content,
+        }
+    ).save(ignore_permissions=True)
 
 
 def save_company_terms(company, data):
@@ -98,11 +107,9 @@ COMPANY_DEFAULT_FIELDS = [
     "company_name",
     "abbr",
     "default_currency",
-
     # Payroll
     "default_payroll_payable_account",
     "default_employee_advance_account",
-
     # Accounts
     "default_bank_account",
     "default_cash_account",
@@ -119,28 +126,23 @@ COMPANY_DEFAULT_FIELDS = [
     "default_deferred_expense_account",
     "default_advance_received_account",
     "default_advance_paid_account",
-
     # Cost Center & Finance
     "cost_center",
     "default_finance_book",
-
     # HR & Leave
     "default_holiday_list",
-
     # Selling / Buying
     "default_selling_terms",
     "default_buying_terms",
     "default_in_transit_warehouse",
 ]
 
+
 def get_company_defaults_data():
     company = frappe.defaults.get_user_default("Company")
 
     if not company:
-        company = frappe.db.get_single_value(
-            "Global Defaults",
-            "default_company"
-        )
+        company = frappe.db.get_single_value("Global Defaults", "default_company")
 
     if not company:
         frappe.throw("No default company found for the current user.")
@@ -155,6 +157,22 @@ def get_company_defaults_data():
     if not data:
         frappe.throw(f"Company '{company}' does not exist.")
 
+    company_doc = frappe.get_doc("Company", company)
+
+    extended_details = (
+        company_doc.custom_extended_details[0]
+        if company_doc.custom_extended_details
+        else None
+    )
+
+    data["primary_business_domain"] = (
+        extended_details.primary_business_domain if extended_details else None
+    )
+
+    data["default_payment_mode"] = (
+        extended_details.default_payment_mode if extended_details else None
+    )
+
     return data
 
 
@@ -162,10 +180,7 @@ def update_company_defaults_data(data):
     company = frappe.defaults.get_user_default("Company")
 
     if not company:
-        company = frappe.db.get_single_value(
-            "Global Defaults",
-            "default_company"
-        )
+        company = frappe.db.get_single_value("Global Defaults", "default_company")
 
     if not company:
         frappe.throw("No default company found for the current user.")
@@ -176,12 +191,28 @@ def update_company_defaults_data(data):
         if field in data:
             company_doc.set(field, data.get(field))
 
+    if not company_doc.custom_extended_details:
+        company_doc.append("custom_extended_details", {})
+
+    extended_details = company_doc.custom_extended_details[0]
+
+    if "primary_business_domain" in data:
+        extended_details.primary_business_domain = data.get("primary_business_domain")
+
+    if "default_payment_mode" in data:
+        extended_details.default_payment_mode = data.get("default_payment_mode")
+
     company_doc.save()
     frappe.db.commit()
 
-    return frappe.db.get_value(
+    result = frappe.db.get_value(
         "Company",
         company_doc.name,
         COMPANY_DEFAULT_FIELDS,
         as_dict=True,
     )
+
+    result["primary_business_domain"] = extended_details.primary_business_domain
+    result["default_payment_mode"] = extended_details.default_payment_mode
+
+    return result
