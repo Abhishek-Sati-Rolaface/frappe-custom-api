@@ -74,7 +74,7 @@ def map_company_update_fields(company, data):
     company.company_name = data.get("companyName", company.company_name)
     company.tax_id = data.get("tpin", company.tax_id)
 
-    # Contact Info
+        # Contact Info
     company.email = contact_info.get("companyEmail", company.email)
     company.phone_no = contact_info.get("companyPhone", company.phone_no)
     company.website = contact_info.get("website", company.website)
