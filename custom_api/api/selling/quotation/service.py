@@ -192,6 +192,7 @@ def get_quotation_by_id(quotation_id):
         "quotationTo": quotation.quotation_to,
         "customerId": quotation.party_name,
         "customerName": customer_name,
+        "contact_email": quotation.contact_email,
         "currency": quotation.currency,
         "exchangeRate": quotation.conversion_rate,
         "postingDate": quotation.transaction_date,
