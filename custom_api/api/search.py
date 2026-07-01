@@ -316,7 +316,7 @@ def get_suppliers_group():
 def get_item_groups():
     try:
         data = _fetch_paginated_autosuggest(
-            "Item Group", frappe._dict({}), ["name", "item_group_name"]
+            "Item Group", frappe._dict({"is_group": 0}), ["name", "item_group_name"]
         )
         return send_response_list("success", "Item Groups fetched successfully.", data)
     except Exception as e:
