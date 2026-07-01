@@ -9,9 +9,9 @@ def map_to_frappe_item(data: dict, brand: str) -> dict:
         "description": data.get("description"),
 
         # Stock & UOM
-        "stock_uom": data.get("unitOfMeasureCd") or "Nos",
+        "stock_uom": data.get("unitOfMeasureCd", ""),
         "weight_per_unit": float(data.get("weight") or 0),
-        "weight_uom": data.get("weightUnit") or "Kg",
+        "weight_uom": data.get("weightUnit", ""),
 
         # Flags
         "is_stock_item": data.get("is_stock_item", 1),
@@ -31,7 +31,7 @@ def map_to_frappe_item(data: dict, brand: str) -> dict:
 
         "uoms": [
             {
-                "uom": data.get("unitOfMeasureCd") or "Nos",
+                "uom": data.get("unitOfMeasureCd", ""),
                 "conversion_factor": 1
             }
         ],
@@ -72,6 +72,7 @@ def _save_item_metadata(data):
     return [{
         "packing_unit": data.get("packingUnit") or "",
         "packing_size": data.get("packingSize") or "",
+        "packaging_uom": data.get("packaging_uom", ""),
         "pieces_per_box": data.get("piecesPerBox") or "",
         "length": data.get("dimensionLength") or "",
         "width": data.get("dimensionWidth") or "",
@@ -82,6 +83,8 @@ def _save_item_metadata(data):
         "max_stock_level": data.get("inventoryInfo", {}).get("maxStockLevel") or "",
         "hsn_code": data.get("itemClassCode") or "",
         "pieces_per_box":data.get("inventoryInfo").get("piecesPerBox") or "",
+        "insurance": data.get("ins", False),
+        "service_charge": data.get("svcCharge", False)
     }]
 
 def validate_item_payload(data):
@@ -146,7 +149,10 @@ def map_item_response(item, tax_category=None):
         "dimensionUOM": item_metadata.custom_uom if item_metadata else "",
         "packingUnit": item_metadata.packing_unit if item_metadata else "",
         "packingSize": item_metadata.packing_size if item_metadata else "",
+        "packaging_uom": item_metadata.packaging_uom if item_metadata else "",
         "itemClassCode": item_metadata.hsn_code if item_metadata else "",
+        "ins": item_metadata.insurance if item_metadata else 0,
+        "svcCharge": item_metadata.service_charge if item_metadata else 0,
         "inventoryInfo": {
             "valuationMethod": item.valuation_method or "",
             "trackingMethod": _get_tracking_method(item),
@@ -320,4 +326,7 @@ def _update_item_metadata(item_doc, data):
         "min_stock_level": data.get("inventoryInfo", {}).get("minStockLevel") or "",
         "max_stock_level": data.get("inventoryInfo", {}).get("maxStockLevel") or "",
         "hsn_code": data.get("itemClassCode") or "",
+        "packaging_uom": data.get("packaging_uom", ""),
+        "insurance": data.get("ins",""),
+        "service_charge": data.get("svcCharge", "")
     })
