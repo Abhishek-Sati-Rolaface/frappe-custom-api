@@ -238,7 +238,7 @@ def update_pi_service(pi_id, data):
     pi_doc.only_include_allocated_payments = 0
     pi_doc.set("items", [])
     pi_doc.credit_to = account
-    for item in build_items(data.get("items"), data.get("supplierId")):
+    for item in build_items(data.get("items"), data.get("supplierId"), data.get("lpoNumber")):
         pi_doc.append("items", item)
 
     pi_doc.set("taxes", [])
