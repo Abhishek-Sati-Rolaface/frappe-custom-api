@@ -2,6 +2,7 @@
  "actions": [],
  "allow_import": 1,
  "allow_rename": 1,
+ "autoname": "field:code_name",
  "creation": "2026-07-02 13:29:48.279935",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -19,7 +20,8 @@
   {
    "fieldname": "code_name",
    "fieldtype": "Data",
-   "label": "Code Name"
+   "label": "Code Name",
+   "unique": 1
   },
   {
    "fieldname": "description",
@@ -30,10 +32,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-07-02 13:31:24.164193",
+ "modified": "2026-07-02 13:45:59.739081",
  "modified_by": "Administrator",
  "module": "Custom Api",
  "name": "Packaging Unit Of Measure",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {
