@@ -262,10 +262,10 @@ def _update_basic_fields(item_doc, data, brand):
 
     item_doc.brand = brand
 
-    item_doc.stock_uom = data.get("unitOfMeasureCd") or "Nos"
+    item_doc.stock_uom = data.get("unitOfMeasureCd", "")
 
     item_doc.weight_per_unit = float(data.get("weight") or 0)
-    item_doc.weight_uom = data.get("weightUnit") or "Kg"
+    item_doc.weight_uom = data.get("weightUnit", "")
 
     item_doc.valuation_method = data.get("inventoryInfo", {}).get("valuationMethod") or "FIFO"
 
