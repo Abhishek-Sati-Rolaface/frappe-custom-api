@@ -402,7 +402,7 @@ def get_sales_invoices(filters=None, page=1, page_size=20, search=None):
         ],
         limit_start=start,
         limit_page_length=page_size,
-        order_by=order_by,
+        order_by="creation desc",
     )
 
     total_invoices = len(
