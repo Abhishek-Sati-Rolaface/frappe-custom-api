@@ -71,6 +71,7 @@ def create_quotation(data):
                 "item_tax_template": _get_item_tax_template(
                     item.get("itemCode"), data.get("taxCategory")
                 ),
+                "description": item.get("description", None),
             },
         )
         
@@ -157,6 +158,7 @@ def update_quotation(quotation_id, data):
                         item.get("itemCode"),
                         data.get("taxCategory") or quotation.tax_category,
                     ),
+                    "description": item.get("description", None),
                 },
             )
             
@@ -247,7 +249,8 @@ def get_quotation_by_id(quotation_id):
             "taxInfo": tax_info,
             "batchNo": getattr(item, "batch_no", None),
             "boxStart": None,
-            "boxEnd": None
+            "boxEnd": None,
+            "description": item.description,
         }
         for box in box_details:
             if box.item_code == item.item_code:

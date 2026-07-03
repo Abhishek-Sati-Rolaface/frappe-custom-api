@@ -23,6 +23,7 @@ def build_items(items, supplier, po_number = None):
         mfg_date = item.get("mfgDate")
         exp_date = item.get("expDate")
         barcode = item.get("barCode", None)
+        description = item.get("description", None)
 
         if batch_no:
             ensure_batch(item_code, batch_no, mfg_date, exp_date, barcode)
@@ -40,6 +41,7 @@ def build_items(items, supplier, po_number = None):
             "schedule_date": item.get("requiredBy"),
             "warehouse": item.get("warehouse"),
             "uom": item.get("uom"),
+            "description": description,
             "item_tax_template": item_tax_template
         }
 

@@ -60,6 +60,7 @@ def create_sales_invoice(data):
             "item_tax_template": _get_item_tax_template(item_code, data.get("tax_category")),
             "discount_percentage": item.get("discount", 0),
             "price_list_rate": item.get("rate"),
+            "description": item.get("description", None),
         })
 
         invoice.append("custom_item_box_detail", _build_sales_invoice_box_detail(item))
@@ -135,6 +136,7 @@ def update_sales_invoice(invoice_id, data):
                 "batch_no": batch_no,
                 "item_tax_template": _get_item_tax_template(item_code, data.get("tax_category")), 
                 "discount_percentage": item.get("discount", 0),
+                "description": item.get("description", None),
             })
             invoice.append("custom_item_box_detail", _build_sales_invoice_box_detail(item))
 
@@ -225,7 +227,8 @@ def get_sales_invoice_by_id(invoice_id):
             "itemTaxTemplate": item.item_tax_template,
             "taxInfo": tax,
             "discount": item.discount_percentage,
-            "discount_amount": item.discount_amount
+            "discount_amount": item.discount_amount,
+            "description": item.description,
         }
         
 
