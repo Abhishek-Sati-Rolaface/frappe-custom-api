@@ -335,7 +335,7 @@ def get_quotation_by_id(quotation_id):
     return data
 
 
-def get_quotations(filters=None, page=1, page_size=20, search=None, sort_by="creation", sort_order="desc"):
+def get_quotations(filters=None, page=1, page_size=20, search=None):
     filters = filters or {}
     
     frappe_filters = build_quotation_filters(filters)
@@ -354,7 +354,7 @@ def get_quotations(filters=None, page=1, page_size=20, search=None, sort_by="cre
 
     start = (page - 1) * page_size
     
-    order_string = f"{sort_by} {sort_order}" if sort_by else "creation desc"
+    order_string = f"{filters.sortBy} {filters.sortOrder}" if filters.sortBy else "creation desc"
 
     quotations = frappe.get_all(
         "Quotation",

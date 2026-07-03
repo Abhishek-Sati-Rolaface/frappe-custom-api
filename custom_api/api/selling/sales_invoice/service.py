@@ -363,7 +363,7 @@ def get_sales_invoices(filters=None, page=1, page_size=20, search=None):
     }
 
     frappe_filters = build_sales_invoice_filters(allowed_filters)
-    order_by = "creation_date desc"
+    order_by = "creation desc"
     if filters.get("sortBy"):
         order_by = f"{filters.get('sortBy')} {filters.get('sortOrder') or 'asc'}"
 
@@ -402,7 +402,7 @@ def get_sales_invoices(filters=None, page=1, page_size=20, search=None):
         ],
         limit_start=start,
         limit_page_length=page_size,
-        order_by="creation desc",
+        order_by=order_by,
     )
 
     total_invoices = len(
