@@ -43,6 +43,8 @@ def get_customer_statement():
             status_code=404,
             http_status=404
         )
+    customer_currency = frappe.db.get_value("Customer", customer_id, "default_currency")
+    currency_symbol = frappe.db.get_value("Currency", customer_currency, "symbol") if customer_currency else None
 
     statement = get_customer_statement_data(
         customer_id=customer_id, 
@@ -53,6 +55,8 @@ def get_customer_statement():
         voucher_type=voucher_type,
         search_term=search_term
     )
+    statement["currency"] = customer_currency
+    statement["currency_symbol"] = currency_symbol
 
     return send_response(
         status="success",
