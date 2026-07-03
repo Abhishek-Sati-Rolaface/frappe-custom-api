@@ -328,19 +328,19 @@ def customer_statement_pdf_html_template():
             <td>
                 <div class="metric invoiced">
                     <div class="metric-label">Total Invoiced</div>
-                    <div class="metric-value">{{ frappe.format_value(summary.totalDebit, {"fieldtype":"Currency"}) }}</div>
+                    <div class="metric-value">{{ frappe.format_value(summary.totalDebit, {"fieldtype":"Currency"}, currency=customer.default_currency) }}</div>
                 </div>
             </td>
             <td>
                 <div class="metric collected">
                     <div class="metric-label">Total Collected</div>
-                    <div class="metric-value">{{ frappe.format_value(summary.totalCredit, {"fieldtype":"Currency"}) }}</div>
+                    <div class="metric-value">{{ frappe.format_value(summary.totalCredit, {"fieldtype":"Currency"}, currency=customer.default_currency) }}</div>
                 </div>
             </td>
             <td>
                 <div class="metric outstanding">
                     <div class="metric-label">Outstanding</div>
-                    <div class="metric-value">{{ frappe.format_value(summary.netOutstanding, {"fieldtype":"Currency"}) }}</div>
+                    <div class="metric-value">{{ frappe.format_value(summary.netOutstanding, {"fieldtype":"Currency"}, currency=customer.default_currency) }}</div>
                 </div>
             </td>
             <td>
@@ -348,7 +348,7 @@ def customer_statement_pdf_html_template():
                     <div class="metric-label">Overdue</div>
                     <div class="metric-value">
                         {% set overdue_amount = (summary.netOutstanding if not aging else (aging.get('1_30', 0) + aging.get('31_60', 0) + aging.get('61_90', 0) + aging.get('90_plus', 0))) %}
-                        {{ frappe.format_value(overdue_amount, {"fieldtype":"Currency"}) }}
+                        {{ frappe.format_value(overdue_amount, {"fieldtype":"Currency"}, currency=customer.default_currency) }}
                     </div>
                 </div>
             </td>
@@ -386,9 +386,9 @@ def customer_statement_pdf_html_template():
                 </td>
                 <td class="nowrap">{{ row.ref }}</td>
                 <td>{{ row.note or '-' }}</td>
-                <td class="text-right {% if row.debit %}debit{% endif %}">{{ frappe.format_value(row.debit, {"fieldtype":"Currency"}) if row.debit else '-' }}</td>
-                <td class="text-right {% if row.credit %}credit{% endif %}">{{ frappe.format_value(row.credit, {"fieldtype":"Currency"}) if row.credit else '-' }}</td>
-                <td class="text-right balance nowrap">{{ frappe.format_value(row.balance, {"fieldtype":"Currency"}) }}</td>
+                <td class="text-right {% if row.debit %}debit{% endif %}">{{ frappe.format_value(row.debit, {"fieldtype":"Currency"}, currency=customer.default_currency) if row.debit else '-' }}</td>
+                <td class="text-right {% if row.credit %}credit{% endif %}">{{ frappe.format_value(row.credit, {"fieldtype":"Currency"}, currency=customer.default_currency) if row.credit else '-' }}</td>
+                <td class="text-right balance nowrap">{{ frappe.format_value(row.balance, {"fieldtype":"Currency"}, currency=customer.default_currency) }}</td>
             </tr>
         {% else %}
             <tr>
