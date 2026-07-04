@@ -269,6 +269,15 @@ def get_quotation_by_id(quotation_id):
                     "hsnCode": meta.get("hsn_code"),
                     "packingUnit": meta.get("packing_unit"),
                     "packingSize": meta.get("packing_size"),
+                    "isServiceItem": bool(frappe.db.exists(
+                                                        "Item",
+                                                        {
+                                                            "name": item.item_code,
+                                                            "is_stock_item": 0,
+                                                            "is_sales_item": 1,
+                                                            "disabled": 0,
+                                                        },
+                                                    ))
                 }
             )
 
