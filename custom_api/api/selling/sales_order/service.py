@@ -19,7 +19,7 @@ def create_sales_order(data):
 
     currency = data.get("currency") or company_doc.default_currency
     naming_series = get_naming_series_for_sales_order()
-    payment_mode = data.get("payment_mode")
+    # payment_mode = data.get("payment_mode")
 
     sales_order = frappe.new_doc("Sales Order")
 
@@ -42,10 +42,10 @@ def create_sales_order(data):
         }
     )
 
-    sales_order.append("custom_extended_details", {
-        "document_type": "Sales Order",
-        "payment_mode": payment_mode
-    })
+    # sales_order.append("custom_extended_details", {
+    #     "document_type": "Sales Order",
+    #     "payment_mode": payment_mode
+    # })
 
     for item in data.get("items", []):
         sales_order.append(
@@ -57,14 +57,14 @@ def create_sales_order(data):
                 "discount_percentage": item.get("discount", 0),
                 "price_list_rate": item.get("rate"),
                 "delivery_date": item.get("deliveryDate") or data.get("deliveryDate"),
-                "warehouse": item.get("warehouse"),
+                # "warehouse": item.get("warehouse"),
                 "item_tax_template": _get_item_tax_template(
                     item.get("itemCode"), data.get("taxCategory")
                 ),
             },
         )
 
-        sales_order.append("custom_item_box_detail", _build_sales_order_box_detail(item))
+        # sales_order.append("custom_item_box_detail", _build_sales_order_box_detail(item))
 
     sync_taxes(sales_order, data)
 
@@ -88,7 +88,7 @@ def update_sales_order(sales_order_id, data):
     company = sales_order.company
     company_doc = frappe.get_cached_doc("Company", company)
     currency = data.get("currency") or company_doc.default_currency
-    payment_mode = data.get("payment_mode")
+    # payment_mode = data.get("payment_mode")
 
     field_map = {
         "title": "title",
@@ -112,17 +112,17 @@ def update_sales_order(sales_order_id, data):
     if currency:
         sales_order.currency = currency
 
-    payment_mode = data.get("paymentMode") or data.get("payment_mode")
-    if payment_mode is not None:
-        sales_order.set("custom_extended_details", [])
-        sales_order.append("custom_extended_details", {
-            "document_type": "Sales Order",
-            "payment_mode": payment_mode
-        })
+    # payment_mode = data.get("paymentMode") or data.get("payment_mode")
+    # if payment_mode is not None:
+    #     sales_order.set("custom_extended_details", [])
+    #     sales_order.append("custom_extended_details", {
+    #         "document_type": "Sales Order",
+    #         "payment_mode": payment_mode
+    #     })
 
     if "items" in data:
         sales_order.set("items", [])
-        sales_order.set("custom_item_box_detail", [])
+        # sales_order.set("custom_item_box_detail", [])
         for item in data.get("items"):
             sales_order.append(
                 "items",
@@ -133,7 +133,7 @@ def update_sales_order(sales_order_id, data):
                     "price_list_rate": item.get("rate"),
                     "discount_percentage": item.get("discount", 0),
                     "delivery_date": item.get("deliveryDate") or data.get("deliveryDate"),
-                    "warehouse": item.get("warehouse"),
+                    # "warehouse": item.get("warehouse"),
                     "item_tax_template": _get_item_tax_template(
                         item.get("itemCode"),
                         data.get("taxCategory") or sales_order.tax_category,
@@ -141,7 +141,7 @@ def update_sales_order(sales_order_id, data):
                 },
             )
 
-            sales_order.append("custom_item_box_detail", _build_sales_order_box_detail(item))
+            # sales_order.append("custom_item_box_detail", _build_sales_order_box_detail(item))
 
     sync_taxes(sales_order, data)
 
@@ -161,7 +161,7 @@ def get_sales_order_by_id(sales_order_id):
     sales_order = frappe.get_doc("Sales Order", sales_order_id)
     customer_name = frappe.db.get_value("Customer", sales_order.customer, "customer_name")
 
-    box_details = getattr(sales_order, "custom_item_box_detail", None) or []
+    # box_details = getattr(sales_order, "custom_item_box_detail", None) or []
 
     data = {
         "id": sales_order.name,
@@ -199,9 +199,9 @@ def get_sales_order_by_id(sales_order_id):
         "terms": {},
     }
 
-    ext_details = getattr(sales_order, "custom_extended_details", None) or []
-    if ext_details:
-        data["payment_mode"] = ext_details[0].payment_mode
+    # ext_details = getattr(sales_order, "custom_extended_details", None) or []
+    # if ext_details:
+    #     data["payment_mode"] = ext_details[0].payment_mode
 
     for item in sales_order.items:
         tax_info = _get_tax(item.item_code, sales_order.tax_category)
@@ -216,20 +216,20 @@ def get_sales_order_by_id(sales_order_id):
             "discountAmount": item.discount_amount,
             "amount": item.amount,
             "deliveryDate": item.delivery_date,
-            "warehouse": item.warehouse,
+            # "warehouse": item.warehouse,
             "taxInfo": tax_info,
             "batchNo": getattr(item, "batch_no", None),
             "boxStart": None,
             "boxEnd": None
         }
-        for box in box_details:
-            if box.item_code == item.item_code:
-                item_data["boxStart"] = box.box_start
-                item_data["boxEnd"] = box.box_end
+        # for box in box_details:
+        #     if box.item_code == item.item_code:
+        #         item_data["boxStart"] = box.box_start
+        #         item_data["boxEnd"] = box.box_end
 
-                if not item_data["batchNo"] and box.batch_no:
-                    item_data["batchNo"] = box.batch_no
-                break
+        #         if not item_data["batchNo"] and box.batch_no:
+        #             item_data["batchNo"] = box.batch_no
+        #         break
 
         metadata = get_extended_item_detail(item.item_code)
         if metadata:
