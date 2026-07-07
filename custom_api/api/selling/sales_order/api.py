@@ -4,7 +4,8 @@ from custom_api.utils.response import send_response, send_response_list
 from .utils import validate_sales_order_payload
 from ....utils.party_utils import parse_api_payload
 from . import service
-
+from erpnext.selling.doctype.sales_order.sales_order import make_sales_invoice
+from ..sales_invoice.utils import validate_receivable_account_for_currency
 
 @frappe.whitelist(allow_guest=False, methods=["POST"])
 @require_permission("Sales Order", "create")
@@ -337,6 +338,65 @@ def update_sales_order_status(id=None, action=None):
         return send_response(
             status="error",
             message="Internal Server Error",
+            status_code=500,
+            http_status=500,
+        )
+    
+@frappe.whitelist(allow_guest=False, methods=["POST"])
+@require_permission("Sales Invoice", "create")
+def create_si_from_so():
+    so_id = frappe.request.args.get("so_id") or frappe.request.args.get("id")
+ 
+    if not so_id:
+        return send_response(
+            status="fail",
+            message="so_id is required as query parameter (?so_id=...)",
+            status_code=400,
+            http_status=400,
+        )
+ 
+    if not frappe.db.exists("Sales Order", so_id):
+        return send_response(
+            status="fail",
+            message="Sales Order not found",
+            status_code=404,
+            http_status=404,
+        )
+ 
+    try:
+        si_doc = make_sales_invoice(so_id)
+        currency = si_doc.currency
+        account = validate_receivable_account_for_currency(currency)
+        si_doc.debit_to = account
+        si_doc.docstatus = 0
+        si_doc.allocate_advances_automatically = 1
+        si_doc.only_include_allocated_payments = 1
+        # Bypasses Delivery Note, same way the PO flow bypasses Purchase Receipt.
+        si_doc.update_stock = 1
+        si_doc.insert(ignore_permissions=True)
+ 
+        frappe.db.commit()
+ 
+        return send_response(
+            status="success",
+            message="Sales Invoice created successfully from Sales Order",
+            data={"id": si_doc.name},
+            status_code=201,
+            http_status=201,
+        )
+ 
+    except frappe.exceptions.ValidationError as e:
+        frappe.db.rollback()
+        return send_response(
+            status="fail", message=str(e), status_code=400, http_status=400
+        )
+ 
+    except Exception as e:
+        frappe.db.rollback()
+        frappe.log_error(frappe.get_traceback(), "Create SI from SO API Error")
+        return send_response(
+            status="error",
+            message=f"Internal Server Error: {str(e)}",
             status_code=500,
             http_status=500,
         )
