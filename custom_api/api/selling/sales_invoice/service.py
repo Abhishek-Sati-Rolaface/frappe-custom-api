@@ -202,7 +202,8 @@ def get_sales_invoice_by_id(invoice_id):
         "contact_email": invoice.contact_email,
         "gl_account": invoice.debit_to,
         "gl_account_name": gl_account_name,
-        "gl_account_currency": acount_details.get("account_currency") if acount_details else None
+        "gl_account_currency": acount_details.get("account_currency") if acount_details else None,
+        "remarks": invoice.remarks,
     }
 
     payment_mode = custom_details[0].payment_mode if custom_details else None
