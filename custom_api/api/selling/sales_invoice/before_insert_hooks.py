@@ -22,7 +22,7 @@ def before_insert(doc, method):
 
         si_prefix = series_list[1]
         cn_prefix = series_list[2] if len(series_list) > 1 else None
-        if not doc.name.startswith(cn_prefix):
+        if not cn_prefix:
             frappe.throw(
                             _("Credit Note prefix is not configured. Please create and configure a Credit Note prefix in the Naming Series before proceeding.")
                         )
