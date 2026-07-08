@@ -1,6 +1,7 @@
 import json
+import traceback
 import frappe
-from frappe.utils import flt, cint, add_days
+from frappe.utils import flt, cint, add_days, now
 from ....api.buying.purchase_order.utils import _get_item_tax_template
 from .utils import (
     ensure_batch,
@@ -501,12 +502,23 @@ def update_sales_invoice_status(invoice_id, action):
                 "Cannot approve a cancelled invoice. Please amend it first."
             )
 
+        if invoice.get("custom_details") and len(invoice.custom_details) > 0:
+            invoice.custom_details[0].approved_by = frappe.session.user
+            invoice.custom_details[0].approved_at = now()
+        else:
+            invoice.append("custom_details", {
+                "approved_by": frappe.session.user,
+                "approved_at": now()
+            })
+
         invoice.submit()
 
         return {
             "id": invoice.name,
             "status": invoice.status,
             "docstatus": invoice.docstatus,
+            "approved_by": invoice.custom_details[0].approved_by if invoice.get("custom_details") else None,
+            "approved_at": invoice.custom_details[0].approved_at if invoice.get("custom_details") else None,
         }
 
     elif action == "cancelled":
@@ -517,12 +529,23 @@ def update_sales_invoice_status(invoice_id, action):
                 "Cannot cancel a Draft invoice. Submit it first."
             )
 
+        if invoice.get("custom_details") and len(invoice.custom_details) > 0:
+            invoice.custom_details[0].cancelled_by = frappe.session.user
+            invoice.custom_details[0].cancelled_at = now()
+        else:
+            invoice.append("custom_details", {
+                "cancelled_by": frappe.session.user,
+                "cancelled_at": now()
+            })
+
         invoice.cancel()
 
         return {
             "id": invoice.name,
             "status": invoice.status,
             "docstatus": invoice.docstatus,
+            "cancelled_by": invoice.custom_details[0].cancelled_by if invoice.get("custom_details") else None,
+            "cancelled_at": invoice.custom_details[0].cancelled_at if invoice.get("custom_details") else None,
         }
 
     elif action == "amend":
@@ -530,12 +553,20 @@ def update_sales_invoice_status(invoice_id, action):
             raise frappe.ValidationError("Invoice is already in Draft state.")
         if invoice.docstatus == 1:
             raise frappe.ValidationError(
-                "Cannot amend a approved invoice. Cancel it first."
+                "Cannot amend an approved invoice. Cancel it first."
             )
 
         amended_doc = frappe.copy_doc(invoice)
         amended_doc.amended_from = invoice.name
         amended_doc.docstatus = 0
+        
+        if amended_doc.get("custom_details"):
+            for row in amended_doc.custom_details:
+                row.approved_by = None
+                row.approved_at = None
+                row.cancelled_by = None
+                row.cancelled_at = None
+        
         amended_doc.insert()
 
         return {
