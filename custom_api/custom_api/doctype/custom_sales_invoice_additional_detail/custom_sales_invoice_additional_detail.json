@@ -12,8 +12,8 @@
   "approved_by",
   "approved_at",
   "cancellation_section",
-  "cancellation_by",
-  "cancellation_at",
+  "cancelled_by",
+  "cancelled_at",
   "reason",
   "zra_section",
   "zra_response"
@@ -51,7 +51,7 @@
    "fieldname": "approved_at",
    "fieldtype": "Datetime",
    "in_list_view": 1,
-   "label": "Approve At"
+   "label": "Approved At"
   },
   {
    "fieldname": "approved_by",
@@ -66,14 +66,14 @@
    "label": "Cancellation Information"
   },
   {
-   "fieldname": "cancellation_by",
+   "fieldname": "cancelled_by",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Cancelled By",
    "options": "User"
   },
   {
-   "fieldname": "cancellation_at",
+   "fieldname": "cancelled_at",
    "fieldtype": "Datetime",
    "in_list_view": 1,
    "label": "Cancelled At"
