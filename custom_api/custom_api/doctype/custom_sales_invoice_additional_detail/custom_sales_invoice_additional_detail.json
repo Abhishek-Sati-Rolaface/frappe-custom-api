@@ -9,8 +9,11 @@
   "payment_mode",
   "barcode_data",
   "approver_section",
-  "approver",
+  "approved_by",
   "approved_at",
+  "cancellation_section",
+  "cancellation_by",
+  "cancellation_at",
   "reason",
   "zra_section",
   "zra_response"
@@ -40,12 +43,6 @@
    "label": "ZRA Response"
   },
   {
-   "fieldname": "approver",
-   "fieldtype": "Link",
-   "label": "Approver",
-   "options": "User"
-  },
-  {
    "fieldname": "approver_section",
    "fieldtype": "Section Break",
    "label": "Approval Information"
@@ -53,7 +50,33 @@
   {
    "fieldname": "approved_at",
    "fieldtype": "Datetime",
+   "in_list_view": 1,
    "label": "Approve At"
+  },
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Approved By",
+   "options": "User"
+  },
+  {
+   "fieldname": "cancellation_section",
+   "fieldtype": "Section Break",
+   "label": "Cancellation Information"
+  },
+  {
+   "fieldname": "cancellation_by",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Cancelled By",
+   "options": "User"
+  },
+  {
+   "fieldname": "cancellation_at",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Cancelled At"
   },
   {
    "fieldname": "reason",
