@@ -152,7 +152,8 @@ def get_purchase_invoice_by_id(pi_id):
             "packingSize": str(item_meta.get("packing_size")) if item_meta else "",
             "mfgDate": batch_info.manufacturing_date if batch_info else "",
             "expDate": batch_info.expiry_date if batch_info else "",
-            "description": description
+            "description": description,
+            "discount": item.discount_percentage,
         })
     
     attachments = frappe.db.get_all(
