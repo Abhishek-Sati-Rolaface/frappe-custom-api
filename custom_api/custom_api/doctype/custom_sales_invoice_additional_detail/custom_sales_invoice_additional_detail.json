@@ -7,7 +7,9 @@
  "engine": "InnoDB",
  "field_order": [
   "payment_mode",
-  "barcode_data"
+  "barcode_data",
+  "zra_section",
+  "zra_response"
  ],
  "fields": [
   {
@@ -22,13 +24,23 @@
    "fieldname": "barcode_data",
    "fieldtype": "Data",
    "label": "Barcode Data"
+  },
+  {
+   "fieldname": "zra_section",
+   "fieldtype": "Section Break",
+   "label": "ZRA"
+  },
+  {
+   "fieldname": "zra_response",
+   "fieldtype": "JSON",
+   "label": "ZRA Response"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-07-02 14:51:43.456937",
+ "modified": "2026-07-07 21:00:53.869555",
  "modified_by": "Administrator",
  "module": "Custom Api",
  "name": "Custom Sales Invoice Additional Detail",
