@@ -364,6 +364,14 @@ def create_si_from_so():
         )
  
     try:
+        default_payment_mode = None
+        company_name = frappe.defaults.get_user_default("Company")
+        company_doc = frappe.get_doc("Company", company_name)
+        if company_doc.custom_extended_details:
+            extended_details = company_doc.custom_extended_details[0]
+            if extended_details.default_payment_mode:
+                default_payment_mode = extended_details.default_payment_mode
+
         si_doc = make_sales_invoice(so_id)
         currency = si_doc.currency
         account = validate_receivable_account_for_currency(currency)
@@ -373,6 +381,7 @@ def create_si_from_so():
         si_doc.only_include_allocated_payments = 1
         # Bypasses Delivery Note, same way the PO flow bypasses Purchase Receipt.
         si_doc.update_stock = 1
+        si_doc.custom_details[0].payment_mode = default_payment_mode
         si_doc.insert(ignore_permissions=True)
  
         frappe.db.commit()
