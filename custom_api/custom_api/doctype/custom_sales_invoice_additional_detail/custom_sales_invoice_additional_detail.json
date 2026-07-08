@@ -8,6 +8,9 @@
  "field_order": [
   "payment_mode",
   "barcode_data",
+  "approver_section",
+  "approver",
+  "approved_at",
   "reason",
   "zra_section",
   "zra_response"
@@ -35,6 +38,22 @@
    "fieldname": "zra_response",
    "fieldtype": "JSON",
    "label": "ZRA Response"
+  },
+  {
+   "fieldname": "approver",
+   "fieldtype": "Link",
+   "label": "Approver",
+   "options": "User"
+  },
+  {
+   "fieldname": "approver_section",
+   "fieldtype": "Section Break",
+   "label": "Approval Information"
+  },
+  {
+   "fieldname": "approved_at",
+   "fieldtype": "Datetime",
+   "label": "Approve At"
   },
   {
    "fieldname": "reason",
