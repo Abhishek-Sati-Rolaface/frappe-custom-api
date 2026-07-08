@@ -30,4 +30,7 @@ def before_insert(doc, method):
         doc.name = next_name.replace(si_prefix, cn_prefix, 1)
         doc.naming_series = series_list[3]
         doc.flags.name_set = True 
-        print("Return Invoice — name:", doc.name)
+        frappe.log_error(
+            title=f"Sales Invoice Debug - {doc.name}",
+            message=frappe.as_json(doc.as_dict(), indent=4)
+        )
