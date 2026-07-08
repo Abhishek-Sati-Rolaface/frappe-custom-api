@@ -12,6 +12,7 @@ def before_insert(doc, method):
         else:
             doc.custom_details[0].payment_mode = payment_mode
 
+        doc.currency = sales_invoice.currency
                 
         if not doc.custom_details:
             doc.append("custom_details", {"payment_mode": payment_mode})
