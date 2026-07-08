@@ -381,7 +381,7 @@ def create_si_from_so():
         si_doc.only_include_allocated_payments = 1
         # Bypasses Delivery Note, same way the PO flow bypasses Purchase Receipt.
         si_doc.update_stock = 1
-        si_doc.custom_details[0].payment_mode = default_payment_mode
+        si_doc.append("custom_details", {"payment_mode": default_payment_mode})
         si_doc.insert(ignore_permissions=True)
  
         frappe.db.commit()
