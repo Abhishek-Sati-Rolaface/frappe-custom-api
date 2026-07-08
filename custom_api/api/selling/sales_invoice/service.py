@@ -72,7 +72,18 @@ def create_sales_invoice(data):
 
     sync_taxes(invoice, data)
 
-    invoice.insert(ignore_permissions=True)
+    try:
+        invoice.insert(ignore_permissions=True)
+    except frappe.ValidationError as e:
+        error_msg = str(e)
+        if "Due Date cannot be after" in error_msg:
+            allowed_date = error_msg.replace("Due Date cannot be after ", "").strip()
+            
+            frappe.throw(
+                f"The due date cannot be later than {allowed_date} based on the invoice payment term. "
+                "Please update the payment term to change the due date."
+            )
+        raise e
 
     terms_payload = data.get("terms")
     if terms_payload:
