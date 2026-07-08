@@ -231,6 +231,7 @@ def get_sales_invoice_by_id(invoice_id):
             "discount": item.discount_percentage,
             "discount_amount": item.discount_amount,
             "description": item.description,
+            "conversion_factor": item.conversion_factor,
         }
         
 
