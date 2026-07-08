@@ -3,7 +3,7 @@ import frappe
 def before_insert(doc, method):
     if doc.is_return == 1:
         sales_invoice = frappe.get_doc("Sales Invoice", doc.return_against)
-        
+        doc.conversion_rate = sales_invoice.conversion_rate
         payment_mode = sales_invoice.custom_details[0].get("payment_mode") if sales_invoice.custom_details else None
 
         if not doc.custom_details:
