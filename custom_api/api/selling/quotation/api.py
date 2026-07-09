@@ -370,9 +370,18 @@ def create_si_from_quotation():
         )
 
     try:
+        default_payment_mode = None
+        company_name = frappe.defaults.get_user_default("Company")
+        company_doc = frappe.get_doc("Company", company_name)
+        if company_doc.custom_extended_details:
+            extended_details = company_doc.custom_extended_details[0]
+            if extended_details.default_payment_mode:
+                default_payment_mode = extended_details.default_payment_mode
+
         si_doc = make_sales_invoice(quotation_id)
         si_doc.debit_to = validate_receivable_account_for_currency(si_doc.currency)
         si_doc.docstatus = 0
+        si_doc.append("custom_details", {"payment_mode": default_payment_mode})
         si_doc.insert(ignore_permissions=True)
 
         frappe.db.commit()
