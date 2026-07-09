@@ -7,6 +7,13 @@ def before_insert(doc, method):
         frappe.log_error("doc.conversion_rate: " + str(doc.conversion_rate), "Sales Invoice Debug - before_insert")
         payment_mode = sales_invoice.custom_details[0].get("payment_mode") if sales_invoice.custom_details else None
 
+        company_name = frappe.defaults.get_user_default("Company")
+        company_doc = frappe.get_doc("Company", company_name)
+        use_separate_sequence_for_credit_notes = None
+        if company_doc.custom_extended_details:
+            extended_details = company_doc.custom_extended_details[0]
+            use_separate_sequence_for_credit_notes = extended_details.use_separate_sequence_for_credit_notes
+
         if not doc.custom_details:
             doc.append("custom_details", {"payment_mode": payment_mode})
         else:
@@ -21,17 +28,26 @@ def before_insert(doc, method):
 
         naming_series_options = frappe.get_meta("Sales Invoice").get_field("naming_series").options
         series_list = [s.strip() for s in naming_series_options.split("\n") if s.strip()]
+        if use_separate_sequence_for_credit_notes:
+            if len(series_list) < 2:
+                frappe.throw("Please Configure Naming Series for Credit Notes.")
 
-        si_prefix = series_list[1]
-        cn_prefix = series_list[2] if len(series_list) > 1 else None
-        if not cn_prefix:
-            frappe.throw(
-                            _("Credit Note prefix is not configured. Please create and configure a Credit Note prefix in the Naming Series before proceeding.")
-                        )
-        next_name = frappe.model.naming.make_autoname(series_list[0])
-        doc.name = next_name.replace(si_prefix, cn_prefix, 1)
-        doc.naming_series = series_list[3]
-        doc.flags.name_set = True 
+            doc.naming_series = series_list[1]
+        else:
+            if len(series_list) < 4:
+                frappe.throw("Please Configure Prefix for Sales invoice and Credit Notes.")
+            doc.naming_series = series_list[0]
+            si_prefix = series_list[1]
+            cn_prefix = series_list[2] if len(series_list) > 1 else None
+            if not cn_prefix:
+                frappe.throw(
+                                _("Credit Note prefix is not configured. Please create and configure a Credit Note prefix in the Naming Series before proceeding.")
+                            )
+            next_name = frappe.model.naming.make_autoname(series_list[0])
+            doc.name = next_name.replace(si_prefix, cn_prefix, 1)
+            doc.naming_series = series_list[3]
+            doc.flags.name_set = True 
+
         frappe.log_error(
             title=f"Sales Invoice Debug - {doc.name}",
             message=frappe.as_json(doc.as_dict(), indent=4)
