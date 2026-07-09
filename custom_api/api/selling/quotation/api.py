@@ -4,6 +4,8 @@ from custom_api.utils.response import send_response, send_response_list
 from .utils import validate_quotation_payload
 from ....utils.party_utils import parse_api_payload
 from . import service
+from erpnext.selling.doctype.quotation.quotation import make_sales_invoice
+from custom_api.api.selling.sales_invoice.utils import validate_receivable_account_for_currency
 
 
 @frappe.whitelist(allow_guest=False, methods=["POST"])
@@ -342,6 +344,68 @@ def update_quotation_status(id=None, action=None):
         return send_response(
             status="error",
             message="Internal Server Error",
+            status_code=500,
+            http_status=500,
+        )
+
+@frappe.whitelist(allow_guest=False, methods=["POST"])
+@require_permission("Sales Invoice", "create")
+def create_si_from_quotation():
+    quotation_id = frappe.request.args.get("quotation_id") or frappe.request.args.get("id")
+
+    if not quotation_id:
+        return send_response(
+            status="fail",
+            message="quotation_id is required as query parameter (?quotation_id=...)",
+            status_code=400,
+            http_status=400,
+        )
+
+    if not frappe.db.exists("Quotation", quotation_id):
+        return send_response(
+            status="fail",
+            message="Quotation not found",
+            status_code=404,
+            http_status=404,
+        )
+
+    try:
+        default_payment_mode = None
+        company_name = frappe.defaults.get_user_default("Company")
+        company_doc = frappe.get_doc("Company", company_name)
+        if company_doc.custom_extended_details:
+            extended_details = company_doc.custom_extended_details[0]
+            if extended_details.default_payment_mode:
+                default_payment_mode = extended_details.default_payment_mode
+
+        si_doc = make_sales_invoice(quotation_id)
+        si_doc.debit_to = validate_receivable_account_for_currency(si_doc.currency)
+        si_doc.docstatus = 0
+        si_doc.append("custom_details", {"payment_mode": default_payment_mode})
+        si_doc.insert(ignore_permissions=True)
+
+        frappe.db.commit()
+
+        return send_response(
+            status="success",
+            message="Sales Invoice created successfully from Quotation",
+            data={"id": si_doc.name},
+            status_code=201,
+            http_status=201,
+        )
+
+    except frappe.exceptions.ValidationError as e:
+        frappe.db.rollback()
+        return send_response(
+            status="fail", message=str(e), status_code=400, http_status=400
+        )
+
+    except Exception as e:
+        frappe.db.rollback()
+        frappe.log_error(frappe.get_traceback(), "Create SI from Quotation API Error")
+        return send_response(
+            status="error",
+            message=f"Internal Server Error: {str(e)}",
             status_code=500,
             http_status=500,
         )
