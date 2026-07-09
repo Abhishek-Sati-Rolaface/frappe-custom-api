@@ -211,6 +211,8 @@ def get_quotation_by_id(quotation_id):
         "roundedTotal": quotation.rounded_total,
         "totalQty": quotation.total_qty,
         "totalTax": quotation.total_taxes_and_charges,
+        "totalTax": quotation.total_taxes_and_charges,
+        "total": quotation.total,
         "netTotal": quotation.net_total,
         "grandTotal": quotation.grand_total,
         "inWords": quotation.in_words,
