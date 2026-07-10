@@ -4,6 +4,7 @@ from custom_api.utils.response import send_response, send_response_list
 from .utils import validate_sales_invoice_payload
 from ....utils.party_utils import parse_api_payload
 from . import service
+from erpnext.accounts.doctype.sales_invoice.sales_invoice import make_sales_return
 
 
 @frappe.whitelist(allow_guest=False, methods=["POST"])
@@ -291,6 +292,81 @@ def update_sales_invoice_status(id=None, action=None):
         return send_response(
             status="error",
             message="Internal Server Error",
+            status_code=500,
+            http_status=500,
+        )
+
+@frappe.whitelist(allow_guest=False, methods=["POST"])
+@require_permission("Sales Invoice", "create")
+def create_credit_note_from_si():
+    invoice_id = frappe.request.args.get("invoice_id") or frappe.request.args.get("id")
+
+    if not invoice_id:
+        return send_response(
+            status="fail",
+            message="id is required as query parameter (?id=...)",
+            status_code=400,
+            http_status=400,
+        )
+
+    if not frappe.db.exists("Sales Invoice", invoice_id):
+        return send_response(
+            status="fail",
+            message="Sales Invoice not found",
+            status_code=404,
+            http_status=404,
+        )
+
+    try:
+        credit_note_doc = make_sales_return(invoice_id)
+
+        default_payment_mode = None
+        company_name = credit_note_doc.company or frappe.defaults.get_user_default("Company")
+        company_doc = frappe.get_doc("Company", company_name)
+        if company_doc.custom_extended_details:
+            extended_details = company_doc.custom_extended_details[0]
+            if extended_details.default_payment_mode:
+                default_payment_mode = extended_details.default_payment_mode
+
+        source_si = frappe.get_doc("Sales Invoice", invoice_id)
+        source_payment_modes = {
+            row.idx: row.payment_mode
+            for row in (source_si.get("custom_details") or [])
+        }
+
+        for row in credit_note_doc.get("custom_details") or []:
+            if not row.payment_mode:
+                row.payment_mode = (
+                    source_payment_modes.get(row.idx)
+                    or (list(source_payment_modes.values())[0] if source_payment_modes else None)
+                    or default_payment_mode
+                )
+
+        credit_note_doc.docstatus = 0
+        credit_note_doc.insert(ignore_permissions=True)
+
+        frappe.db.commit()
+
+        return send_response(
+            status="success",
+            message="Credit Note created successfully from Sales Invoice",
+            data={"id": credit_note_doc.name},
+            status_code=201,
+            http_status=201,
+        )
+
+    except frappe.exceptions.ValidationError as e:
+        frappe.db.rollback()
+        return send_response(
+            status="fail", message=str(e), status_code=400, http_status=400
+        )
+
+    except Exception as e:
+        frappe.db.rollback()
+        frappe.log_error(frappe.get_traceback(), "Create Credit Note from SI API Error")
+        return send_response(
+            status="error",
+            message=f"Internal Server Error: {str(e)}",
             status_code=500,
             http_status=500,
         )
