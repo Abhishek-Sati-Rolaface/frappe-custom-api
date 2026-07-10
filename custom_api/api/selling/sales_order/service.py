@@ -159,7 +159,11 @@ def update_sales_order(sales_order_id, data):
 
 def get_sales_order_by_id(sales_order_id):
     sales_order = frappe.get_doc("Sales Order", sales_order_id)
-    customer_name = frappe.db.get_value("Customer", sales_order.customer, "customer_name")
+    customer_name, customer_tpin = frappe.db.get_value(
+    "Customer",
+    sales_order.customer,
+    ["customer_name", "tax_id"]
+)
 
     # box_details = getattr(sales_order, "custom_item_box_detail", None) or []
 
@@ -168,6 +172,7 @@ def get_sales_order_by_id(sales_order_id):
         "title": sales_order.title,
         "customerId": sales_order.customer,
         "customerName": customer_name,
+        "customerTpin": customer_tpin,
         "contact_email": sales_order.contact_email,
         "currency": sales_order.currency,
         "exchangeRate": sales_order.conversion_rate,

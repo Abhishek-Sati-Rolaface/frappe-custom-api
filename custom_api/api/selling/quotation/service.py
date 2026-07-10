@@ -180,11 +180,13 @@ def update_quotation(quotation_id, data):
 
 def get_quotation_by_id(quotation_id):
     quotation = frappe.get_doc("Quotation", quotation_id)
-    customer_name = (
-        frappe.db.get_value("Customer", quotation.party_name, "customer_name")
-        if quotation.quotation_to == "Customer"
-        else None
-    )
+    customer_tax_id = None
+    if quotation.quotation_to == "Customer":
+        customer_name, customer_tax_id = frappe.db.get_value(
+            "Customer",
+            quotation.party_name,
+            ["customer_name", "tax_id"]
+        )
 
     box_details = quotation.get("custom_item_box_detail", [])
 
@@ -193,6 +195,7 @@ def get_quotation_by_id(quotation_id):
         "title": quotation.title,
         "quotationTo": quotation.quotation_to,
         "customerId": quotation.party_name,
+        "customerTpin": customer_tax_id,
         "customerName": customer_name,
         "contact_email": quotation.contact_email,
         "currency": quotation.currency,
