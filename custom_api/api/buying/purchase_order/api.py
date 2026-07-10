@@ -153,6 +153,10 @@ def create_pi_from_po():
         pi_doc.allocate_advances_automatically = 1
         pi_doc.only_include_allocated_payments = 1
         pi_doc.update_stock = 1
+        supplier = pi_doc.supplier
+        terms_and_condition = frappe.get_value("Terms and Conditions", f"{supplier} Buying Terms", ["name", "terms"])
+        pi_doc.tc_name = terms_and_condition[0] if terms_and_condition else None
+        pi_doc.terms = terms_and_condition[1] if terms_and_condition else None
         pi_doc.insert(ignore_permissions=True)
 
         return send_old_response(
