@@ -5,8 +5,9 @@ from .utils import validate_quotation_payload
 from ....utils.party_utils import parse_api_payload
 from . import service
 from erpnext.selling.doctype.quotation.quotation import make_sales_invoice
+from erpnext.selling.doctype.quotation.quotation import make_sales_invoice, make_sales_order
 from custom_api.api.selling.sales_invoice.utils import validate_receivable_account_for_currency
-
+from .utils import validate_quotation_payload, get_naming_series_for_quotation
 
 @frappe.whitelist(allow_guest=False, methods=["POST"])
 @require_permission("Quotation", "create")
@@ -403,6 +404,129 @@ def create_si_from_quotation():
     except Exception as e:
         frappe.db.rollback()
         frappe.log_error(frappe.get_traceback(), "Create SI from Quotation API Error")
+        return send_response(
+            status="error",
+            message=f"Internal Server Error: {str(e)}",
+            status_code=500,
+            http_status=500,
+        )
+
+@frappe.whitelist(allow_guest=False, methods=["POST"])
+@require_permission("Sales Order", "create")
+def create_so_from_quotation():
+    quotation_id = frappe.request.args.get("quotation_id") or frappe.request.args.get("id")
+
+    if not quotation_id:
+        return send_response(
+            status="fail",
+            message="quotation_id is required as query parameter (?quotation_id=...)",
+            status_code=400,
+            http_status=400,
+        )
+
+    if not frappe.db.exists("Quotation", quotation_id):
+        return send_response(
+            status="fail",
+            message="Quotation not found",
+            status_code=404,
+            http_status=404,
+        )
+
+    try:
+        # so_doc = make_sales_order(quotation_id)
+        # so_doc.docstatus = 0
+        # so_doc.insert(ignore_permissions=True)
+        so_doc = make_sales_order(quotation_id)
+
+        quotation_valid_till = frappe.db.get_value("Quotation", quotation_id, "valid_till")
+        fallback_delivery_date = quotation_valid_till or frappe.utils.nowdate()
+
+        for item in so_doc.items:
+            if not item.delivery_date:
+                item.delivery_date = fallback_delivery_date
+
+        so_doc.docstatus = 0
+        so_doc.insert(ignore_permissions=True)
+
+        frappe.db.commit()
+
+        return send_response(
+            status="success",
+            message="Sales Order created successfully from Quotation",
+            data={"id": so_doc.name},
+            status_code=201,
+            http_status=201,
+        )
+
+    except frappe.exceptions.ValidationError as e:
+        frappe.db.rollback()
+        return send_response(
+            status="fail", message=str(e), status_code=400, http_status=400
+        )
+
+    except Exception as e:
+        frappe.db.rollback()
+        frappe.log_error(frappe.get_traceback(), "Create SO from Quotation API Error")
+        return send_response(
+            status="error",
+            message=f"Internal Server Error: {str(e)}",
+            status_code=500,
+            http_status=500,
+        )
+    
+@frappe.whitelist(allow_guest=False, methods=["POST"])
+@require_permission("Quotation", "create")
+def create_proforma_from_quotation():
+    quotation_id = frappe.request.args.get("quotation_id") or frappe.request.args.get("id")
+
+    if not quotation_id:
+        return send_response(
+            status="fail",
+            message="quotation_id is required as query parameter (?quotation_id=...)",
+            status_code=400,
+            http_status=400,
+        )
+
+    if not frappe.db.exists("Quotation", quotation_id):
+        return send_response(
+            status="fail",
+            message="Quotation not found",
+            status_code=404,
+            http_status=404,
+        )
+
+    try:
+        source = frappe.get_doc("Quotation", quotation_id)
+
+        proforma_doc = frappe.copy_doc(source)
+        proforma_doc.docstatus = 0
+        proforma_doc.amended_from = None
+        proforma_doc.naming_series = get_naming_series_for_quotation("Proforma Invoice")
+        proforma_doc.set("custom_extended_details", [])
+        proforma_doc.append("custom_extended_details", {
+            "document_type": "Proforma Invoice",
+        })
+        proforma_doc.insert(ignore_permissions=True)
+
+        frappe.db.commit()
+
+        return send_response(
+            status="success",
+            message="Proforma Invoice created successfully from Quotation",
+            data={"id": proforma_doc.name},
+            status_code=201,
+            http_status=201,
+        )
+
+    except frappe.exceptions.ValidationError as e:
+        frappe.db.rollback()
+        return send_response(
+            status="fail", message=str(e), status_code=400, http_status=400
+        )
+
+    except Exception as e:
+        frappe.db.rollback()
+        frappe.log_error(frappe.get_traceback(), "Create Proforma from Quotation API Error")
         return send_response(
             status="error",
             message=f"Internal Server Error: {str(e)}",
