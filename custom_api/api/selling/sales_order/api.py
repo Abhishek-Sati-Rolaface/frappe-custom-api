@@ -5,7 +5,9 @@ from .utils import validate_sales_order_payload
 from ....utils.party_utils import parse_api_payload
 from . import service
 from erpnext.selling.doctype.sales_order.sales_order import make_sales_invoice
+from frappe.model.mapper import get_mapped_doc
 from ..sales_invoice.utils import validate_receivable_account_for_currency
+from ..quotation.utils import get_naming_series_for_quotation
 
 @frappe.whitelist(allow_guest=False, methods=["POST"])
 @require_permission("Sales Order", "create")
@@ -403,6 +405,83 @@ def create_si_from_so():
     except Exception as e:
         frappe.db.rollback()
         frappe.log_error(frappe.get_traceback(), "Create SI from SO API Error")
+        return send_response(
+            status="error",
+            message=f"Internal Server Error: {str(e)}",
+            status_code=500,
+            http_status=500,
+        )
+
+@frappe.whitelist(allow_guest=False, methods=["POST"])
+@require_permission("Quotation", "create")
+def create_proforma_from_so():
+    so_id = frappe.request.args.get("so_id") or frappe.request.args.get("id")
+
+    if not so_id:
+        return send_response(
+            status="fail",
+            message="so_id is required as query parameter (?so_id=...)",
+            status_code=400,
+            http_status=400,
+        )
+
+    if not frappe.db.exists("Sales Order", so_id):
+        return send_response(
+            status="fail",
+            message="Sales Order not found",
+            status_code=404,
+            http_status=404,
+        )
+
+    try:
+        def set_missing_values(source, target):
+            target.quotation_to = "Customer"
+            target.party_name = source.customer
+            target.naming_series = get_naming_series_for_quotation("Proforma Invoice")
+            target.append("custom_extended_details", {
+                "document_type": "Proforma Invoice",
+            })
+
+        quotation_doc = get_mapped_doc(
+            "Sales Order",
+            so_id,
+            {
+                "Sales Order": {
+                    "doctype": "Quotation",
+                    "field_map": {
+                        "customer": "party_name",
+                    },
+                },
+                "Sales Order Item": {
+                    "doctype": "Quotation Item",
+                },
+            },
+            target_doc=None,
+            postprocess=set_missing_values,
+        )
+
+        quotation_doc.docstatus = 0
+        quotation_doc.insert(ignore_permissions=True)
+
+        frappe.db.commit()
+
+        return send_response(
+            status="success",
+            message="Proforma Invoice created successfully from Sales Order",
+            data={"id": quotation_doc.name},
+            status_code=201,
+            http_status=201,
+        )
+
+    except frappe.exceptions.ValidationError as e:
+        frappe.db.rollback()
+        return send_response(
+            status="fail", message=str(e), status_code=400, http_status=400
+        )
+
+    except Exception as e:
+        frappe.db.rollback()
+        frappe.log_error(frappe.get_traceback(), "Create Proforma from SO API Error")
         return send_response(
             status="error",
             message=f"Internal Server Error: {str(e)}",
