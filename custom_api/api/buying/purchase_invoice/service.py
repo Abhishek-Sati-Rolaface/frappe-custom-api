@@ -207,7 +207,8 @@ def get_purchase_invoice_by_id(pi_id):
         "gl_account": pi_doc.credit_to,
         "gl_account_name": gl_account_name,
         "gl_account_currency": account_details.get("account_currency") if account_details else None,
-        "lpoNumber": pi_doc.items[0].purchase_order
+        "lpoNumber": pi_doc.items[0].purchase_order,
+        "advances_payments": pi_doc.advances if pi_doc.advances else [],
     }
 
 def update_pi_service(pi_id, data):
