@@ -134,7 +134,7 @@ def get_chart_of_accounts():
                     acc["balance"] = raw_balance    # Asset/Expense: debit is positive
             else:
                 acc["balance"] = 0.0
-                acc["account_currency"] = acc.get("currency")
+                acc["account_currency"] = acc.get("account_currency")
 
         # ── Build tree ─────────────────────────────────────────────────────
         def build_tree(accounts, parent=None):
