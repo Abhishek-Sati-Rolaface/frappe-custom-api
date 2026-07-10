@@ -9,6 +9,7 @@ from custom_api.api.buying.purchase_invoice.utils import (
     apply_pi_search,
     map_pi_list_response
 )
+import json
 
 def get_purchase_invoice_list(filters=None, page=1, page_size=10, search=""):
 
@@ -168,7 +169,8 @@ def get_purchase_invoice_by_id(pi_id):
 
     account_details = frappe.db.get_value("Account", pi_doc.credit_to, ["account_name", "account_number", "account_currency"], as_dict=True)
     gl_account_name = f"{account_details.get('account_number', '')} - {account_details.get('account_name', '')}" if account_details.get("account_number") else account_details.get("account_name")
-    return {
+
+    data =  {
         "piId": pi_doc.name,
         "supplierId": pi_doc.supplier,
         "supplierName": pi_doc.supplier_name,
@@ -210,6 +212,15 @@ def get_purchase_invoice_by_id(pi_id):
         "lpoNumber": pi_doc.items[0].purchase_order,
         "advances_payments": pi_doc.advances if pi_doc.advances else [],
     }
+    if pi_doc.tc_name and frappe.db.exists("Terms and Conditions", pi_doc.tc_name):
+        tc_content = frappe.db.get_value(
+            "Terms and Conditions", pi_doc.tc_name, "terms"
+        )
+        try:
+            data["terms"]["buying"] = json.loads(tc_content)
+        except Exception:
+            data["terms"]["buying"] = tc_content
+    return data
 
 def update_pi_service(pi_id, data):
 
