@@ -172,6 +172,7 @@ def get_company_defaults_data():
     data["default_payment_mode"] = (
         extended_details.default_payment_mode if extended_details else None
     )
+    data["use_separate_sequence_for_credit_notes"] = extended_details.use_separate_sequence_for_credit_notes if extended_details else None
 
     return data
 
