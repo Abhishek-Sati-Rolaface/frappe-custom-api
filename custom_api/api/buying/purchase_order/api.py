@@ -145,6 +145,14 @@ def create_pi_from_po():
         frappe.throw("PO ID is required")
 
     try:
+        default_payment_mode = None
+        company_name = frappe.defaults.get_user_default("Company")
+        company_doc = frappe.get_doc("Company", company_name)
+        if company_doc.custom_extended_details:
+            extended_details = company_doc.custom_extended_details[0]
+            if extended_details.default_payment_mode:
+                default_payment_mode = extended_details.default_payment_mode
+
         pi_doc = make_purchase_invoice(po_id)
         currency = pi_doc.currency
         account = validate_receivable_account_for_currency(currency, "Payable", "Liability")
@@ -157,6 +165,7 @@ def create_pi_from_po():
         terms_and_condition = frappe.get_value("Terms and Conditions", f"{supplier} Buying Terms", ["name", "terms"])
         pi_doc.tc_name = terms_and_condition[0] if terms_and_condition else None
         pi_doc.terms = terms_and_condition[1] if terms_and_condition else None
+        pi_doc.append("custom_invoice_metadata", {"payment_mode": default_payment_mode})
         pi_doc.insert(ignore_permissions=True)
 
         return send_old_response(
