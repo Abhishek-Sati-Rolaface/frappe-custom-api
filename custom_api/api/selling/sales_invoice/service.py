@@ -12,7 +12,8 @@ from .utils import (
     validate_receivable_account_for_currency,
     get_extended_item_detail,
     get_payment_information,
-    build_sales_invoice_filters
+    build_sales_invoice_filters,
+    get_already_credited_qty
 )
 
 from custom_api.api.item.utils.item_utils import _get_tax
@@ -168,7 +169,7 @@ def update_sales_invoice(invoice_id, data):
 
     return invoice
 
-def get_sales_invoice_by_id(invoice_id):
+def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
     invoice = frappe.get_doc("Sales Invoice", invoice_id)
     customer = frappe.get_doc("Customer", invoice.customer)
 
@@ -225,14 +226,24 @@ def get_sales_invoice_by_id(invoice_id):
         invoice.company
     )
     data["paymentMode"] = custom_details[0].payment_mode if custom_details else None
+    credited_map = get_already_credited_qty(invoice_id) if is_credit_note else {}
+
     for item in invoice.items:
         tax = _get_tax(item.item_code, invoice.tax_category)
+        remaining_qty = item.qty
+        if is_credit_note:
+            key = (item.item_code, item.batch_no or "")
+            credited_qty = credited_map.get(key, 0)
+            remaining_qty = item.qty - credited_qty
+
+            if remaining_qty <= 0:
+                continue  # fully credited already — skip this item entirely
 
         item_data = {
             "itemCode": item.item_code,
             "itemName": item.item_name,
             "uom": item.uom ,
-            "quantity": item.qty,
+            "quantity": remaining_qty,
             "rate": item.price_list_rate,
             "warehouse": item.warehouse,
             "batchNo": item.batch_no,

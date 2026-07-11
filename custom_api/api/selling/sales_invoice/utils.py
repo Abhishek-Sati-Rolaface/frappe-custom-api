@@ -441,3 +441,26 @@ def get_payment_information(mode_of_payment, company):
         "routingNumber": bank_account.iban,
         "currency": currency,
     }
+
+def get_already_credited_qty(invoice_id):
+    credit_notes = frappe.get_all(
+        "Sales Invoice",
+        filters={"is_return": 1, "return_against": invoice_id, "docstatus": 1},
+        pluck="name",
+    )
+
+    if not credit_notes:
+        return {}
+
+    credit_note_items = frappe.get_all(
+        "Sales Invoice Item",
+        filters={"parent": ["in", credit_notes]},
+        fields=["item_code", "batch_no", "qty"],
+    )
+
+    credited_map = {}
+    for row in credit_note_items:
+        key = (row.item_code, row.batch_no or "")
+        credited_map[key] = credited_map.get(key, 0) + abs(row.qty)
+
+    return credited_map
