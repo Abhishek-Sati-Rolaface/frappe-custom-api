@@ -9,7 +9,9 @@
   "company_signature",
   "default_payment_mode",
   "column_break_acxi",
-  "use_separate_sequence_for_credit_notes"
+  "use_separate_sequence_for_credit_notes",
+  "zra_section",
+  "sdc_id"
  ],
  "fields": [
   {
@@ -43,13 +45,23 @@
    "fieldtype": "Check",
    "in_list_view": 1,
    "label": "Use Separate Sequence For Credit Notes"
+  },
+  {
+   "fieldname": "zra_section",
+   "fieldtype": "Section Break",
+   "label": "ZRA"
+  },
+  {
+   "fieldname": "sdc_id",
+   "fieldtype": "Data",
+   "label": "SDC ID"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-07-09 19:06:44.370144",
+ "modified": "2026-07-12 16:20:03.816529",
  "modified_by": "Administrator",
  "module": "Custom Api",
  "name": "Custom Company Extended Details",

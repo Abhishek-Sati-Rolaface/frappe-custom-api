@@ -43,7 +43,7 @@ def before_insert(doc, method):
                 frappe.throw(
                                 _("Credit Note prefix is not configured. Please create and configure a Credit Note prefix in the Naming Series before proceeding.")
                             )
-            next_name = frappe.model.naming.make_autoname(series_list[0])
+            next_name = frappe.model.naming.make_autoname(series_list[3], doc=doc)
             doc.name = next_name.replace(si_prefix, cn_prefix, 1)
             doc.naming_series = series_list[3]
             doc.flags.name_set = True 
