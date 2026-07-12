@@ -8,6 +8,10 @@ from ....utils.party_utils import (
     get_linked_terms,
     unlink_and_disable_docs,
 )
+from .utils import validate_credit_limits
+
+def get_default_company():
+    return frappe.defaults.get_user_default("Company") or frappe.db.get_single_value("Global Defaults", "default_company")
 
 
 def create_customer(data):
@@ -25,6 +29,22 @@ def create_customer(data):
     }
     if data.get("naming_series"):
         doc_args["naming_series"] = data.get("naming_series")
+
+    if data.get("credit_limits") is not None:
+        default_company = get_default_company()
+        doc_args["credit_limits"] = []
+        
+        for cl in data.get("credit_limits"):
+            company = cl.get("company") or default_company
+            cl["company"] = company 
+            
+            doc_args["credit_limits"].append({
+                "company": company,
+                "credit_limit": cl.get("credit_limit"),
+                "bypass_credit_limit_check": cl.get("bypass_credit_limit_check", 0)
+            })
+            
+        validate_credit_limits(data)
 
     # 1. Insert and save the core document first
     customer = frappe.get_doc(doc_args).insert(ignore_permissions=True)
@@ -74,6 +94,22 @@ def update_customer(customer_id, data):
             "custom_extended_details", {"registration_no": data.get("registration_no")}
         )
 
+    if data.get("credit_limits") is not None:
+        default_company = get_default_company()
+        customer.set("credit_limits", [])
+        
+        for cl in data.get("credit_limits"):
+            company = cl.get("company") or default_company
+            cl["company"] = company
+            
+            customer.append("credit_limits", {
+                "company": company,
+                "credit_limit": cl.get("credit_limit"),
+                "bypass_credit_limit_check": cl.get("bypass_credit_limit_check", 0)
+            })
+            
+        validate_credit_limits(data)
+
     # 3. SAVE THE MAIN DOCUMENT FIRST
     # This prevents the Timestamp Mismatch because we secure our core updates
     # before Frappe's background link updates can mess with the DB timestamps.
@@ -96,6 +132,15 @@ def get_customer_by_id(customer_id):
     if customer.custom_extended_details:
         registration_no = customer.custom_extended_details[0].registration_no
 
+    credit_limits = [
+        {
+            "company": cl.company,
+            "credit_limit": cl.credit_limit,
+            "bypass_credit_limit_check": cl.bypass_credit_limit_check
+        }
+        for cl in customer.get("credit_limits", [])
+    ]
+
     return {
         "id": customer.name,
         "name": customer.customer_name,
@@ -108,6 +153,7 @@ def get_customer_by_id(customer_id):
         "customerTaxCategory": customer.tax_category,
         "registration_no": registration_no,
         "status": "Active" if not customer.disabled else "Inactive",
+        "credit_limits": credit_limits,
         "contacts": get_linked_contacts("Customer", customer_id),
         "addresses": get_linked_addresses("Customer", customer_id),
         "terms": get_linked_terms(customer_id, "selling"),
