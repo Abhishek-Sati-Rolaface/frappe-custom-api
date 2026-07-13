@@ -66,6 +66,7 @@ def build_company_response(company):
                 "startMonth": fiscal_year.year_start_date.strftime("%B") if fiscal_year else None,
                 "endMonth": fiscal_year.year_end_date.strftime("%B") if fiscal_year else None,
             },
+        "sdc_id": extended_details.sdc_id if extended_details else None
         
     }
 
@@ -98,4 +99,6 @@ def map_company_update_fields(company, data):
         "defaultPaymentMode",
         extended_details.default_payment_mode,
     )
+    extended_details.sdc_id = data.get( "sdc_id", extended_details.sdc_id)
+
     create_or_update_company_address( company, data.get("address") )
