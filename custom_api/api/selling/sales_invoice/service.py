@@ -220,12 +220,14 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
     }
 
     payment_mode = custom_details[0].payment_mode if custom_details else None
+    reason = custom_details[0].reason if custom_details else None
 
     data["paymentInformation"] = get_payment_information(
         payment_mode,
         invoice.company
     )
     data["paymentMode"] = custom_details[0].payment_mode if custom_details else None
+    data["reason"] = reason
     credited_map = get_already_credited_qty(invoice_id) if is_credit_note else {}
 
     for item in invoice.items:
