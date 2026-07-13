@@ -9,8 +9,8 @@ def validate_credit_limits(data: Dict[str, Any]):
         if not isinstance(credit_limits, list):
             raise frappe.ValidationError("credit_limits must be a list of objects.")
         for cl in credit_limits:
-            if not cl.get("company"):
-                raise frappe.ValidationError("Company is required for each credit limit entry.")
+            # if not cl.get("company"):
+            #     raise frappe.ValidationError("Company is required for each credit limit entry.")
             if cl.get("credit_limit") is None:
                 raise frappe.ValidationError("Credit limit value is required for each entry.")
 
