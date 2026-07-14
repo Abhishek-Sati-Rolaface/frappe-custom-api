@@ -582,144 +582,123 @@ def validate_strict_credit_limit(invoice):
             )
 
 
+def process_approval(invoice):
+    if invoice.docstatus == 1:
+        raise frappe.ValidationError("Invoice is already approved.")
+    if invoice.docstatus == 2:
+        raise frappe.ValidationError("Cannot approve a cancelled invoice. Please amend it first.")
+
+    validate_strict_credit_limit(invoice)
+
+    if invoice.get("custom_details") and len(invoice.custom_details) > 0:
+        invoice.custom_details[0].approved_by = frappe.session.user
+        invoice.custom_details[0].approved_at = now()
+    else:
+        invoice.append(
+            "custom_details",
+            {"approved_by": frappe.session.user, "approved_at": now()},
+        )
+
+    try:
+        invoice.submit()
+    except frappe.ValidationError as e:
+        message = str(e)
+        if "Credit limit has been crossed for customer" in message:
+            match = re.search(r"\(([\d.]+)/([\d.]+)\)", message)
+            outstanding = float(match.group(1)) if match else 0
+            credit_limit = float(match.group(2)) if match else 0
+
+            contact_users = ""
+            user_match = re.search(r"Please contact any of the following users.*?: (.+)", message)
+            if user_match:
+                contact_users = user_match.group(1)
+
+            raise frappe.ValidationError(
+                f"Unable to approve invoice '{invoice.name}' because customer '{invoice.customer_name}' "
+                f"has exceeded their credit limit. "
+                f"Current outstanding amount: {outstanding:,.2f}. "
+                f"Credit limit: {credit_limit:,.2f}. "
+                "Please either reduce the invoice amount, increase the customer's credit limit, "
+                "or contact an authorized user to approve a credit limit exception. "
+                f"Contact users: {contact_users}"
+            )
+        raise
+
+    return {
+        "id": invoice.name,
+        "status": invoice.status,
+        "docstatus": invoice.docstatus,
+        "approved_by": invoice.custom_details[0].approved_by if invoice.get("custom_details") else None,
+        "approved_at": invoice.custom_details[0].approved_at if invoice.get("custom_details") else None,
+    }
+
+
+def process_cancellation(invoice):
+    if invoice.docstatus == 2:
+        raise frappe.ValidationError("Invoice is already cancelled.")
+    if invoice.docstatus == 0:
+        raise frappe.ValidationError("Cannot cancel a Draft invoice. Submit it first.")
+
+    if invoice.get("custom_details") and len(invoice.custom_details) > 0:
+        invoice.custom_details[0].cancelled_by = frappe.session.user
+        invoice.custom_details[0].cancelled_at = now()
+    else:
+        invoice.append(
+            "custom_details",
+            {"cancelled_by": frappe.session.user, "cancelled_at": now()},
+        )
+
+    invoice.cancel()
+
+    return {
+        "id": invoice.name,
+        "status": invoice.status,
+        "docstatus": invoice.docstatus,
+        "cancelled_by": invoice.custom_details[0].cancelled_by if invoice.get("custom_details") else None,
+        "cancelled_at": invoice.custom_details[0].cancelled_at if invoice.get("custom_details") else None,
+    }
+
+
+def process_amendment(invoice):
+    if invoice.docstatus == 0:
+        raise frappe.ValidationError("Invoice is already in Draft state.")
+    if invoice.docstatus == 1:
+        raise frappe.ValidationError("Cannot amend an approved invoice. Cancel it first.")
+
+    amended_doc = frappe.copy_doc(invoice)
+    amended_doc.amended_from = invoice.name
+    amended_doc.docstatus = 0
+
+    if amended_doc.get("custom_details"):
+        for row in amended_doc.custom_details:
+            row.approved_by = None
+            row.approved_at = None
+            row.cancelled_by = None
+            row.cancelled_at = None
+
+    amended_doc.insert()
+
+    return {
+        "id": amended_doc.name,
+        "status": amended_doc.status,
+        "docstatus": amended_doc.docstatus,
+    }
+
 def update_sales_invoice_status(invoice_id, action):
+
     invoice = frappe.get_doc("Sales Invoice", invoice_id)
 
     if not frappe.has_permission("Sales Invoice", "write", invoice):
         raise frappe.PermissionError("No permission to modify this invoice")
 
     if action == "approved":
-        if invoice.docstatus == 1:
-            raise frappe.ValidationError("Invoice is already approved.")
-        if invoice.docstatus == 2:
-            raise frappe.ValidationError(
-                "Cannot approve a cancelled invoice. Please amend it first."
-            )
-
-        validate_strict_credit_limit(invoice)
-
-        if invoice.get("custom_details") and len(invoice.custom_details) > 0:
-            invoice.custom_details[0].approved_by = frappe.session.user
-            invoice.custom_details[0].approved_at = now()
-        else:
-            invoice.append(
-                "custom_details",
-                {"approved_by": frappe.session.user, "approved_at": now()},
-            )
-
-        try:
-            invoice.submit()
-        except frappe.ValidationError as e:
-            message = str(e)
-
-            if "Credit limit has been crossed for customer" in message:
-                match = re.search(r"\(([\d.]+)/([\d.]+)\)", message)
-
-                outstanding = credit_limit = 0
-                if match:
-                    outstanding = float(match.group(1))
-                    credit_limit = float(match.group(2))
-
-                contact_users = ""
-                user_match = re.search(
-                    r"Please contact any of the following users to extend the credit limits for .*?: (.+)",
-                    message
-                )
-
-                if user_match:
-                    contact_users = user_match.group(1)
-
-                raise frappe.ValidationError(
-                    f"Unable to approve invoice '{invoice.name}' because customer '{invoice.customer_name}' "
-                    f"has exceeded their credit limit. "
-                    f"Current outstanding amount: {outstanding:,.2f}. "
-                    f"Credit limit: {credit_limit:,.2f}. "
-                    "Please either reduce the invoice amount, increase the customer's credit limit, "
-                    "or contact an authorized user to approve a credit limit exception. "
-                    f"Contact users: {contact_users}"
-                )
-
-            raise
-
-        return {
-            "id": invoice.name,
-            "status": invoice.status,
-            "docstatus": invoice.docstatus,
-            "approved_by": (
-                invoice.custom_details[0].approved_by
-                if invoice.get("custom_details")
-                else None
-            ),
-            "approved_at": (
-                invoice.custom_details[0].approved_at
-                if invoice.get("custom_details")
-                else None
-            ),
-        }
-
+        return process_approval(invoice)
+        
     elif action == "cancelled":
-        if invoice.docstatus == 2:
-            raise frappe.ValidationError("Invoice is already cancelled.")
-        if invoice.docstatus == 0:
-            raise frappe.ValidationError(
-                "Cannot cancel a Draft invoice. Submit it first."
-            )
-
-        if invoice.get("custom_details") and len(invoice.custom_details) > 0:
-            invoice.custom_details[0].cancelled_by = frappe.session.user
-            invoice.custom_details[0].cancelled_at = now()
-        else:
-            invoice.append(
-                "custom_details",
-                {"cancelled_by": frappe.session.user, "cancelled_at": now()},
-            )
-
-        invoice.cancel()
-
-        return {
-            "id": invoice.name,
-            "status": invoice.status,
-            "docstatus": invoice.docstatus,
-            "cancelled_by": (
-                invoice.custom_details[0].cancelled_by
-                if invoice.get("custom_details")
-                else None
-            ),
-            "cancelled_at": (
-                invoice.custom_details[0].cancelled_at
-                if invoice.get("custom_details")
-                else None
-            ),
-        }
-
+        return process_cancellation(invoice)
+        
     elif action == "amend":
-        if invoice.docstatus == 0:
-            raise frappe.ValidationError("Invoice is already in Draft state.")
-        if invoice.docstatus == 1:
-            raise frappe.ValidationError(
-                "Cannot amend an approved invoice. Cancel it first."
-            )
-
-        amended_doc = frappe.copy_doc(invoice)
-        amended_doc.amended_from = invoice.name
-        amended_doc.docstatus = 0
-
-        if amended_doc.get("custom_details"):
-            for row in amended_doc.custom_details:
-                row.approved_by = None
-                row.approved_at = None
-                row.cancelled_by = None
-                row.cancelled_at = None
-
-        amended_doc.insert()
-
-        return {
-            "id": amended_doc.name,
-            "status": amended_doc.status,
-            "docstatus": amended_doc.docstatus,
-        }
-
+        return process_amendment(invoice)
+        
     else:
-        raise frappe.ValidationError(
-            "Invalid action. Allowed: approved, cancelled, amend"
-        )
+        raise frappe.ValidationError("Invalid action. Allowed: approved, cancelled, amend")
