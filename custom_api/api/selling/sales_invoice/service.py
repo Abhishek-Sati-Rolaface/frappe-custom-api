@@ -1,4 +1,5 @@
 import json
+import re
 import traceback
 import frappe
 from frappe.utils import flt, cint, add_days, now
@@ -13,7 +14,7 @@ from .utils import (
     get_extended_item_detail,
     get_payment_information,
     build_sales_invoice_filters,
-    get_already_credited_qty
+    get_already_credited_qty,
 )
 
 from custom_api.api.item.utils.item_utils import _get_tax
@@ -28,22 +29,24 @@ def create_sales_invoice(data):
 
     invoice = frappe.new_doc("Sales Invoice")
 
-    invoice.update({
-        "customer": data.get("customerId"),
-        "currency": currency,
-        "conversion_rate": data.get("exchangeRate", 1),
-        "posting_date": data.get("postingDate"),
-        "due_date": data.get("dueDate"),
-        "tax_category": data.get("tax_category"),
-        "update_stock": 1 if data.get("updateStock") else 0,
-        "set_posting_time": 1 ,
-        "set_warehouse": data.get("warehouse"),
-        "customer_address": data.get("billingAddress"),
-        "shipping_address_name": data.get("shippingAddress"),
-        "taxes_and_charges": data.get("salesTaxTemplate"),
-        "cost_center": cost_center,
-        "debit_to": account,
-    })
+    invoice.update(
+        {
+            "customer": data.get("customerId"),
+            "currency": currency,
+            "conversion_rate": data.get("exchangeRate", 1),
+            "posting_date": data.get("postingDate"),
+            "due_date": data.get("dueDate"),
+            "tax_category": data.get("tax_category"),
+            "update_stock": 1 if data.get("updateStock") else 0,
+            "set_posting_time": 1,
+            "set_warehouse": data.get("warehouse"),
+            "customer_address": data.get("billingAddress"),
+            "shipping_address_name": data.get("shippingAddress"),
+            "taxes_and_charges": data.get("salesTaxTemplate"),
+            "cost_center": cost_center,
+            "debit_to": account,
+        }
+    )
 
     for item in data.get("items", []):
         item_code = item.get("itemCode")
@@ -54,16 +57,21 @@ def create_sales_invoice(data):
         if batch_no:
             ensure_batch(item_code, batch_no, mfg_date, exp_date)
 
-        invoice.append("items", {
-            "item_code": item_code,
-            "qty": item.get("quantity"),
-            "warehouse": item.get("warehouse", data.get("warehouse")),
-            "batch_no": batch_no,
-            "item_tax_template": _get_item_tax_template(item_code, data.get("tax_category")),
-            "discount_percentage": item.get("discount", 0),
-            "price_list_rate": item.get("rate"),
-            "description": item.get("description", None),
-        })
+        invoice.append(
+            "items",
+            {
+                "item_code": item_code,
+                "qty": item.get("quantity"),
+                "warehouse": item.get("warehouse", data.get("warehouse")),
+                "batch_no": batch_no,
+                "item_tax_template": _get_item_tax_template(
+                    item_code, data.get("tax_category")
+                ),
+                "discount_percentage": item.get("discount", 0),
+                "price_list_rate": item.get("rate"),
+                "description": item.get("description", None),
+            },
+        )
 
         invoice.append("custom_item_box_detail", _build_sales_invoice_box_detail(item))
 
@@ -79,7 +87,6 @@ def create_sales_invoice(data):
         error_msg = str(e)
         if "Due Date cannot be after" in error_msg:
             allowed_date = error_msg.replace("Due Date cannot be after ", "").strip()
-            
             frappe.throw(
                 f"The due date cannot be later than {allowed_date} based on the invoice payment term. "
                 "Please update the payment term to change the due date."
@@ -97,13 +104,17 @@ def update_sales_invoice(invoice_id, data):
     invoice = frappe.get_doc("Sales Invoice", invoice_id)
 
     if invoice.docstatus == 1:
-        raise frappe.ValidationError("Cannot edit a submitted Sales Invoice. Cancel it first.")
+        raise frappe.ValidationError(
+            "Cannot edit a submitted Sales Invoice. Cancel it first."
+        )
     
     company = invoice.company
     company_doc = frappe.get_cached_doc("Company", company)
 
     currency = data.get("currency") or company_doc.default_currency
-    cost_center = data.get("costCenter") or invoice.cost_center or company_doc.cost_center
+    cost_center = (
+        data.get("costCenter") or invoice.cost_center or company_doc.cost_center
+    )
 
     field_map = {
         "customerId": "customer",
@@ -122,8 +133,10 @@ def update_sales_invoice(invoice_id, data):
         if data.get(k) is not None:
             setattr(invoice, v, data.get(k))
 
-    if currency: invoice.currency = currency
-    if cost_center: invoice.cost_center = cost_center
+    if currency:
+        invoice.currency = currency
+    if cost_center:
+        invoice.cost_center = cost_center
     if data.get("updateStock") is not None:
         invoice.update_stock = 1 if data.get("updateStock") else 0
         invoice.set_posting_time = 1
@@ -141,17 +154,24 @@ def update_sales_invoice(invoice_id, data):
             if batch_no:
                 ensure_batch(item_code, batch_no, mfg_date, exp_date)
 
-            invoice.append("items", {
-                "item_code": item_code,
-                "qty": item.get("quantity"),
-                "price_list_rate": item.get("rate"),
-                "warehouse": item.get("warehouse", invoice.set_warehouse),
-                "batch_no": batch_no,
-                "item_tax_template": _get_item_tax_template(item_code, data.get("tax_category")), 
-                "discount_percentage": item.get("discount", 0),
-                "description": item.get("description", None),
-            })
-            invoice.append("custom_item_box_detail", _build_sales_invoice_box_detail(item))
+            invoice.append(
+                "items",
+                {
+                    "item_code": item_code,
+                    "qty": item.get("quantity"),
+                    "price_list_rate": item.get("rate"),
+                    "warehouse": item.get("warehouse", invoice.set_warehouse),
+                    "batch_no": batch_no,
+                    "item_tax_template": _get_item_tax_template(
+                        item_code, data.get("tax_category")
+                    ),
+                    "discount_percentage": item.get("discount", 0),
+                    "description": item.get("description", None),
+                },
+            )
+            invoice.append(
+                "custom_item_box_detail", _build_sales_invoice_box_detail(item)
+            )
 
     sync_taxes(invoice, data)
 
@@ -175,8 +195,17 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
 
     box_details = invoice.get("custom_item_box_detail", [])
     custom_details = invoice.get("custom_details", [])
-    acount_details = frappe.db.get_value("Account", invoice.debit_to, ["account_name", "account_number", "account_currency"], as_dict=True)
-    gl_account_name = f"{acount_details.get('account_number', '')} - {acount_details.get('account_name', '')}" if acount_details.get("account_number") else acount_details.get("account_name")
+    acount_details = frappe.db.get_value(
+        "Account",
+        invoice.debit_to,
+        ["account_name", "account_number", "account_currency"],
+        as_dict=True,
+    )
+    gl_account_name = (
+        f"{acount_details.get('account_number', '')} - {acount_details.get('account_name', '')}"
+        if acount_details.get("account_number")
+        else acount_details.get("account_name")
+    )
     data = {
         "id": invoice.name,
         "customerId": invoice.customer,
@@ -197,7 +226,6 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
         "status": invoice.status,
         "docstatus": invoice.docstatus,
         "outstanding_amount": invoice.outstanding_amount,
-        # "destnCountryCd": customer.outstanding_amount,
         "costCenter": invoice.cost_center,
         "roundingAdjustment": invoice.rounding_adjustment,
         "roundedTotal": invoice.rounded_total,
@@ -215,17 +243,16 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
         "contact_email": invoice.contact_email,
         "gl_account": invoice.debit_to,
         "gl_account_name": gl_account_name,
-        "gl_account_currency": acount_details.get("account_currency") if acount_details else None,
+        "gl_account_currency": (
+            acount_details.get("account_currency") if acount_details else None
+        ),
         "remarks": invoice.remarks,
     }
 
     payment_mode = custom_details[0].payment_mode if custom_details else None
     reason = custom_details[0].reason if custom_details else None
 
-    data["paymentInformation"] = get_payment_information(
-        payment_mode,
-        invoice.company
-    )
+    data["paymentInformation"] = get_payment_information(payment_mode, invoice.company)
     data["paymentMode"] = custom_details[0].payment_mode if custom_details else None
     data["reason"] = reason
     credited_map = get_already_credited_qty(invoice_id) if is_credit_note else {}
@@ -244,7 +271,7 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
         item_data = {
             "itemCode": item.item_code,
             "itemName": item.item_name,
-            "uom": item.uom ,
+            "uom": item.uom,
             "quantity": remaining_qty,
             "rate": item.price_list_rate,
             "warehouse": item.warehouse,
@@ -257,7 +284,6 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
             "description": item.description,
             "conversion_factor": item.conversion_factor,
         }
-        
 
         if item.batch_no:
             batch_info = frappe.db.get_value(
@@ -288,15 +314,17 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
                     "hsnCode": meta.get("hsn_code"),
                     "packingUnit": meta.get("packing_unit"),
                     "packingSize": meta.get("packing_size"),
-                    "isServiceItem": bool(frappe.db.exists(
-                                                        "Item",
-                                                        {
-                                                            "name": item.item_code,
-                                                            "is_stock_item": 0,
-                                                            "is_sales_item": 1,
-                                                            "disabled": 0,
-                                                        },
-                                                    ))
+                    "isServiceItem": bool(
+                        frappe.db.exists(
+                            "Item",
+                            {
+                                "name": item.item_code,
+                                "is_stock_item": 0,
+                                "is_sales_item": 1,
+                                "disabled": 0,
+                            },
+                        )
+                    ),
                 }
             )
 
@@ -339,7 +367,6 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
             data["charges"].append(row)
             total_charges += amount
 
-
     data["totalCalculatedTax"] = total_tax
     data["totalCalculatedCharges"] = total_charges
 
@@ -356,7 +383,7 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
         "File",
         filters={
             "attached_to_doctype": "Sales Invoice",
-            "attached_to_name":    invoice_id,
+            "attached_to_name": invoice_id,
         },
         fields=[
             "name",
@@ -371,7 +398,6 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
     )
 
     data["attachments"] = [att for att in attachments]
-       
 
     return data
 
@@ -428,7 +454,7 @@ def get_sales_invoices(filters=None, page=1, page_size=20, search=None):
             "tax_category",
             "cost_center",
             "status",
-            "debit_to"
+            "debit_to",
         ],
         limit_start=start,
         limit_page_length=page_size,
@@ -447,9 +473,15 @@ def get_sales_invoices(filters=None, page=1, page_size=20, search=None):
     total_pages = (total_invoices + page_size - 1) // page_size
 
     for inv in invoices:
-        account_details = frappe.db.get_value("Account", inv.debit_to, ["account_name", "account_number"], as_dict=True)
-        
-        inv["gl_account_name"] = f"{account_details.get('account_number', '')} - {account_details.get('account_name', '')}" if account_details.get("account_number") else account_details.get("account_name")
+        account_details = frappe.db.get_value(
+            "Account", inv.debit_to, ["account_name", "account_number"], as_dict=True
+        )
+
+        inv["gl_account_name"] = (
+            f"{account_details.get('account_number', '')} - {account_details.get('account_name', '')}"
+            if account_details.get("account_number")
+            else account_details.get("account_name")
+        )
         inv["gl_account"] = inv.pop("debit_to")
         inv["id"] = inv.pop("name")
         inv["customerId"] = inv.pop("customer")
@@ -531,19 +563,128 @@ def update_sales_invoice_status(invoice_id, action):
             invoice.custom_details[0].approved_by = frappe.session.user
             invoice.custom_details[0].approved_at = now()
         else:
-            invoice.append("custom_details", {
-                "approved_by": frappe.session.user,
-                "approved_at": now()
-            })
+            invoice.append(
+                "custom_details",
+                {"approved_by": frappe.session.user, "approved_at": now()},
+            )
 
-        invoice.submit()
+        # # ------------------------------------------------------------------
+        # # Get Customer Credit Limit
+        # # ------------------------------------------------------------------
+        # credit_limit = frappe.db.get_value(
+        #     "Customer Credit Limit",
+        #     {
+        #         "parent": invoice.customer,
+        #         "company": invoice.company,
+        #     },
+        #     "credit_limit",
+        # ) or 0
+
+        # # ------------------------------------------------------------------
+        # # Get Customer Outstanding (Submitted Sales Invoices)
+        # # ------------------------------------------------------------------
+        # # Existing outstanding from submitted invoices
+        # existing_outstanding = frappe.db.sql(
+        #     """
+        #     SELECT COALESCE(SUM(outstanding_amount), 0)
+        #     FROM `tabSales Invoice`
+        #     WHERE customer = %s
+        #     AND company = %s
+        #     AND docstatus = 1
+        #     """,
+        #     (invoice.customer, invoice.company),
+        # )[0][0]
+
+        # # Current invoice amount (it is still a draft)
+        # current_invoice_amount = invoice.rounded_total or invoice.grand_total
+
+        # # Total exposure after this invoice is submitted
+        # total_outstanding = existing_outstanding + current_invoice_amount
+
+        # print (f"Customer: {invoice.customer}, Existing Outstanding: {existing_outstanding}, Current Invoice: {current_invoice_amount}, Total Outstanding After Submit: {total_outstanding}, Credit Limit: {credit_limit}")
+        # frappe.msgprint(
+        #     f"""
+        #     <b>Customer:</b> {invoice.customer}<br>
+        #     <b>Existing Outstanding:</b> {existing_outstanding}<br>
+        #     <b>Current Invoice:</b> {current_invoice_amount}<br>
+        #     <b>Total Outstanding After Submit:</b> {total_outstanding}<br>
+        #     <b>Credit Limit:</b> {credit_limit}
+        #     """,
+        #     title="Customer Credit Information",
+        # )
+
+        # invoice.submit()
+        # try:
+        #     invoice.submit()
+        # except frappe.ValidationError as e:
+        #     message = str(e)
+
+        #     if "Credit limit has been crossed for customer" in message:
+        #         match = re.search(r"\(([\d.]+)/([\d.]+)\)", message)
+
+        #         outstanding = credit_limit = None
+        #         if match:
+        #             outstanding = float(match.group(1))
+        #             credit_limit = float(match.group(2))
+
+        #         raise frappe.ValidationError(
+        #             f"Unable to approve invoice '{invoice.name}' because customer '{invoice.customer_name}' "
+        #             f"has exceeded their credit limit. "
+        #             f"Current outstanding amount: {outstanding:,.2f}. "
+        #             f"Credit limit: {credit_limit:,.2f}. "
+        #             "Please reduce the invoice amount, increase the customer's credit limit, "
+        #             "or contact an authorized user to approve a credit limit exception."
+        #         )
+
+        #     raise
+        try:
+            invoice.submit()
+        except frappe.ValidationError as e:
+            message = str(e)
+
+            if "Credit limit has been crossed for customer" in message:
+                match = re.search(r"\(([\d.]+)/([\d.]+)\)", message)
+
+                outstanding = credit_limit = 0
+                if match:
+                    outstanding = float(match.group(1))
+                    credit_limit = float(match.group(2))
+
+                contact_users = ""
+                user_match = re.search(
+                    r"Please contact any of the following users to extend the credit limits for .*?: (.+)",
+                    message
+                )
+
+                if user_match:
+                    contact_users = user_match.group(1)
+
+                raise frappe.ValidationError(
+                    f"Unable to approve invoice '{invoice.name}' because customer '{invoice.customer_name}' "
+                    f"has exceeded their credit limit. "
+                    f"Current outstanding amount: {outstanding:,.2f}. "
+                    f"Credit limit: {credit_limit:,.2f}. "
+                    "Please either reduce the invoice amount, increase the customer's credit limit, "
+                    "or contact an authorized user to approve a credit limit exception. "
+                    f"Contact users: {contact_users}"
+                )
+
+            raise
 
         return {
             "id": invoice.name,
             "status": invoice.status,
             "docstatus": invoice.docstatus,
-            "approved_by": invoice.custom_details[0].approved_by if invoice.get("custom_details") else None,
-            "approved_at": invoice.custom_details[0].approved_at if invoice.get("custom_details") else None,
+            "approved_by": (
+                invoice.custom_details[0].approved_by
+                if invoice.get("custom_details")
+                else None
+            ),
+            "approved_at": (
+                invoice.custom_details[0].approved_at
+                if invoice.get("custom_details")
+                else None
+            ),
         }
 
     elif action == "cancelled":
@@ -558,10 +699,10 @@ def update_sales_invoice_status(invoice_id, action):
             invoice.custom_details[0].cancelled_by = frappe.session.user
             invoice.custom_details[0].cancelled_at = now()
         else:
-            invoice.append("custom_details", {
-                "cancelled_by": frappe.session.user,
-                "cancelled_at": now()
-            })
+            invoice.append(
+                "custom_details",
+                {"cancelled_by": frappe.session.user, "cancelled_at": now()},
+            )
 
         invoice.cancel()
 
@@ -569,8 +710,16 @@ def update_sales_invoice_status(invoice_id, action):
             "id": invoice.name,
             "status": invoice.status,
             "docstatus": invoice.docstatus,
-            "cancelled_by": invoice.custom_details[0].cancelled_by if invoice.get("custom_details") else None,
-            "cancelled_at": invoice.custom_details[0].cancelled_at if invoice.get("custom_details") else None,
+            "cancelled_by": (
+                invoice.custom_details[0].cancelled_by
+                if invoice.get("custom_details")
+                else None
+            ),
+            "cancelled_at": (
+                invoice.custom_details[0].cancelled_at
+                if invoice.get("custom_details")
+                else None
+            ),
         }
 
     elif action == "amend":
@@ -584,14 +733,14 @@ def update_sales_invoice_status(invoice_id, action):
         amended_doc = frappe.copy_doc(invoice)
         amended_doc.amended_from = invoice.name
         amended_doc.docstatus = 0
-        
+
         if amended_doc.get("custom_details"):
             for row in amended_doc.custom_details:
                 row.approved_by = None
                 row.approved_at = None
                 row.cancelled_by = None
                 row.cancelled_at = None
-        
+
         amended_doc.insert()
 
         return {
@@ -601,4 +750,6 @@ def update_sales_invoice_status(invoice_id, action):
         }
 
     else:
-        raise frappe.ValidationError("Invalid action. Allowed: approved, cancelled, amend")
+        raise frappe.ValidationError(
+            "Invalid action. Allowed: approved, cancelled, amend"
+        )
