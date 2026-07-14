@@ -13,7 +13,6 @@ from .utils import validate_credit_limits
 def get_default_company():
     return frappe.defaults.get_user_default("Company") or frappe.db.get_single_value("Global Defaults", "default_company")
 
-
 def create_customer(data):
     doc_args = {
         "doctype": "Customer",
@@ -30,6 +29,10 @@ def create_customer(data):
     if data.get("naming_series"):
         doc_args["naming_series"] = data.get("naming_series")
 
+    ext_details = {}
+    if data.get("registration_no") is not None:
+        ext_details["registration_no"] = data.get("registration_no")
+
     if data.get("credit_limits") is not None:
         default_company = get_default_company()
         doc_args["credit_limits"] = []
@@ -44,18 +47,18 @@ def create_customer(data):
                 "bypass_credit_limit_check": cl.get("bypass_credit_limit_check", 0)
             })
             
+            if cl.get("strict_credit_limit") is not None:
+                ext_details["strict_credit_limit"] = cl.get("strict_credit_limit")
+            
         validate_credit_limits(data)
 
-    # 1. Insert and save the core document first
     customer = frappe.get_doc(doc_args).insert(ignore_permissions=True)
-    registration_no = data.get("registration_no")
 
-    if registration_no:
-        customer.append("custom_extended_details", {"registration_no": registration_no})
+    if ext_details:
+        customer.append("custom_extended_details", ext_details)
 
     customer.save(ignore_permissions=True)
-    # 2. Process links. The sync functions will use db_set to update primary fields.
-    # Because customer is already in the DB, this works perfectly without a second save().
+    # Process links
     sync_addresses(customer, data.get("addresses"), is_update=False)
     sync_contacts(customer, data.get("contacts"), is_update=False)
     sync_terms(customer, data.get("terms"), terms_type="selling")
@@ -64,10 +67,8 @@ def create_customer(data):
 
 
 def update_customer(customer_id, data):
-    # 1. Load the document
     customer = frappe.get_doc("Customer", customer_id)
 
-    # 2. Map fields to the memory object
     field_map = {
         "name": "customer_name",
         "type": "customer_type",
@@ -87,13 +88,7 @@ def update_customer(customer_id, data):
         status = str(raw_status).strip().lower()
         customer.disabled = 0 if status == "active" else 1
 
-    if data.get("registration_no") is not None:
-        customer.set("custom_extended_details", [])
-
-        customer.append(
-            "custom_extended_details", {"registration_no": data.get("registration_no")}
-        )
-
+    strict_credit_limit_val = None
     if data.get("credit_limits") is not None:
         default_company = get_default_company()
         customer.set("credit_limits", [])
@@ -107,16 +102,25 @@ def update_customer(customer_id, data):
                 "credit_limit": cl.get("credit_limit"),
                 "bypass_credit_limit_check": cl.get("bypass_credit_limit_check", 0)
             })
+
+            if cl.get("strict_credit_limit") is not None:
+                strict_credit_limit_val = cl.get("strict_credit_limit")
             
         validate_credit_limits(data)
 
-    # 3. SAVE THE MAIN DOCUMENT FIRST
-    # This prevents the Timestamp Mismatch because we secure our core updates
-    # before Frappe's background link updates can mess with the DB timestamps.
+    if "registration_no" in data or strict_credit_limit_val is not None:
+        if not customer.custom_extended_details:
+            customer.append("custom_extended_details", {})
+        
+        ext_row = customer.custom_extended_details[0]
+        if "registration_no" in data:
+            ext_row.registration_no = data.get("registration_no")
+        if strict_credit_limit_val is not None:
+            ext_row.strict_credit_limit = strict_credit_limit_val
+
     customer.save(ignore_permissions=True)
 
-    # 4. Sync links. Any parent updates triggered here happen via direct DB queries (db_set),
-    # meaning we don't need a final save and avoid the mismatch crash entirely.
+    # Sync links.
     sync_contacts(customer, data.get("contacts"), is_update=True)
     sync_addresses(customer, data.get("addresses"), is_update=True)
     sync_terms(customer, data.get("terms"), terms_type="selling")
@@ -128,15 +132,18 @@ def get_customer_by_id(customer_id):
     customer = frappe.get_doc("Customer", customer_id)
 
     registration_no = None
+    strict_credit_limit = 0
 
     if customer.custom_extended_details:
         registration_no = customer.custom_extended_details[0].registration_no
+        strict_credit_limit = customer.custom_extended_details[0].strict_credit_limit
 
     credit_limits = [
         {
             "company": cl.company,
             "credit_limit": cl.credit_limit,
-            "bypass_credit_limit_check": cl.bypass_credit_limit_check
+            "bypass_credit_limit_check": cl.bypass_credit_limit_check,
+            "strict_credit_limit": strict_credit_limit 
         }
         for cl in customer.get("credit_limits", [])
     ]
