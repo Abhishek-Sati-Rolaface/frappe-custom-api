@@ -174,6 +174,8 @@ def get_company_defaults_data():
     )
     data["use_separate_sequence_for_credit_notes"] = extended_details.use_separate_sequence_for_credit_notes if extended_details else None
 
+    data["credit_controller"] = frappe.db.get_single_value("Accounts Settings", "credit_controller")
+
     return data
 
 
@@ -204,6 +206,14 @@ def update_company_defaults_data(data):
         extended_details.default_payment_mode = data.get("default_payment_mode")
 
     company_doc.save()
+
+    if "credit_controller" in data:
+        role = data.get("credit_controller")
+        if role and not frappe.db.exists("Role", role):
+            frappe.throw(f"Role '{role}' does not exist.")
+        
+        frappe.db.set_single_value("Accounts Settings", "credit_controller", role or "")
+
     frappe.db.commit()
 
     result = frappe.db.get_value(
@@ -215,5 +225,7 @@ def update_company_defaults_data(data):
 
     result["primary_business_domain"] = extended_details.primary_business_domain
     result["default_payment_mode"] = extended_details.default_payment_mode
+    
+    result["credit_controller"] = frappe.db.get_single_value("Accounts Settings", "credit_controller")
 
     return result
