@@ -5,7 +5,7 @@ from .utils import validate_sales_invoice_payload
 from ....utils.party_utils import parse_api_payload
 from . import service
 from erpnext.accounts.doctype.sales_invoice.sales_invoice import make_sales_return
-
+from custom_api.config import zra_exception
 
 @frappe.whitelist(allow_guest=False, methods=["POST"])
 @require_permission("Sales Invoice", "create")
@@ -283,7 +283,11 @@ def update_sales_invoice_status(id=None, action=None):
         return send_response(
             status="fail", message=f"You do not have permission to {action} the status of this Sales Invoice.Please contact your Administrator.", status_code=403, http_status=403
         )
+    except zra_exception.ZRAConnectionError as e:
 
+        return send_response(
+            status="fail", message=str(e), status_code=400, http_status=400
+        )
     except Exception as e:
         frappe.db.rollback()
         frappe.log_error(
