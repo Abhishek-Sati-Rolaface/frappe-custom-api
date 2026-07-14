@@ -4,6 +4,7 @@ import traceback
 import frappe
 from frappe.utils import flt, cint, add_days, now
 from ....api.buying.purchase_order.utils import _get_item_tax_template
+from erpnext.selling.doctype.customer.customer import get_customer_outstanding
 from .utils import (
     ensure_batch,
     sync_invoice_terms,
@@ -545,6 +546,42 @@ def delete_sales_invoice(invoice_id):
                     pass
 
 
+def validate_strict_credit_limit(invoice):
+    customer = frappe.get_doc("Customer", invoice.customer)
+    
+    credit_limit = 0.0
+    strict_policy = 0
+    bypass_at_sales_order = 0
+
+    for limit in customer.get("credit_limits", []):
+        if limit.company == invoice.company:
+            credit_limit = float(limit.credit_limit or 0.0)
+            bypass_at_sales_order = cint(limit.get("bypass_credit_limit_check_at_sales_order", 0))
+            break
+
+    if customer.get("custom_extended_details") and len(customer.custom_extended_details) > 0:
+        strict_policy = cint(customer.custom_extended_details[0].get("strict_credit_limit", 0))
+
+    if strict_policy and credit_limit > 0:
+        
+        outstanding = get_customer_outstanding(
+            invoice.customer, 
+            invoice.company,
+            ignore_outstanding_sales_order=bypass_at_sales_order
+        )
+        
+        total_exposure = outstanding + invoice.base_grand_total
+
+        if total_exposure > credit_limit:
+            frappe.throw(
+                f"<b>Strict Credit Limit Enforced:</b> Cannot approve invoice '{invoice.name}'.<br><br>"
+                f"Customer <b>'{invoice.customer_name}'</b> has exceeded their strict credit limit of {credit_limit:,.2f}. "
+                f"Current exposure (including this invoice) is {total_exposure:,.2f}.<br><br>"
+                "Exceptions and role-based overrides are strictly prohibited for this customer.",
+                title="Strict Credit Limit Exceeded"
+            )
+
+
 def update_sales_invoice_status(invoice_id, action):
     invoice = frappe.get_doc("Sales Invoice", invoice_id)
 
@@ -559,6 +596,8 @@ def update_sales_invoice_status(invoice_id, action):
                 "Cannot approve a cancelled invoice. Please amend it first."
             )
 
+        validate_strict_credit_limit(invoice)
+
         if invoice.get("custom_details") and len(invoice.custom_details) > 0:
             invoice.custom_details[0].approved_by = frappe.session.user
             invoice.custom_details[0].approved_at = now()
@@ -568,75 +607,6 @@ def update_sales_invoice_status(invoice_id, action):
                 {"approved_by": frappe.session.user, "approved_at": now()},
             )
 
-        # # ------------------------------------------------------------------
-        # # Get Customer Credit Limit
-        # # ------------------------------------------------------------------
-        # credit_limit = frappe.db.get_value(
-        #     "Customer Credit Limit",
-        #     {
-        #         "parent": invoice.customer,
-        #         "company": invoice.company,
-        #     },
-        #     "credit_limit",
-        # ) or 0
-
-        # # ------------------------------------------------------------------
-        # # Get Customer Outstanding (Submitted Sales Invoices)
-        # # ------------------------------------------------------------------
-        # # Existing outstanding from submitted invoices
-        # existing_outstanding = frappe.db.sql(
-        #     """
-        #     SELECT COALESCE(SUM(outstanding_amount), 0)
-        #     FROM `tabSales Invoice`
-        #     WHERE customer = %s
-        #     AND company = %s
-        #     AND docstatus = 1
-        #     """,
-        #     (invoice.customer, invoice.company),
-        # )[0][0]
-
-        # # Current invoice amount (it is still a draft)
-        # current_invoice_amount = invoice.rounded_total or invoice.grand_total
-
-        # # Total exposure after this invoice is submitted
-        # total_outstanding = existing_outstanding + current_invoice_amount
-
-        # print (f"Customer: {invoice.customer}, Existing Outstanding: {existing_outstanding}, Current Invoice: {current_invoice_amount}, Total Outstanding After Submit: {total_outstanding}, Credit Limit: {credit_limit}")
-        # frappe.msgprint(
-        #     f"""
-        #     <b>Customer:</b> {invoice.customer}<br>
-        #     <b>Existing Outstanding:</b> {existing_outstanding}<br>
-        #     <b>Current Invoice:</b> {current_invoice_amount}<br>
-        #     <b>Total Outstanding After Submit:</b> {total_outstanding}<br>
-        #     <b>Credit Limit:</b> {credit_limit}
-        #     """,
-        #     title="Customer Credit Information",
-        # )
-
-        # invoice.submit()
-        # try:
-        #     invoice.submit()
-        # except frappe.ValidationError as e:
-        #     message = str(e)
-
-        #     if "Credit limit has been crossed for customer" in message:
-        #         match = re.search(r"\(([\d.]+)/([\d.]+)\)", message)
-
-        #         outstanding = credit_limit = None
-        #         if match:
-        #             outstanding = float(match.group(1))
-        #             credit_limit = float(match.group(2))
-
-        #         raise frappe.ValidationError(
-        #             f"Unable to approve invoice '{invoice.name}' because customer '{invoice.customer_name}' "
-        #             f"has exceeded their credit limit. "
-        #             f"Current outstanding amount: {outstanding:,.2f}. "
-        #             f"Credit limit: {credit_limit:,.2f}. "
-        #             "Please reduce the invoice amount, increase the customer's credit limit, "
-        #             "or contact an authorized user to approve a credit limit exception."
-        #         )
-
-        #     raise
         try:
             invoice.submit()
         except frappe.ValidationError as e:
