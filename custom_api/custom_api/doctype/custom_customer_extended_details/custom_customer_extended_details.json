@@ -5,7 +5,8 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "registration_no"
+  "registration_no",
+  "strict_credit_limit"
  ],
  "fields": [
   {
@@ -13,13 +14,20 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Registration No"
+  },
+  {
+   "default": "0",
+   "fieldname": "strict_credit_limit",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enforce Strict Credit Limit"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-05-21 12:40:51.927479",
+ "modified": "2026-07-14 15:16:20.319824",
  "modified_by": "Administrator",
  "module": "Custom Api",
  "name": "Custom Customer Extended Details",
