@@ -27,6 +27,13 @@ jobs:
             BENCH_DIR="/srv/apps/erp/backend/rolaface-izayne-bench"
             BENCH="/home/frappe/.local/bin/bench"
 
+            echo "📝 Writing frappe-user deploy script..."
+            cat > /tmp/frappe_deploy.sh << 'DEPLOY_SCRIPT'
+            #!/bin/bash
+            set -e
+            BENCH_DIR="/srv/apps/erp/backend/rolaface-izayne-bench"
+            BENCH="/home/frappe/.local/bin/bench"
+
             export PYTHONPATH="/home/frappe/.local/lib/python3.14/site-packages"
             export NVM_DIR="/home/frappe/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
@@ -63,8 +70,18 @@ jobs:
 
               echo "🧹 Clear cache..."
               $BENCH --site "$SITE" clear-cache || { echo "❌ Clear cache failed: $SITE"; exit 1; }
-
             done
+
+            echo "✅ Frappe-user deploy steps complete!"
+            DEPLOY_SCRIPT
+
+            chmod +x /tmp/frappe_deploy.sh
+            chown frappe:frappe /tmp/frappe_deploy.sh
+
+            echo "🚀 Running deploy as frappe user..."
+            sudo -u frappe -H /tmp/frappe_deploy.sh || { echo "❌ Frappe deploy script failed"; rm -f /tmp/frappe_deploy.sh; exit 1; }
+
+            rm -f /tmp/frappe_deploy.sh
 
             echo ""
             echo "🔄 Restarting services..."
