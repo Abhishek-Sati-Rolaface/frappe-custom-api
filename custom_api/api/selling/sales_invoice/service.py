@@ -100,7 +100,31 @@ def create_sales_invoice(data):
 
     return invoice
 
+def update_sales_invoice_customer(invoice, customer_id):
 
+    if not customer_id or customer_id == invoice.customer:
+        return
+
+    invoice.customer = customer_id
+
+    # Contact
+    invoice.contact_person = None
+    invoice.contact_display = None
+    invoice.contact_email = None
+    invoice.contact_mobile = None
+    invoice.contact_phone = None
+
+    # Billing Address
+    invoice.customer_address = None
+    invoice.address_display = None
+
+    # Shipping Address
+    invoice.shipping_address_name = None
+    invoice.shipping_address = None
+
+    # Refresh customer defaults
+    invoice.set_missing_values()
+    
 def update_sales_invoice(invoice_id, data):
     invoice = frappe.get_doc("Sales Invoice", invoice_id)
 
@@ -108,7 +132,7 @@ def update_sales_invoice(invoice_id, data):
         raise frappe.ValidationError(
             "Cannot edit a submitted Sales Invoice. Cancel it first."
         )
-    
+
     company = invoice.company
     company_doc = frappe.get_cached_doc("Company", company)
 
@@ -117,8 +141,9 @@ def update_sales_invoice(invoice_id, data):
         data.get("costCenter") or invoice.cost_center or company_doc.cost_center
     )
 
+    update_sales_invoice_customer(invoice, data.get("customerId"))
+
     field_map = {
-        "customerId": "customer",
         "currency": "currency",
         "exchangeRate": "conversion_rate",
         "postingDate": "posting_date",
@@ -130,14 +155,16 @@ def update_sales_invoice(invoice_id, data):
         "salesTaxTemplate": "taxes_and_charges",
     }
 
-    for k, v in field_map.items():
-        if data.get(k) is not None:
-            setattr(invoice, v, data.get(k))
+    for api_field, doc_field in field_map.items():
+        if data.get(api_field) is not None:
+            setattr(invoice, doc_field, data.get(api_field))
 
     if currency:
         invoice.currency = currency
+
     if cost_center:
         invoice.cost_center = cost_center
+
     if data.get("updateStock") is not None:
         invoice.update_stock = 1 if data.get("updateStock") else 0
         invoice.set_posting_time = 1
@@ -164,14 +191,17 @@ def update_sales_invoice(invoice_id, data):
                     "warehouse": item.get("warehouse", invoice.set_warehouse),
                     "batch_no": batch_no,
                     "item_tax_template": _get_item_tax_template(
-                        item_code, data.get("tax_category")
+                        item_code,
+                        data.get("tax_category") or invoice.tax_category,
                     ),
                     "discount_percentage": item.get("discount", 0),
-                    "description": item.get("description", None),
+                    "description": item.get("description"),
                 },
             )
+
             invoice.append(
-                "custom_item_box_detail", _build_sales_invoice_box_detail(item)
+                "custom_item_box_detail",
+                _build_sales_invoice_box_detail(item),
             )
 
     sync_taxes(invoice, data)

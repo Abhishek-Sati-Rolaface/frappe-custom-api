@@ -87,7 +87,30 @@ def create_quotation(data):
 
     return quotation
 
+def update_quotation_customer(quotation, customer_id):
+    if not customer_id or customer_id == quotation.party_name:
+        return
 
+    quotation.party_name = customer_id
+
+    # Contact
+    quotation.contact_person = None
+    quotation.contact_display = None
+    quotation.contact_email = None
+    quotation.contact_mobile = None
+    quotation.contact_phone = None
+
+    # Billing Address
+    quotation.customer_address = None
+    quotation.address_display = None
+
+    # Shipping Address
+    quotation.shipping_address_name = None
+    quotation.shipping_address = None
+
+    # Refresh customer defaults
+    quotation.set_missing_values()
+    
 def update_quotation(quotation_id, data):
     quotation = frappe.get_doc("Quotation", quotation_id)
 
@@ -99,11 +122,11 @@ def update_quotation(quotation_id, data):
     company = quotation.company
     company_doc = frappe.get_cached_doc("Company", company)
     currency = data.get("currency") or company_doc.default_currency
-    payment_mode = data.get("payment_mode")
+
+    update_quotation_customer(quotation, data.get("customerId"))
 
     field_map = {
         "title": "title",
-        "customerId": "party_name",
         "currency": "currency",
         "exchangeRate": "conversion_rate",
         "postingDate": "transaction_date",
@@ -113,32 +136,40 @@ def update_quotation(quotation_id, data):
         "shippingAddress": "shipping_address_name",
         "salesTaxTemplate": "taxes_and_charges",
         "orderType": "order_type",
-        "payment_mode": payment_mode,
     }
 
-    for k, v in field_map.items():
-        if data.get(k) is not None:
-            setattr(quotation, v, data.get(k))
+    for api_field, doc_field in field_map.items():
+        if data.get(api_field) is not None:
+            setattr(quotation, doc_field, data.get(api_field))
+
     if currency:
         quotation.currency = currency
 
     document_type = data.get("documentType") or data.get("document_type")
     payment_mode = data.get("paymentMode") or data.get("payment_mode")
+
     if not document_type:
         extended_details = data.get("extendedDetails") or data.get("extended_details")
         if extended_details and isinstance(extended_details, list):
-            document_type = extended_details[0].get("documentType") or extended_details[0].get("document_type")
+            document_type = (
+                extended_details[0].get("documentType")
+                or extended_details[0].get("document_type")
+            )
 
     if document_type:
         quotation.set("custom_extended_details", [])
-        quotation.append("custom_extended_details", {
-            "document_type": document_type,
-            "payment_mode": payment_mode
-        })
+        quotation.append(
+            "custom_extended_details",
+            {
+                "document_type": document_type,
+                "payment_mode": payment_mode,
+            },
+        )
 
     if "items" in data:
         quotation.set("items", [])
         quotation.set("custom_item_box_detail", [])
+
         for item in data.get("items"):
             quotation.append(
                 "items",
@@ -146,7 +177,6 @@ def update_quotation(quotation_id, data):
                     "item_code": item.get("itemCode"),
                     "qty": item.get("quantity"),
                     "uom": item.get("uom"),
-                    # "rate": item.get("rate"),
                     "price_list_rate": item.get("rate"),
                     "discount_percentage": item.get("discount", 0),
                     "is_alternative": (
@@ -158,11 +188,14 @@ def update_quotation(quotation_id, data):
                         item.get("itemCode"),
                         data.get("taxCategory") or quotation.tax_category,
                     ),
-                    "description": item.get("description", None),
+                    "description": item.get("description"),
                 },
             )
-            
-            quotation.append("custom_item_box_detail", _build_quotation_box_detail(item))
+
+            quotation.append(
+                "custom_item_box_detail",
+                _build_quotation_box_detail(item),
+            )
 
     sync_taxes(quotation, data)
 
@@ -171,6 +204,7 @@ def update_quotation(quotation_id, data):
         quotation.set("payment_schedule", [])
 
     quotation.save(ignore_permissions=True)
+
     terms_payload = data.get("terms")
     if terms_payload:
         sync_quotation_terms(quotation, terms_payload)
