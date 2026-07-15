@@ -251,7 +251,8 @@ doc_events = {
         },
     "Sales Invoice": {
         "before_insert": "custom_api.api.selling.sales_invoice.before_insert_hooks.before_insert",
-        "validate": "custom_api.api.selling.sales_invoice.before_validate_hooks.before_validate"
+        "validate": "custom_api.api.selling.sales_invoice.before_validate_hooks.before_validate",
+        "after_insert": "custom_api.api.selling.sales_invoice.after_insert_hooks.after_insert"
     },
     # "Sales Order Item": {
     #     "validate": "custom_api.barcode_validation.validate_barcode_on_sale"
