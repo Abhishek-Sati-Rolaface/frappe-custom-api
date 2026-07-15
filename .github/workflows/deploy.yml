@@ -65,7 +65,14 @@ jobs:
               $BENCH --site "$SITE" backup || { echo "❌ Backup failed: $SITE"; exit 1; }
 
               echo "⚙️ Migrating..."
-              $BENCH --site "$SITE" migrate || { echo "❌ Migration failed: $SITE"; exit 1; }
+              MIGRATE_LOG="/tmp/migrate_${SITE}.log"
+              if ! $BENCH --site "$SITE" migrate > "$MIGRATE_LOG" 2>&1; then
+                echo "❌ Migration failed: $SITE"
+                echo "───────── Full migrate output ─────────"
+                cat "$MIGRATE_LOG"
+                echo "────────────────────────────────────────"
+                exit 1
+              fi
               echo "✅ Migration done: $SITE"
 
               echo "🧹 Clear cache..."
@@ -78,8 +85,8 @@ jobs:
             chmod +x /tmp/frappe_deploy.sh
             chown frappe:frappe /tmp/frappe_deploy.sh
 
-            echo "🚀 Running deploy as frappe user..."
-            sudo -u frappe -H /tmp/frappe_deploy.sh || { echo "❌ Frappe deploy script failed"; rm -f /tmp/frappe_deploy.sh; exit 1; }
+            echo "🚀 Running deploy as frappe user (login shell)..."
+            sudo -u frappe -i /tmp/frappe_deploy.sh || { echo "❌ Frappe deploy script failed"; rm -f /tmp/frappe_deploy.sh; exit 1; }
 
             rm -f /tmp/frappe_deploy.sh
 
