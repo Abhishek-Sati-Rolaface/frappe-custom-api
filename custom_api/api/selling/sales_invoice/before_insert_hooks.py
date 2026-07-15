@@ -30,9 +30,11 @@ def before_insert(doc, method):
             frappe.throw("Please Configure Naming Series for Credit Notes.")
 
         doc.naming_series = series_list[1]
-        next_name = frappe.model.naming.make_autoname(series_list[1], doc=doc)
-        doc.name = next_name
-        doc.flags.name_set = True 
+
+        if not use_separate_sequence_for_credit_notes:
+            doc.flags.name_set = True 
+            next_name = frappe.model.naming.make_autoname(series_list[1], doc=doc)
+            doc.name = next_name
 
         frappe.log_error(
             title=f"Sales Invoice Debug - {doc.name}",
