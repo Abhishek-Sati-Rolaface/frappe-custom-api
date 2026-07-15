@@ -81,6 +81,8 @@ def create_stock_correction(warehouse, posting_date, items, posting_time=None):
         doc.set_posting_time = 1
         doc.posting_time = posting_time
 
+    doc.set_new_name()
+
     for row in items:
         item_code = row.get("item_code")
         item_warehouse = row.get("warehouse") or warehouse
@@ -108,6 +110,7 @@ def create_stock_correction(warehouse, posting_date, items, posting_time=None):
             bundle_doc.item_code = item_code
             bundle_doc.warehouse = item_warehouse
             bundle_doc.voucher_type = "Stock Reconciliation"
+            bundle_doc.voucher_no = doc.name
             bundle_doc.type_of_transaction = "Inward" if row.get("qty") >= current_qty else "Outward"
             bundle_doc.append("entries", {
                 "batch_no": batch_no,
