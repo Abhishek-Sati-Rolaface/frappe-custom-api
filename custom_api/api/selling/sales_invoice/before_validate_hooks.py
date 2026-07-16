@@ -6,4 +6,3 @@ def before_validate(doc,method):
             doc.append("custom_details", {"reason": data.get("reason")})
         else:
             doc.custom_details[0].reason = data.get("reason")
-    print("Hello World")

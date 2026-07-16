@@ -205,6 +205,9 @@ def update_company_defaults_data(data):
     if "default_payment_mode" in data:
         extended_details.default_payment_mode = data.get("default_payment_mode")
 
+    if "use_separate_sequence_for_credit_notes" in data:
+        extended_details.use_separate_sequence_for_credit_notes = data.get("use_separate_sequence_for_credit_notes")
+
     company_doc.save()
 
     if "credit_controller" in data:
@@ -225,7 +228,7 @@ def update_company_defaults_data(data):
 
     result["primary_business_domain"] = extended_details.primary_business_domain
     result["default_payment_mode"] = extended_details.default_payment_mode
-    
+    result["use_separate_sequence_for_credit_notes"] = extended_details.use_separate_sequence_for_credit_notes
     result["credit_controller"] = frappe.db.get_single_value("Accounts Settings", "credit_controller")
 
     return result
