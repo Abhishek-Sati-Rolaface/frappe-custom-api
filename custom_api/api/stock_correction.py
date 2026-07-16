@@ -46,6 +46,7 @@ def create_stock_correction(warehouse, posting_date, items, posting_time=None):
             "valuation_rate": row.get("valuation_rate"),
             "serial_no": row.get("serial_no"),
             "batch_no": row.get("batch_no"),
+            "use_serial_batch_fields": 1,
         })
 
     doc.insert()
