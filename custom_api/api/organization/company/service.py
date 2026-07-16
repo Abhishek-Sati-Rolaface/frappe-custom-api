@@ -206,7 +206,7 @@ def update_company_defaults_data(data):
         extended_details.default_payment_mode = data.get("default_payment_mode")
 
     if "use_separate_sequence_for_credit_notes" in data:
-        extended_details.use_separate_sequence_for_credit_notes = data.get("use_separate_sequence_for_credit_notes")
+        extended_details.use_separate_sequence_for_credit_notes = int(data.get("use_separate_sequence_for_credit_notes", False))
 
     company_doc.save()
 
