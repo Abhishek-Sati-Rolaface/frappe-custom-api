@@ -215,7 +215,10 @@ def update_status():
         return send_old_response(
             status="fail", message=str(e), status_code=400, http_status=400
         )
-
+    except zra_exception.ZRAResponseError as e:
+        return send_old_response(
+            status="fail", message=str(e), status_code=400, http_status=400
+        )
     except Exception as e:
         frappe.db.rollback()
         frappe.log_error(frappe.get_traceback(), "Update Purchase Invoice Status Error")
