@@ -1,33 +1,42 @@
 import frappe
 
 class ZRAConnectionError(Exception):
-    def __init__(self, msg, doc=None):
+    def __init__(self, msg, doc=None, result=None):
         super().__init__(msg)
-        if doc:
-            self.doc = doc
-            self.invoice_id = doc.name if doc else None
+        self.doc = doc
+        self.result = result
+        self.invoice_id = doc.name if doc else None
+        self.doctype = doc.doctype if doc else None
 
-            if self.invoice_id:
-                self._mark_connection_failed()
+        if self.invoice_id:
+            self._mark_connection_failed()
 
     def _mark_connection_failed(self):
         frappe.db.rollback()
         new_status = "Pending"
 
-        frappe.db.sql("""
-            UPDATE `tabSales Invoice`
-            SET status = %s,
-                modified = NOW(),
-                modified_by = %s
-            WHERE name = %s
-        """, (new_status, frappe.session.user, self.invoice_id))
+        fresh_doc = frappe.get_doc(self.doctype, self.invoice_id)
+        fresh_doc.db_set("status", new_status, update_modified=True)
+
+        if self.doctype == "Purchase Invoice" and fresh_doc.get("custom_invoice_metadata"):
+            child_row = fresh_doc.custom_invoice_metadata[0]
+            if child_row.get("name"):
+                child_row.db_set("zra_response", self.result, update_modified=True)
+
+        elif self.doctype == "Sales Invoice" and fresh_doc.get("custom_details"):
+            child_row = fresh_doc.custom_details[0]
+            if child_row.get("name"):
+                child_row.db_set("zra_response", self.result, update_modified=True)
+
         frappe.db.commit()
 
-class ZRAResponseError(Exception):
-    def __init__(self, msg, doc=None):
+class ZRAConnectionError(Exception):
+    def __init__(self, msg, doc=None, result=None):
         super().__init__(msg)
         self.doc = doc
+        self.result = result
         self.invoice_id = doc.name if doc else None
+        self.doctype = doc.doctype if doc else None
 
         if self.invoice_id:
             self._mark_connection_failed()
@@ -36,23 +45,17 @@ class ZRAResponseError(Exception):
         frappe.db.rollback()
         new_status = "Failed"
 
-        frappe.db.sql("""
-            UPDATE `tabSales Invoice`
-            SET status = %s,
-                modified = NOW(),
-                modified_by = %s
-            WHERE name = %s
-        """, (new_status, frappe.session.user, self.invoice_id))
+        fresh_doc = frappe.get_doc(self.doctype, self.invoice_id)
+        fresh_doc.db_set("status", new_status, update_modified=True)
 
-        if self.doc and self.doc.get("custom_invoice_metadata"):
-            child_row = self.doc.custom_invoice_metadata[0]
+        if self.doctype == "Purchase Invoice" and fresh_doc.get("custom_invoice_metadata"):
+            child_row = fresh_doc.custom_invoice_metadata[0]
+            if child_row.get("name"):
+                child_row.db_set("zra_response", self.result, update_modified=True)
 
-            frappe.db.sql("""
-                UPDATE `tabInvoice Metadata`
-                SET zra_response = %s,
-                    modified = NOW(),
-                    modified_by = %s
-                WHERE name = %s
-            """, (self.result, frappe.session.user, child_row.name))
+        elif self.doctype == "Sales Invoice" and fresh_doc.get("custom_details"):
+            child_row = fresh_doc.custom_details[0]
+            if child_row.get("name"):
+                child_row.db_set("zra_response", self.result, update_modified=True)
 
-        frappe.db.commit() 
+        frappe.db.commit()
