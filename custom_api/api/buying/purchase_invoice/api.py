@@ -2,6 +2,7 @@ from custom_api.permission import require_permission
 from custom_api.utils.response import send_old_response, send_response_list
 import frappe
 from custom_api.api.buying.purchase_invoice.service import create_purchase_invoice_service, get_purchase_invoice_by_id, get_purchase_invoice_list, update_pi_service
+from custom_api.config import zra_exception
 
 @frappe.whitelist(allow_guest = False, methods=["GET"])
 # @require_permission("Purchase Invoice", "read")
@@ -208,6 +209,13 @@ def update_status():
             status_code=403,
             http_status=403
         )
+    
+    except zra_exception.ZRAConnectionError as e:
+
+        return send_old_response(
+            status="fail", message=str(e), status_code=400, http_status=400
+        )
+
     except Exception as e:
         frappe.db.rollback()
         frappe.log_error(frappe.get_traceback(), "Update Purchase Invoice Status Error")

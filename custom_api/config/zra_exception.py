@@ -23,24 +23,36 @@ class ZRAConnectionError(Exception):
         """, (new_status, frappe.session.user, self.invoice_id))
         frappe.db.commit()
 
-# class ZRAResponseError(Exception):
-#     def __init__(self, msg, doc=None):
-#         super().__init__(msg)
-#         self.doc = doc
-#         self.invoice_id = doc.name if doc else None
+class ZRAResponseError(Exception):
+    def __init__(self, msg, doc=None):
+        super().__init__(msg)
+        self.doc = doc
+        self.invoice_id = doc.name if doc else None
 
-#         if self.invoice_id:
-#             self._mark_connection_failed()
+        if self.invoice_id:
+            self._mark_connection_failed()
 
-#     def _mark_connection_failed(self):
-#         frappe.db.rollback()
-#         new_status = "Failed"
+    def _mark_connection_failed(self):
+        frappe.db.rollback()
+        new_status = "Failed"
 
-#         frappe.db.sql("""
-#             UPDATE `tabSales Invoice`
-#             SET status = %s,
-#                 modified = NOW(),
-#                 modified_by = %s
-#             WHERE name = %s
-#         """, (new_status, frappe.session.user, self.invoice_id))
-#         frappe.db.commit() 
+        frappe.db.sql("""
+            UPDATE `tabSales Invoice`
+            SET status = %s,
+                modified = NOW(),
+                modified_by = %s
+            WHERE name = %s
+        """, (new_status, frappe.session.user, self.invoice_id))
+
+        if self.doc and self.doc.get("custom_invoice_metadata"):
+            child_row = self.doc.custom_invoice_metadata[0]
+
+            frappe.db.sql("""
+                UPDATE `tabInvoice Metadata`
+                SET zra_response = %s,
+                    modified = NOW(),
+                    modified_by = %s
+                WHERE name = %s
+            """, (self.result, frappe.session.user, child_row.name))
+
+        frappe.db.commit() 
