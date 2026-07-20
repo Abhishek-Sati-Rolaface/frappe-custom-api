@@ -1,33 +1,7 @@
 import frappe
+from datetime import timedelta
 from frappe.utils import flt, cint, getdate, nowdate, date_diff, get_datetime
 
-def get_top_recent_sales_data(order_by=None):
-    
-    company = frappe.defaults.get_user_default("Company") or frappe.get_default("Company")
-
-    if not order_by:
-        order_by = "base_grand_total desc"
-
-    recent_sales = frappe.get_all(
-        "Sales Invoice",
-        filters={
-            "docstatus": 1,
-            "company": company
-        },
-        fields=[
-            "name", 
-            "customer_name", 
-            "posting_date", 
-            "base_grand_total", 
-            "outstanding_amount", 
-            "status",
-            "currency"
-        ],
-        order_by=order_by,
-        limit_page_length=10
-    )
-
-    return recent_sales
 
 def get_sales_dashboard_data(year=None, order_by=None):
     company = frappe.defaults.get_user_default("Company") or frappe.get_default("Company")
@@ -42,11 +16,13 @@ def get_sales_dashboard_data(year=None, order_by=None):
         "quotation_conversion": get_quotation_conversion(company, year),
         "customer_concentration": get_customer_concentration(company, year),
         "needs_attention": get_needs_attention(company),
+        "action_items": get_action_items(company),
         "top_recent_sales": get_top_recent_sales(company, order_by),
         "invoice_status": get_invoice_status_breakdown(company, year),
         "overdue_invoice_aging": get_overdue_invoice_aging(company),
         "recent_sales_activity": get_recent_sales_activity(company),
     }
+
 
 def get_document_counts(company):
     filters = {"docstatus": 1, "company": company}
@@ -59,6 +35,7 @@ def get_document_counts(company):
         "credit_notes": frappe.db.count("Sales Invoice", filters={**filters, "is_return": 1}),
         "debit_notes": frappe.db.count("Purchase Invoice", filters={**filters, "is_return": 1}),
     }
+
 
 def get_monthly_sales_overview(company, year):
     months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -84,6 +61,7 @@ def get_monthly_sales_overview(company, year):
         data[month_idx]["receivable"] += receivable
 
     return data
+
 
 def get_quotation_conversion(company, year):
     filters = {
@@ -157,6 +135,99 @@ def get_needs_attention(company, inactive_days=60):
 
     result.sort(key=lambda x: x["last_order_days_ago"], reverse=True)
     return result[:10]
+
+
+ACTION_PRIORITY = {
+    "overdue_invoices": {"label": "Overdue Invoices", "color": "red"},
+    "inactive_customers": {"label": "Customers Not Ordered Recently", "color": "orange"},
+    "expiring_quotations": {"label": "Quotations Expiring Soon", "color": "yellow"},
+    "high_outstanding": {"label": "High Outstanding Customers", "color": "blue"},
+    "credit_limit_exceeded": {"label": "Credit Limit Exceeded", "color": "purple"},
+}
+
+
+def get_action_items(company, inactive_days=60, quotation_expiry_days=7, high_outstanding_threshold=100000):
+    items = []
+
+    overdue_count = frappe.db.count(
+        "Sales Invoice",
+        filters={
+            "docstatus": 1,
+            "company": company,
+            "outstanding_amount": [">", 0],
+            "due_date": ["<", nowdate()],
+        },
+    )
+    if overdue_count:
+        items.append(_build_action_item("overdue_invoices", overdue_count, f"{overdue_count} invoice(s) overdue"))
+
+    inactive_customers = get_needs_attention(company, inactive_days=inactive_days)
+    if inactive_customers:
+        items.append(_build_action_item(
+            "inactive_customers",
+            len(inactive_customers),
+            f"{len(inactive_customers)} customer(s) inactive for {inactive_days}+ days",
+        ))
+
+    expiring_count = frappe.db.count(
+        "Quotation",
+        filters={
+            "docstatus": 1,
+            "company": company,
+            "status": ["not in", ["Ordered", "Lost", "Cancelled", "Expired"]],
+            "valid_till": ["between", [nowdate(), getdate(nowdate()) + timedelta(days=quotation_expiry_days)]],
+        },
+    )
+    if expiring_count:
+        items.append(_build_action_item("expiring_quotations", expiring_count, f"{expiring_count} quotation(s) expiring within {quotation_expiry_days} days"))
+
+    high_outstanding = frappe.db.sql(
+        """
+        SELECT customer AS customer_id, customer_name, SUM(outstanding_amount) AS total_outstanding
+        FROM `tabSales Invoice`
+        WHERE docstatus = 1 AND company = %(company)s AND outstanding_amount > 0
+        GROUP BY customer
+        HAVING total_outstanding >= %(threshold)s
+        ORDER BY total_outstanding DESC
+        """,
+        {"company": company, "threshold": high_outstanding_threshold},
+        as_dict=True,
+    )
+    if high_outstanding:
+        items.append(_build_action_item("high_outstanding", len(high_outstanding), f"{len(high_outstanding)} customer(s) above outstanding threshold"))
+
+    credit_exceeded = frappe.db.sql(
+        """
+        SELECT c.name AS customer_id, c.customer_name,
+            ccl.credit_limit AS credit_limit,
+            COALESCE(SUM(si.outstanding_amount), 0) AS total_outstanding
+        FROM `tabCustomer` c
+        INNER JOIN `tabCustomer Credit Limit` ccl
+            ON ccl.parent = c.name AND ccl.company = %(company)s
+        LEFT JOIN `tabSales Invoice` si
+            ON si.customer = c.name AND si.docstatus = 1 AND si.company = %(company)s
+        WHERE ccl.credit_limit > 0
+        GROUP BY c.name, ccl.credit_limit
+        HAVING total_outstanding > ccl.credit_limit
+        """,
+        {"company": company},
+        as_dict=True,
+    )
+    if credit_exceeded:
+        items.append(_build_action_item("credit_limit_exceeded", len(credit_exceeded), f"{len(credit_exceeded)} customer(s) exceeded credit limit"))
+
+    return items
+
+
+def _build_action_item(item_type, count, title):
+    meta = ACTION_PRIORITY[item_type]
+    return {
+        "type": item_type,
+        "label": meta["label"],
+        "color": meta["color"],
+        "count": count,
+        "title": title,
+    }
 
 
 def get_top_recent_sales(company, order_by=None, limit=5):
