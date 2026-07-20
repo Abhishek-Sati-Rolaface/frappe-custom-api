@@ -72,21 +72,49 @@ def get_batch_wise_stock_report(
     # NOTE: buy_value / sell_value are intentionally removed here — they were
     #       identical to in_value / out_value (both used stock_value_difference).
     #       Real sell_value (actual revenue) is fetched from Sales Invoice below.
+    # movement_rows = frappe.db.sql(f"""
+    #     SELECT
+    #         item_code,
+    #         warehouse,
+    #         SUM(CASE WHEN actual_qty > 0 THEN actual_qty                  ELSE 0 END) AS in_qty,
+    #         SUM(CASE WHEN actual_qty > 0 THEN stock_value_difference      ELSE 0 END) AS in_value,
+    #         SUM(CASE WHEN actual_qty < 0 THEN ABS(actual_qty)             ELSE 0 END) AS out_qty,
+    #         SUM(CASE WHEN actual_qty < 0 THEN ABS(stock_value_difference) ELSE 0 END) AS out_value,
+    #         MAX(valuation_rate)            AS last_valuation_rate,
+    #         MAX(stock_value)               AS last_stock_value
+    #     FROM `tabStock Ledger Entry`
+    #     {where_clause}
+    #     {range_cond}
+    #     GROUP BY item_code, warehouse
+    # """, as_dict=True) 
+
     movement_rows = frappe.db.sql(f"""
         SELECT
-            item_code,
-            warehouse,
-            SUM(CASE WHEN actual_qty > 0 THEN actual_qty                  ELSE 0 END) AS in_qty,
-            SUM(CASE WHEN actual_qty > 0 THEN stock_value_difference      ELSE 0 END) AS in_value,
-            SUM(CASE WHEN actual_qty < 0 THEN ABS(actual_qty)             ELSE 0 END) AS out_qty,
-            SUM(CASE WHEN actual_qty < 0 THEN ABS(stock_value_difference) ELSE 0 END) AS out_value,
-            MAX(valuation_rate)            AS last_valuation_rate,
-            MAX(stock_value)               AS last_stock_value
+        item_code,
+        warehouse,
+        SUM(CASE WHEN actual_qty > 0 THEN actual_qty                  ELSE 0 END) AS in_qty,
+        SUM(CASE WHEN actual_qty > 0 THEN stock_value_difference      ELSE 0 END) AS in_value,
+        SUM(CASE WHEN actual_qty < 0 THEN ABS(actual_qty)             ELSE 0 END) AS out_qty,
+        SUM(CASE WHEN actual_qty < 0 THEN ABS(stock_value_difference) ELSE 0 END) AS out_value
         FROM `tabStock Ledger Entry`
         {where_clause}
         {range_cond}
         GROUP BY item_code, warehouse
     """, as_dict=True)
+
+# Fetch chronologically LATEST valuation_rate/stock_value per item+warehouse
+# (MAX() was picking the highest historical rate, not the latest one)
+    for row in movement_rows:
+        latest = frappe.db.sql("""
+            SELECT valuation_rate, stock_value
+            FROM `tabStock Ledger Entry`
+            WHERE item_code=%s AND warehouse=%s AND docstatus=1 AND is_cancelled=0
+            ORDER BY posting_date DESC, posting_time DESC, creation DESC
+            LIMIT 1
+        """, (row["item_code"], row["warehouse"]), as_dict=True)
+
+        row["last_valuation_rate"] = latest[0]["valuation_rate"] if latest else 0
+        row["last_stock_value"] = latest[0]["stock_value"] if latest else 0
 
     items_map = {}
     item_buy_map = {}
@@ -409,6 +437,9 @@ def get_batch_wise_stock_report(
                     if b_in_qty == 0 and b_out_qty == 0:
                         continue
 
+                    # New: batch rate calculate  (Do not use item-level val_rate for batch-level valuation)
+                    b_val_rate = round(b_in_value / b_in_qty, 6) if b_in_qty else val_rate
+
                     # Batch buy/sell value with currency
                     b_buy_info   = batch_buy_map.get((code, b_no),  {"buy_value":  round(b_in_value, 2), "buy_currency":  buy_currency})
                     b_sell_info  = batch_sell_map.get((code, b_no), {"sell_value": 0.0,                  "sell_currency": sell_currency})
@@ -425,8 +456,10 @@ def get_batch_wise_stock_report(
                         "out_qty":            round(b_out_qty,   4),
                         "out_value":          round(b_out_value, 2),
                         "bal_qty":            round(b_bal_qty,   4),
-                        "bal_val":            round(b_bal_qty * val_rate, 2),
-                        "valuation_rate":     val_rate,
+                        # "bal_val":            round(b_bal_qty * val_rate, 2),
+                        "bal_val":            round(b_bal_qty * b_val_rate, 2),
+                        # "valuation_rate":     val_rate,
+                        "valuation_rate":     b_val_rate,
                         "buy_value":          b_buy_info["buy_value"],
                         "buy_currency":       b_buy_info["buy_currency"],
                         "sell_value":         b_sell_info["sell_value"],
