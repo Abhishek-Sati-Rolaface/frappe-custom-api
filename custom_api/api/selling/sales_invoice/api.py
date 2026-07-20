@@ -283,11 +283,19 @@ def update_sales_invoice_status(id=None, action=None):
         return send_response(
             status="fail", message=f"You do not have permission to {action} the status of this Sales Invoice.Please contact your Administrator.", status_code=403, http_status=403
         )
+
     except zra_exception.ZRAConnectionError as e:
 
         return send_response(
             status="fail", message=str(e), status_code=400, http_status=400
         )
+    
+    except zra_exception.ZRAResponseError as e:
+
+        return send_response(
+            status="fail", message=str(e), status_code=400, http_status=400
+        )
+
     except Exception as e:
         frappe.db.rollback()
         frappe.log_error(
