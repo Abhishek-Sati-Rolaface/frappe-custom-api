@@ -31,10 +31,7 @@ def get_document_counts(company):
         "proforma_invoices": frappe.db.count("Proforma Invoice", filters=filters)
             if frappe.db.exists("DocType", "Proforma Invoice") else 0,
         "quotations": frappe.db.count("Quotation", filters=filters),
-<<<<<<< HEAD
         "sales_orders": frappe.db.count("Sales Order", filters=filters),
-=======
->>>>>>> 88c5e12 (refactor sales dashboard API to consolidate data retrieval and improve error handling)
         "sales_invoices": frappe.db.count("Sales Invoice", filters={**filters, "is_return": 0}),
         "credit_notes": frappe.db.count("Sales Invoice", filters={**filters, "is_return": 1}),
         "debit_notes": frappe.db.count("Purchase Invoice", filters={**filters, "is_return": 1}),
