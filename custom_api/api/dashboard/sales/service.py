@@ -24,9 +24,13 @@ def get_sales_dashboard_data(year=None, order_by=None):
     }
 
 
-def get_quotation_extended_count(company, document_type):
+def get_quotation_extended_count(company, document_type, extra_conditions="", extra_params=None):
+    params = {"company": company, "document_type": document_type}
+    if extra_params:
+        params.update(extra_params)
+
     return frappe.db.sql(
-        """
+        f"""
         SELECT COUNT(DISTINCT q.name)
         FROM `tabQuotation` q
         INNER JOIN `tabCustom Quotation Extended Details` c
@@ -35,8 +39,9 @@ def get_quotation_extended_count(company, document_type):
             q.docstatus = 1
             AND q.company = %(company)s
             AND c.document_type = %(document_type)s
+            {extra_conditions}
         """,
-        {"company": company, "document_type": document_type},
+        params,
     )[0][0]
 
 
@@ -89,14 +94,19 @@ def get_monthly_sales_overview(company, year):
 
 
 def get_quotation_conversion(company, year):
-    filters = {
-        "docstatus": 1,
-        "company": company,
-        "transaction_date": ["between", [f"{year}-01-01", f"{year}-12-31"]],
-    }
+    total = get_quotation_extended_count(
+        company,
+        "Quotation",
+        extra_conditions="AND q.transaction_date BETWEEN %(start)s AND %(end)s",
+        extra_params={"start": f"{year}-01-01", "end": f"{year}-12-31"},
+    )
 
-    total = frappe.db.count("Quotation", filters=filters)
-    converted = frappe.db.count("Quotation", filters={**filters, "status": "Ordered"})
+    converted = get_quotation_extended_count(
+        company,
+        "Quotation",
+        extra_conditions="AND q.status = 'Ordered' AND q.transaction_date BETWEEN %(start)s AND %(end)s",
+        extra_params={"start": f"{year}-01-01", "end": f"{year}-12-31"},
+    )
 
     return {
         "total_quotations": total,
@@ -205,13 +215,16 @@ def get_action_items(company, inactive_days=60, quotation_expiry_days=7, high_ou
             f"{len(inactive_customers)} customer(s) inactive for {inactive_days}+ days",
         ))
 
-    expiring_count = frappe.db.count(
+    expiring_count = get_quotation_extended_count(
+        company,
         "Quotation",
-        filters={
-            "docstatus": 1,
-            "company": company,
-            "status": ["not in", ["Ordered", "Lost", "Cancelled", "Expired"]],
-            "valid_till": ["between", [nowdate(), getdate(nowdate()) + timedelta(days=quotation_expiry_days)]],
+        extra_conditions="""
+            AND q.status NOT IN ('Ordered', 'Lost', 'Cancelled', 'Expired')
+            AND q.valid_till BETWEEN %(today)s AND %(expiry_end)s
+        """,
+        extra_params={
+            "today": nowdate(),
+            "expiry_end": getdate(nowdate()) + timedelta(days=quotation_expiry_days),
         },
     )
     if expiring_count:
