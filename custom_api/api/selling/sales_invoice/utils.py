@@ -278,7 +278,8 @@ def sync_taxes(invoice, data):
 def build_sales_invoice_filters(args):
 
     frappe_filters = {
-        "is_return": 0
+        "is_return": 0,
+        "is_debit_note": 0,
     }
 
     if not args:
