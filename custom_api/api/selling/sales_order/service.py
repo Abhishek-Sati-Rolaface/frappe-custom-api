@@ -19,7 +19,7 @@ def create_sales_order(data):
 
     currency = data.get("currency") or company_doc.default_currency
     naming_series = get_naming_series_for_sales_order()
-    # payment_mode = data.get("payment_mode")
+    payment_mode = data.get("payment_mode")
 
     sales_order = frappe.new_doc("Sales Order")
 
@@ -42,10 +42,9 @@ def create_sales_order(data):
         }
     )
 
-    # sales_order.append("custom_extended_details", {
-    #     "document_type": "Sales Order",
-    #     "payment_mode": payment_mode
-    # })
+    sales_order.append("custom_extended_details", {
+        "payment_mode": payment_mode
+    })
 
     for item in data.get("items", []):
         sales_order.append(
@@ -88,7 +87,7 @@ def update_sales_order(sales_order_id, data):
     company = sales_order.company
     company_doc = frappe.get_cached_doc("Company", company)
     currency = data.get("currency") or company_doc.default_currency
-    # payment_mode = data.get("payment_mode")
+    payment_mode = data.get("payment_mode")
 
     field_map = {
         "title": "title",
@@ -112,13 +111,12 @@ def update_sales_order(sales_order_id, data):
     if currency:
         sales_order.currency = currency
 
-    # payment_mode = data.get("paymentMode") or data.get("payment_mode")
-    # if payment_mode is not None:
-    #     sales_order.set("custom_extended_details", [])
-    #     sales_order.append("custom_extended_details", {
-    #         "document_type": "Sales Order",
-    #         "payment_mode": payment_mode
-    #     })
+    payment_mode = data.get("paymentMode") or data.get("payment_mode")
+    if payment_mode is not None:
+        sales_order.set("custom_extended_details", [])
+        sales_order.append("custom_extended_details", {
+            "payment_mode": payment_mode
+        })
 
     if "items" in data:
         sales_order.set("items", [])
@@ -204,9 +202,9 @@ def get_sales_order_by_id(sales_order_id):
         "terms": {},
     }
 
-    # ext_details = getattr(sales_order, "custom_extended_details", None) or []
-    # if ext_details:
-    #     data["payment_mode"] = ext_details[0].payment_mode
+    ext_details = getattr(sales_order, "custom_extended_details", None) or []
+    if ext_details:
+        data["payment_mode"] = ext_details[0].payment_mode
 
     for item in sales_order.items:
         tax_info = _get_tax(item.item_code, sales_order.tax_category)
