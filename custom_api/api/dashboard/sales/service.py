@@ -24,17 +24,41 @@ def get_sales_dashboard_data(year=None, order_by=None):
     }
 
 
+def get_quotation_extended_count(company, document_type):
+    return frappe.db.sql(
+        """
+        SELECT COUNT(DISTINCT q.name)
+        FROM `tabQuotation` q
+        INNER JOIN `tabCustom Quotation Extended Details` c
+            ON c.parent = q.name
+        WHERE
+            q.docstatus = 1
+            AND q.company = %(company)s
+            AND c.document_type = %(document_type)s
+        """,
+        {"company": company, "document_type": document_type},
+    )[0][0]
+
+
 def get_document_counts(company):
     filters = {"docstatus": 1, "company": company}
 
     return {
-        "proforma_invoices": frappe.db.count("Proforma Invoice", filters=filters)
-            if frappe.db.exists("DocType", "Proforma Invoice") else 0,
-        "quotations": frappe.db.count("Quotation", filters=filters),
+        "proforma_invoices": get_quotation_extended_count(company, "Proforma Invoice"),
+        "quotations": get_quotation_extended_count(company, "Quotation"),
         "sales_orders": frappe.db.count("Sales Order", filters=filters),
-        "sales_invoices": frappe.db.count("Sales Invoice", filters={**filters, "is_return": 0}),
-        "credit_notes": frappe.db.count("Sales Invoice", filters={**filters, "is_return": 1}),
-        "debit_notes": frappe.db.count("Purchase Invoice", filters={**filters, "is_return": 1}),
+        "sales_invoices": frappe.db.count(
+            "Sales Invoice",
+            filters={**filters, "is_return": 0},
+        ),
+        "credit_notes": frappe.db.count(
+            "Sales Invoice",
+            filters={**filters, "is_return": 1},
+        ),
+        "debit_notes": frappe.db.count(
+            "Purchase Invoice",
+            filters={**filters, "is_return": 1},
+        ),
     }
 
 
@@ -147,6 +171,17 @@ ACTION_PRIORITY = {
 }
 
 
+def _build_action_item(item_type, count, title):
+    meta = ACTION_PRIORITY[item_type]
+    return {
+        "type": item_type,
+        "label": meta["label"],
+        "color": meta["color"],
+        "count": count,
+        "title": title,
+    }
+
+
 def get_action_items(company, inactive_days=60, quotation_expiry_days=7, high_outstanding_threshold=100000):
     items = []
 
@@ -180,7 +215,11 @@ def get_action_items(company, inactive_days=60, quotation_expiry_days=7, high_ou
         },
     )
     if expiring_count:
-        items.append(_build_action_item("expiring_quotations", expiring_count, f"{expiring_count} quotation(s) expiring within {quotation_expiry_days} days"))
+        items.append(_build_action_item(
+            "expiring_quotations",
+            expiring_count,
+            f"{expiring_count} quotation(s) expiring within {quotation_expiry_days} days",
+        ))
 
     high_outstanding = frappe.db.sql(
         """
@@ -195,7 +234,11 @@ def get_action_items(company, inactive_days=60, quotation_expiry_days=7, high_ou
         as_dict=True,
     )
     if high_outstanding:
-        items.append(_build_action_item("high_outstanding", len(high_outstanding), f"{len(high_outstanding)} customer(s) above outstanding threshold"))
+        items.append(_build_action_item(
+            "high_outstanding",
+            len(high_outstanding),
+            f"{len(high_outstanding)} customer(s) above outstanding threshold",
+        ))
 
     credit_exceeded = frappe.db.sql(
         """
@@ -215,23 +258,34 @@ def get_action_items(company, inactive_days=60, quotation_expiry_days=7, high_ou
         as_dict=True,
     )
     if credit_exceeded:
-        items.append(_build_action_item("credit_limit_exceeded", len(credit_exceeded), f"{len(credit_exceeded)} customer(s) exceeded credit limit"))
+        items.append(_build_action_item(
+            "credit_limit_exceeded",
+            len(credit_exceeded),
+            f"{len(credit_exceeded)} customer(s) exceeded credit limit",
+        ))
 
     return items
 
 
-def _build_action_item(item_type, count, title):
-    meta = ACTION_PRIORITY[item_type]
-    return {
-        "type": item_type,
-        "label": meta["label"],
-        "color": meta["color"],
-        "count": count,
-        "title": title,
-    }
+TOP_SALES_SORT_FIELDS = {
+    "amount": "base_grand_total",
+    "base_grand_total": "base_grand_total",
+    "posting_date": "posting_date",
+    "customer_name": "customer_name",
+}
 
 
 def get_top_recent_sales(company, order_by=None, limit=5):
+    field = "base_grand_total"
+    direction = "desc"
+
+    if order_by:
+        parts = order_by.strip().split()
+        if parts and parts[0] in TOP_SALES_SORT_FIELDS:
+            field = TOP_SALES_SORT_FIELDS[parts[0]]
+        if len(parts) > 1 and parts[1].lower() in ("asc", "desc"):
+            direction = parts[1].lower()
+
     return frappe.get_all(
         "Sales Invoice",
         filters={"docstatus": 1, "company": company},
@@ -239,7 +293,7 @@ def get_top_recent_sales(company, order_by=None, limit=5):
             "name AS invoice_id", "customer AS customer_id", "customer_name",
             "base_grand_total AS amount", "posting_date", "status", "currency",
         ],
-        order_by=order_by or "base_grand_total desc",
+        order_by=f"{field} {direction}",
         limit_page_length=limit,
     )
 

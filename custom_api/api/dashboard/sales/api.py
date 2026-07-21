@@ -5,12 +5,6 @@ from custom_api.api.dashboard.sales.service import get_sales_dashboard_data
 
 @frappe.whitelist(allow_guest=False, methods=["GET"])
 def sales_dashboard(year=None, order_by=None):
-    """
-    API Endpoint: /api/method/custom_api.api.dashboard.sales.api.sales_dashboard
-    Accepts:
-        - year (int): Optional, defaults to current year
-        - order_by (str): Optional sorting for top_recent_sales (e.g., "base_grand_total desc")
-    """
     try:
         data = get_sales_dashboard_data(year=year, order_by=order_by)
 
