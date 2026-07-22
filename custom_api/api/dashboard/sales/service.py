@@ -340,7 +340,10 @@ def get_overdue_invoice_aging(company):
             "outstanding_amount": [">", 0],
             "due_date": ["<", today],
         },
-        fields=["name AS invoice_id", "customer AS customer_id", "customer_name", "outstanding_amount AS amount", "due_date"],
+        fields=[
+            "name AS invoice_id", "customer AS customer_id", "customer_name",
+            "outstanding_amount AS amount", "conversion_rate", "due_date",
+        ],
     )
 
     buckets = {"0-30 days": 0.0, "31-60 days": 0.0, "61-90 days": 0.0, "90+ days": 0.0}
@@ -348,7 +351,8 @@ def get_overdue_invoice_aging(company):
 
     for inv in invoices:
         days_overdue = date_diff(today, inv.due_date)
-        amount = flt(inv.amount)
+        conv_rate = flt(inv.conversion_rate) or 1.0
+        amount = flt(inv.amount) * conv_rate  # convert to company currency
 
         if days_overdue <= 30:
             buckets["0-30 days"] += amount
