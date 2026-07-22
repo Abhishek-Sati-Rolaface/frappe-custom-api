@@ -8,6 +8,8 @@
 #   item_code, item_name, item_group, uom, warehouse, opening_qty
 # Optional columns:
 #   stock_uom, valuation_rate, description, brand
+#   batch_no      -> only used if item has_batch_no=1 (auto-creates a Batch if not given)
+#   serial_nos    -> only used if item has_serial_no=1 (comma-separated, count must equal opening_qty)
 #
 # Usage:
 #   1) REST: POST /api/method/custom_api.custom_api.api.inventory_import.import_inventory
@@ -110,6 +112,52 @@ def get_or_create_item(row):
 
 
 # ---------------------------------------------------------------------
+# Serial / Batch handling (required by newer ERPNext for tracked items)
+# ---------------------------------------------------------------------
+def get_serial_batch_bundle(item_code, warehouse, qty, batch_no=None, serial_nos=None):
+    """
+    Returns a Serial and Batch Bundle name if the item is serial/batch tracked,
+    else None (plain qty-based reconciliation).
+    """
+    item_meta = frappe.get_cached_doc("Item", item_code)
+    if not (item_meta.has_batch_no or item_meta.has_serial_no):
+        return None
+
+    bundle = frappe.new_doc("Serial and Batch Bundle")
+    bundle.item_code = item_code
+    bundle.warehouse = warehouse
+    bundle.voucher_type = "Stock Reconciliation"
+    bundle.type_of_transaction = "Inward"
+
+    if item_meta.has_serial_no:
+        if not serial_nos:
+            frappe.throw(
+                _("Item {0} is Serial No tracked. Provide a 'serial_nos' column (comma-separated serials, count must match opening_qty).").format(item_code)
+            )
+        serials = [s.strip() for s in serial_nos.split(",") if s.strip()]
+        if len(serials) != int(qty):
+            frappe.throw(
+                _("Item {0}: {1} serial numbers given but opening_qty is {2}").format(item_code, len(serials), int(qty))
+            )
+        for sn in serials:
+            bundle.append("entries", {"serial_no": sn, "qty": 1, "warehouse": warehouse})
+    else:
+        # Batch tracked (no serials)
+        b_no = batch_no
+        if not b_no or not frappe.db.exists("Batch", {"item": item_code, "name": b_no}):
+            batch = frappe.new_doc("Batch")
+            batch.item = item_code
+            if batch_no:
+                batch.batch_id = batch_no
+            batch.insert(ignore_permissions=True)
+            b_no = batch.name
+        bundle.append("entries", {"batch_no": b_no, "qty": qty, "warehouse": warehouse})
+
+    bundle.insert(ignore_permissions=True)
+    return bundle.name
+
+
+# ---------------------------------------------------------------------
 # Opening stock via Stock Reconciliation (grouped per warehouse)
 # ---------------------------------------------------------------------
 def create_stock_reconciliations(valid_rows):
@@ -131,13 +179,26 @@ def create_stock_reconciliations(valid_rows):
         sr.company = default_company
 
         for row in rows:
+            qty = float(row["opening_qty"])
             item_row = {
                 "item_code": row["item_code_final"],
                 "warehouse": warehouse,
-                "qty": float(row["opening_qty"]),
+                "qty": qty,
             }
             if row.get("valuation_rate"):
                 item_row["valuation_rate"] = float(row["valuation_rate"])
+
+            bundle_name = get_serial_batch_bundle(
+                row["item_code_final"],
+                warehouse,
+                qty,
+                batch_no=row.get("batch_no"),
+                serial_nos=row.get("serial_nos"),
+            )
+            if bundle_name:
+                item_row["serial_and_batch_bundle"] = bundle_name
+                item_row["use_serial_batch_fields"] = 0
+
             sr.append("items", item_row)
 
         sr.insert(ignore_permissions=True)
