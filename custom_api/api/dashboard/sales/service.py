@@ -24,13 +24,9 @@ def get_sales_dashboard_data(year=None, order_by=None):
     }
 
 
-def get_quotation_extended_count(company, document_type, extra_conditions="", extra_params=None):
-    params = {"company": company, "document_type": document_type}
-    if extra_params:
-        params.update(extra_params)
-
+def get_quotation_extended_count(company, document_type):
     return frappe.db.sql(
-        f"""
+        """
         SELECT COUNT(DISTINCT q.name)
         FROM `tabQuotation` q
         INNER JOIN `tabCustom Quotation Extended Details` c
@@ -39,9 +35,8 @@ def get_quotation_extended_count(company, document_type, extra_conditions="", ex
             q.docstatus = 1
             AND q.company = %(company)s
             AND c.document_type = %(document_type)s
-            {extra_conditions}
         """,
-        params,
+        {"company": company, "document_type": document_type},
     )[0][0]
 
 
@@ -94,19 +89,14 @@ def get_monthly_sales_overview(company, year):
 
 
 def get_quotation_conversion(company, year):
-    total = get_quotation_extended_count(
-        company,
-        "Quotation",
-        extra_conditions="AND q.transaction_date BETWEEN %(start)s AND %(end)s",
-        extra_params={"start": f"{year}-01-01", "end": f"{year}-12-31"},
-    )
+    filters = {
+        "docstatus": 1,
+        "company": company,
+        "transaction_date": ["between", [f"{year}-01-01", f"{year}-12-31"]],
+    }
 
-    converted = get_quotation_extended_count(
-        company,
-        "Quotation",
-        extra_conditions="AND q.status = 'Ordered' AND q.transaction_date BETWEEN %(start)s AND %(end)s",
-        extra_params={"start": f"{year}-01-01", "end": f"{year}-12-31"},
-    )
+    total = frappe.db.count("Quotation", filters=filters)
+    converted = frappe.db.count("Quotation", filters={**filters, "status": "Ordered"})
 
     return {
         "total_quotations": total,
@@ -215,16 +205,13 @@ def get_action_items(company, inactive_days=60, quotation_expiry_days=7, high_ou
             f"{len(inactive_customers)} customer(s) inactive for {inactive_days}+ days",
         ))
 
-    expiring_count = get_quotation_extended_count(
-        company,
+    expiring_count = frappe.db.count(
         "Quotation",
-        extra_conditions="""
-            AND q.status NOT IN ('Ordered', 'Lost', 'Cancelled', 'Expired')
-            AND q.valid_till BETWEEN %(today)s AND %(expiry_end)s
-        """,
-        extra_params={
-            "today": nowdate(),
-            "expiry_end": getdate(nowdate()) + timedelta(days=quotation_expiry_days),
+        filters={
+            "docstatus": 1,
+            "company": company,
+            "status": ["not in", ["Ordered", "Lost", "Cancelled", "Expired"]],
+            "valid_till": ["between", [nowdate(), getdate(nowdate()) + timedelta(days=quotation_expiry_days)]],
         },
     )
     if expiring_count:
@@ -353,7 +340,10 @@ def get_overdue_invoice_aging(company):
             "outstanding_amount": [">", 0],
             "due_date": ["<", today],
         },
-        fields=["name AS invoice_id", "customer AS customer_id", "customer_name", "outstanding_amount AS amount", "due_date"],
+        fields=[
+            "name AS invoice_id", "customer AS customer_id", "customer_name",
+            "outstanding_amount AS amount", "conversion_rate", "due_date",
+        ],
     )
 
     buckets = {"0-30 days": 0.0, "31-60 days": 0.0, "61-90 days": 0.0, "90+ days": 0.0}
@@ -361,7 +351,8 @@ def get_overdue_invoice_aging(company):
 
     for inv in invoices:
         days_overdue = date_diff(today, inv.due_date)
-        amount = flt(inv.amount)
+        conv_rate = flt(inv.conversion_rate) or 1.0
+        amount = flt(inv.amount) * conv_rate  # convert to company currency
 
         if days_overdue <= 30:
             buckets["0-30 days"] += amount
