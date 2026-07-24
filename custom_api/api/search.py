@@ -282,6 +282,13 @@ def get_items():
         if is_fixed_asset is not None:
             filters["is_fixed_asset"] = int(is_fixed_asset)
 
+        is_service = frappe.request.args.get("is_service")
+        if is_service is not None:
+            if int(is_service):
+                filters["is_stock_item"] = 0
+            else:
+                filters["is_stock_item"] = 1
+
         data = _fetch_paginated_autosuggest(
             doctype="Item",
             filters=filters,
