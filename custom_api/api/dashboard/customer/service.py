@@ -317,7 +317,7 @@ def get_recovery_time(company):
     return {"on_time": on_time, "late": late}
 
 
-def get_top_outstanding_customers(company, limit=5):
+def get_top_outstanding_customers(company):
     invoices = frappe.get_all(
         "Sales Invoice",
         filters={"docstatus": 1, "company": company, "outstanding_amount": [">", 0]},
@@ -339,10 +339,10 @@ def get_top_outstanding_customers(company, limit=5):
 
     result = list(outstanding_by_customer.values())
     result.sort(key=lambda x: x["outstanding"], reverse=True)
-    return result[:limit]
+    return result
 
 
-def get_dormant_customers_list(company, dormant_days, limit=10):
+def get_dormant_customers_list(company, dormant_days):
     today = getdate(nowdate())
     cutoff_date = today - timedelta(days=dormant_days)
 
@@ -377,7 +377,7 @@ def get_dormant_customers_list(company, dormant_days, limit=10):
         })
 
     result.sort(key=lambda x: (x["last_order_days_ago"] is None, x["last_order_days_ago"]), reverse=True)
-    return result[:limit]
+    return result
 
 def get_needs_attention_section(company, dormant_days):
     return {
