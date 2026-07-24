@@ -6,7 +6,7 @@ from frappe.utils import flt, cint, getdate, nowdate, date_diff, get_datetime
 def get_sales_dashboard_data(year=None, order_by=None):
     company = frappe.defaults.get_user_default("Company") or frappe.get_default("Company")
     year = cint(year) or getdate(nowdate()).year
-    currency = frappe.db.get_value("Company", company, "default_currency") or "USD"
+    currency = frappe.db.get_value("Company", company, "default_currency")
 
     return {
         "currency": currency,
