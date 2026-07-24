@@ -453,6 +453,13 @@ def create_so_from_quotation():
             if not item.delivery_date:
                 item.delivery_date = fallback_delivery_date
 
+        if so_doc.currency != so_doc.company_currency:
+            so_doc.conversion_rate = get_exchange_rate(
+                from_currency=so_doc.currency,
+                to_currency=so_doc.company_currency,
+                transaction_date=frappe.utils.today(),
+            )
+
         so_doc.docstatus = 0
         so_doc.insert(ignore_permissions=True)
 
@@ -507,6 +514,12 @@ def create_proforma_from_quotation():
         source = frappe.get_doc("Quotation", quotation_id)
 
         proforma_doc = frappe.copy_doc(source)
+        if proforma_doc.currency != proforma_doc.company_currency:
+            proforma_doc.conversion_rate = get_exchange_rate(
+                from_currency=proforma_doc.currency,
+                to_currency=proforma_doc.company_currency,
+                transaction_date=frappe.utils.today(),
+            )
         proforma_doc.docstatus = 0
         proforma_doc.amended_from = None
         proforma_doc.naming_series = get_naming_series_for_quotation("Proforma Invoice")
