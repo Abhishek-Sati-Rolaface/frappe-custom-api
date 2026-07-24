@@ -402,7 +402,7 @@ def get_top_performers_trend(company, year):
             "customer": ["in", customer_ids],
             "posting_date": ["between", [f"{year}-01-01", f"{year}-12-31"]],
         },
-        fields=["customer", "posting_date"],
+        fields=["customer", "posting_date", "base_grand_total"],
     )
 
     months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -411,7 +411,7 @@ def get_top_performers_trend(company, year):
     for month in months:
         row = {"month": month}
         for name in customer_names:
-            row[name] = 0
+            row[name] = 0.0
         series.append(row)
 
     customer_id_to_name = dict(zip(customer_ids, customer_names))
@@ -420,7 +420,7 @@ def get_top_performers_trend(company, year):
         month_idx = getdate(inv.posting_date).month - 1
         customer_name = customer_id_to_name.get(inv.customer)
         if customer_name:
-            series[month_idx][customer_name] += 1
+            series[month_idx][customer_name] += flt(inv.base_grand_total)
 
     return {
         "customers": customer_names,
