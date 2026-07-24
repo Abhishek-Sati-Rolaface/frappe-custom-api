@@ -282,6 +282,13 @@ def get_items():
         if is_fixed_asset is not None:
             filters["is_fixed_asset"] = int(is_fixed_asset)
 
+        is_service = frappe.request.args.get("is_service")
+        if is_service is not None:
+            if int(is_service):
+                filters["is_stock_item"] = 0
+            else:
+                filters["is_stock_item"] = 1
+
         data = _fetch_paginated_autosuggest(
             doctype="Item",
             filters=filters,
@@ -623,3 +630,62 @@ def get_currencies():
             status_code=500,
             http_status=500,
         )
+
+@frappe.whitelist(allow_guest=False, methods=["GET"])
+def get_warehouses():
+    try:
+        company = frappe.defaults.get_user_default("Company")
+
+        filters = frappe._dict({
+            "company": company,
+            "is_group": 0,
+            "disabled": 0,
+        })
+
+        
+
+        data = _fetch_paginated_autosuggest(
+            doctype="Warehouse",
+            filters=filters,
+            search_fields=["name", "warehouse_name"],
+            field_map={
+                "value": "name",
+                "label": "warehouse_name",
+                "description": "name",
+            },
+        )
+
+        return send_response_list(
+            "success", "Item Codes fetched successfully.", data
+        )
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Get Item Codes API Error")
+        return send_response("fail", str(e), None, 500, 500)    
+
+@frappe.whitelist(allow_guest=False, methods=["GET"])
+def get_batches():
+    try:
+        item_code = frappe.request.args.get("item_code", "").strip()
+
+        filters = frappe._dict({"disabled": 0})
+        if item_code:
+            filters["item"] = item_code
+
+        data = _fetch_paginated_autosuggest(
+            doctype="Batch",
+            filters=filters,
+            search_fields=["name", "batch_id"],
+            field_map={
+                "value": "name",
+                "label": "batch_id",
+                "description": "name",
+            },
+        )
+
+        return send_response_list(
+            "success", "Batches fetched successfully.", data
+        )
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Get Batches API Error")
+        return send_response("fail", str(e), None, 500, 500)        
