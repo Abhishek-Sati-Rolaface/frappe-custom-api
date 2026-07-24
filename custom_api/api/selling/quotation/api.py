@@ -8,6 +8,7 @@ from erpnext.selling.doctype.quotation.quotation import make_sales_invoice
 from erpnext.selling.doctype.quotation.quotation import make_sales_invoice, make_sales_order
 from custom_api.api.selling.sales_invoice.utils import validate_receivable_account_for_currency
 from .utils import validate_quotation_payload, get_naming_series_for_quotation
+from erpnext.setup.utils import get_exchange_rate
 
 @frappe.whitelist(allow_guest=False, methods=["POST"])
 @require_permission("Quotation", "create")
@@ -381,6 +382,12 @@ def create_si_from_quotation():
 
         si_doc = make_sales_invoice(quotation_id)
         si_doc.debit_to = validate_receivable_account_for_currency(si_doc.currency)
+        if si_doc.currency != si_doc.company_currency:
+            si_doc.conversion_rate = get_exchange_rate(
+                from_currency=si_doc.currency,
+                to_currency=si_doc.company_currency,
+                transaction_date=frappe.utils.today(),
+            )
         si_doc.docstatus = 0
         if default_payment_mode:
             si_doc.append("custom_details", {"payment_mode": default_payment_mode})
