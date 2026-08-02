@@ -6,7 +6,7 @@ from frappe.utils import flt, cint, getdate, nowdate, date_diff, get_datetime
 def get_sales_dashboard_data(year=None, order_by=None):
     company = frappe.defaults.get_user_default("Company") or frappe.get_default("Company")
     year = cint(year) or getdate(nowdate()).year
-    currency = frappe.db.get_value("Company", company, "default_currency") or "USD"
+    currency = frappe.db.get_value("Company", company, "default_currency")
 
     return {
         "currency": currency,
@@ -24,10 +24,10 @@ def get_sales_dashboard_data(year=None, order_by=None):
     }
 
 
-def get_quotation_extended_count(company, document_type):
-    return frappe.db.sql(
+def get_quotation_extended_count_and_value(company, document_type):
+    row = frappe.db.sql(
         """
-        SELECT COUNT(DISTINCT q.name)
+        SELECT COUNT(DISTINCT q.name) AS count, COALESCE(SUM(q.base_grand_total), 0) AS value
         FROM `tabQuotation` q
         INNER JOIN `tabCustom Quotation Extended Details` c
             ON c.parent = q.name
@@ -37,30 +37,43 @@ def get_quotation_extended_count(company, document_type):
             AND c.document_type = %(document_type)s
         """,
         {"company": company, "document_type": document_type},
-    )[0][0]
+        as_dict=True,
+    )[0]
+    return {"count": cint(row.count), "value": flt(row.value)}
+
+
+def _count_and_value(doctype, filters):
+    row = frappe.db.sql(
+        f"""
+        SELECT COUNT(*) AS count, COALESCE(SUM(base_grand_total), 0) AS value
+        FROM `tab{doctype}`
+        WHERE docstatus = %(docstatus)s AND company = %(company)s
+            AND is_return = %(is_return)s
+        """,
+        filters,
+        as_dict=True,
+    )[0]
+    return {"count": cint(row.count), "value": flt(row.value)}
 
 
 def get_document_counts(company):
-    filters = {"docstatus": 1, "company": company}
+    base_filters = {"docstatus": 1, "company": company}
 
     return {
-        "proforma_invoices": get_quotation_extended_count(company, "Proforma Invoice"),
-        "quotations": get_quotation_extended_count(company, "Quotation"),
-        "sales_orders": frappe.db.count("Sales Order", filters=filters),
-        "sales_invoices": frappe.db.count(
-            "Sales Invoice",
-            filters={**filters, "is_return": 0},
-        ),
-        "credit_notes": frappe.db.count(
-            "Sales Invoice",
-            filters={**filters, "is_return": 1},
-        ),
-        "debit_notes": frappe.db.count(
-            "Purchase Invoice",
-            filters={**filters, "is_return": 1},
-        ),
+        "proforma_invoices": get_quotation_extended_count_and_value(company, "Proforma Invoice"),
+        "quotations": get_quotation_extended_count_and_value(company, "Quotation"),
+        "sales_orders": {
+            "count": frappe.db.count("Sales Order", filters=base_filters),
+            "value": flt(frappe.db.sql(
+                """SELECT COALESCE(SUM(base_grand_total), 0) FROM `tabSales Order`
+                   WHERE docstatus = 1 AND company = %(company)s""",
+                {"company": company},
+            )[0][0]),
+        },
+        "sales_invoices": _count_and_value("Sales Invoice", {**base_filters, "is_return": 0}),
+        "credit_notes": _count_and_value("Sales Invoice", {**base_filters, "is_return": 1}),
+        "debit_notes": _count_and_value("Purchase Invoice", {**base_filters, "is_return": 1}),
     }
-
 
 def get_monthly_sales_overview(company, year):
     months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -89,14 +102,26 @@ def get_monthly_sales_overview(company, year):
 
 
 def get_quotation_conversion(company, year):
-    filters = {
-        "docstatus": 1,
-        "company": company,
-        "transaction_date": ["between", [f"{year}-01-01", f"{year}-12-31"]],
-    }
+    row = frappe.db.sql(
+        """
+        SELECT
+            COUNT(DISTINCT q.name) AS total,
+            COUNT(DISTINCT CASE WHEN q.status = 'Ordered' THEN q.name END) AS converted
+        FROM `tabQuotation` q
+        INNER JOIN `tabCustom Quotation Extended Details` c
+            ON c.parent = q.name
+        WHERE
+            q.docstatus = 1
+            AND q.company = %(company)s
+            AND c.document_type = 'Quotation'
+            AND q.transaction_date BETWEEN %(start)s AND %(end)s
+        """,
+        {"company": company, "start": f"{year}-01-01", "end": f"{year}-12-31"},
+        as_dict=True,
+    )[0]
 
-    total = frappe.db.count("Quotation", filters=filters)
-    converted = frappe.db.count("Quotation", filters={**filters, "status": "Ordered"})
+    total = cint(row.total)
+    converted = cint(row.converted)
 
     return {
         "total_quotations": total,
@@ -205,15 +230,27 @@ def get_action_items(company, inactive_days=60, quotation_expiry_days=7, high_ou
             f"{len(inactive_customers)} customer(s) inactive for {inactive_days}+ days",
         ))
 
-    expiring_count = frappe.db.count(
-        "Quotation",
-        filters={
-            "docstatus": 1,
+    expiring_count = frappe.db.sql(
+        """
+        SELECT COUNT(DISTINCT q.name)
+        FROM `tabQuotation` q
+        INNER JOIN `tabCustom Quotation Extended Details` c
+            ON c.parent = q.name
+        WHERE
+            q.docstatus = 1
+            AND q.company = %(company)s
+            AND c.document_type = 'Quotation'
+            AND q.status NOT IN ('Ordered', 'Lost', 'Cancelled', 'Expired')
+            AND q.valid_till BETWEEN %(start)s AND %(end)s
+        """,
+        {
             "company": company,
-            "status": ["not in", ["Ordered", "Lost", "Cancelled", "Expired"]],
-            "valid_till": ["between", [nowdate(), getdate(nowdate()) + timedelta(days=quotation_expiry_days)]],
+            "start": nowdate(),
+            "end": getdate(nowdate()) + timedelta(days=quotation_expiry_days),
         },
-    )
+    )[0][0]
+    expiring_count = cint(expiring_count)
+
     if expiring_count:
         items.append(_build_action_item(
             "expiring_quotations",
@@ -352,7 +389,7 @@ def get_overdue_invoice_aging(company):
     for inv in invoices:
         days_overdue = date_diff(today, inv.due_date)
         conv_rate = flt(inv.conversion_rate) or 1.0
-        amount = flt(inv.amount) * conv_rate  # convert to company currency
+        amount = flt(inv.amount) * conv_rate  
 
         if days_overdue <= 30:
             buckets["0-30 days"] += amount

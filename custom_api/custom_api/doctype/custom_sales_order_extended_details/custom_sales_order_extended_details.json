@@ -2,7 +2,6 @@
  "actions": [],
  "allow_rename": 1,
  "creation": "2026-07-21 13:09:41.495904",
- "custom": 1,
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -20,7 +19,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-07-21 13:10:54.270393",
+ "modified": "2026-07-22 15:04:24.860162",
  "modified_by": "Administrator",
  "module": "Custom Api",
  "name": "Custom Sales Order Extended Details",
