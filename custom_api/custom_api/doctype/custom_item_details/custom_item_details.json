@@ -23,7 +23,11 @@
   "height",
   "zra_fields_section",
   "service_charge",
-  "insurance"
+  "insurance",
+  "is_mtv",
+  "column_break_swdy",
+  "rrp_rate",
+  "mtv_manufacturer_tpin"
  ],
  "fields": [
   {
@@ -121,13 +125,33 @@
    "fieldname": "insurance",
    "fieldtype": "Check",
    "label": "Insurance"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_mtv",
+   "fieldtype": "Check",
+   "label": "is_mtv"
+  },
+  {
+   "fieldname": "column_break_swdy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "rrp_rate",
+   "fieldtype": "Float",
+   "label": "RRP Rate"
+  },
+  {
+   "fieldname": "mtv_manufacturer_tpin",
+   "fieldtype": "Data",
+   "label": "MTV Manufacturer Tpin"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-07-01 21:45:25.460829",
+ "modified": "2026-07-31 18:12:20.188269",
  "modified_by": "Administrator",
  "module": "Custom Api",
  "name": "Custom Item Details",
