@@ -175,6 +175,7 @@ def get_batch_wise_stock_report(
                 item_details_map[item["item_code"]]["taxInfo"] = _get_tax(item.name, tax_category)
                 item_details_map[item["item_code"]]["price_list"] = frappe.db.get_value("Item Price", {"item_code": item["item_code"], "price_list": "Standard Selling"}, "price_list_rate")
                 item_details_map[item["item_code"]]["rrp_rate"] = item_metadata.rrp_rate
+                item_details_map[item["item_code"]]["is_mtv_item"] = item_metadata.is_mtv
 
             # apply item_group filter
             if item_group:
@@ -392,7 +393,7 @@ def get_batch_wise_stock_report(
 
                 item_info = item_details_map.get(code, {
                     "item_name": "", "item_group": "", "stock_uom": "", "description": "", "packing_size": "", "packing_unit": "",
-                    "taxInfo": "", "price_list": 0.0, "rrp_rate": 0.0
+                    "taxInfo": "", "price_list": 0.0, "rrp_rate": 0.0, "is_mtv_item": False
                 })
                 o = opening_map.get(code, {
                     "opening_qty":    0.0,
@@ -515,6 +516,7 @@ def get_batch_wise_stock_report(
                         "batches":             batch_rows,
                         "price_list":          item_info.get("price_list", 0.0),
                         "rrp_rate":            item_info.get("rrp_rate", 0.0),
+                        "is_mtv_item":         item_info.get("is_mtv_item", False),
                     }
     if get_service_item:
         # ── Step 6b: Append non-stock items (maintain_stock=0, for sale) ─────────
@@ -580,6 +582,7 @@ def get_batch_wise_stock_report(
                 "is_service_item": 1,
                 "price_list": frappe.db.get_value("Item Price", {"item_code": item["item_code"], "price_list": "Standard Selling"}, "price_list_rate"),
                 "rrp_rate":            rrp_rate,
+                "is_mtv_item":         item_info.get("is_mtv_item", False),
             }
 
     # ── Step 7: Pagination ────────────────────────────────────────────────────
