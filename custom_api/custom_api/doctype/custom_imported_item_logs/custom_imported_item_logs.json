@@ -1,0 +1,263 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-07-31 14:43:06.422931",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "identification_section",
+  "task_code",
+  "item_sequence",
+  "column_break_70lo",
+  "declaration_no",
+  "declaration_date",
+  "item_details_section",
+  "hs_code",
+  "item_name",
+  "column_break_owxr",
+  "origin_country",
+  "export_country",
+  "quantities_and_weight_section",
+  "quantity",
+  "quantity_unit",
+  "column_break_6l2z",
+  "package_count",
+  "package_unit",
+  "column_break_n5gg",
+  "total_weight",
+  "net_weight",
+  "financials_and_parties_section",
+  "invoice_amount",
+  "base_invoice_amount",
+  "column_break_2y9w",
+  "currency",
+  "exchange_rate",
+  "column_break_catn",
+  "supplier_name",
+  "agent_name",
+  "erp_processing_section",
+  "status",
+  "status_code",
+  "checker",
+  "checked_at",
+  "column_break_ckii",
+  "mapped_erp_item",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "declaration_no",
+   "fieldtype": "Data",
+   "label": "Declaration No"
+  },
+  {
+   "fieldname": "declaration_date",
+   "fieldtype": "Date",
+   "label": "Declaration Date"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Data",
+   "label": "Status",
+   "options": "Approved\nRejected"
+  },
+  {
+   "fieldname": "checker",
+   "fieldtype": "Link",
+   "label": "Checker",
+   "options": "User"
+  },
+  {
+   "fieldname": "identification_section",
+   "fieldtype": "Section Break",
+   "label": "Identification"
+  },
+  {
+   "fieldname": "task_code",
+   "fieldtype": "Data",
+   "label": "Task Code"
+  },
+  {
+   "fieldname": "item_sequence",
+   "fieldtype": "Int",
+   "label": "Item Sequence"
+  },
+  {
+   "fieldname": "item_details_section",
+   "fieldtype": "Section Break",
+   "label": "Item Details"
+  },
+  {
+   "fieldname": "hs_code",
+   "fieldtype": "Data",
+   "label": "HS Code"
+  },
+  {
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Item Name"
+  },
+  {
+   "fieldname": "origin_country",
+   "fieldtype": "Data",
+   "label": "Origin Country"
+  },
+  {
+   "fieldname": "export_country",
+   "fieldtype": "Data",
+   "label": "Export Country"
+  },
+  {
+   "fieldname": "quantities_and_weight_section",
+   "fieldtype": "Section Break",
+   "label": "Quantities and Weight"
+  },
+  {
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "label": "Quantity"
+  },
+  {
+   "fieldname": "quantity_unit",
+   "fieldtype": "Data",
+   "label": "Quantity Unit"
+  },
+  {
+   "fieldname": "package_count",
+   "fieldtype": "Int",
+   "label": "Package Count"
+  },
+  {
+   "fieldname": "package_unit",
+   "fieldtype": "Data",
+   "label": "Package Unit"
+  },
+  {
+   "fieldname": "total_weight",
+   "fieldtype": "Float",
+   "label": "Total Weight"
+  },
+  {
+   "fieldname": "net_weight",
+   "fieldtype": "Float",
+   "label": "Net Weight"
+  },
+  {
+   "fieldname": "financials_and_parties_section",
+   "fieldtype": "Section Break",
+   "label": "Financials and Parties"
+  },
+  {
+   "fieldname": "invoice_amount",
+   "fieldtype": "Currency",
+   "label": "Invoice Amount"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Data",
+   "label": "Currency"
+  },
+  {
+   "fieldname": "exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate"
+  },
+  {
+   "fieldname": "base_invoice_amount",
+   "fieldtype": "Currency",
+   "label": "Base Invoice Amount"
+  },
+  {
+   "fieldname": "supplier_name",
+   "fieldtype": "Data",
+   "label": "Supplier Name"
+  },
+  {
+   "fieldname": "agent_name",
+   "fieldtype": "Data",
+   "label": "Agent Name"
+  },
+  {
+   "fieldname": "erp_processing_section",
+   "fieldtype": "Section Break",
+   "label": "ERP Processing"
+  },
+  {
+   "fieldname": "status_code",
+   "fieldtype": "Data",
+   "label": "Status Code",
+   "options": "3\n4"
+  },
+  {
+   "fieldname": "mapped_erp_item",
+   "fieldtype": "Link",
+   "label": "Mapped ERP Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "checked_at",
+   "fieldtype": "Datetime",
+   "label": "Checked At"
+  },
+  {
+   "fieldname": "column_break_70lo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_owxr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_6l2z",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_catn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_ckii",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_n5gg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_2y9w",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-02 22:11:43.147955",
+ "modified_by": "Administrator",
+ "module": "Custom Api",
+ "name": "Custom Imported Item Logs",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}
