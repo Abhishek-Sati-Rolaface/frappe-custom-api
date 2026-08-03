@@ -87,7 +87,8 @@ def _save_item_metadata(data):
         "service_charge": data.get("svcCharge", False),
         "is_mtv": data.get("isMtvItem", False),
         "rrp_rate": data.get("rrp_rate"),
-        "mtv_manufacturer_tpin": data.get("mtvManufacturerTpin", None)
+        "mtv_manufacturer_tpin": data.get("mtvManufacturerTpin", None),
+        "manufacturerItemCd": data.get("manufacturerItemCd", None)
     }]
 
 def validate_item_payload(data):
@@ -159,6 +160,7 @@ def map_item_response(item, tax_category=None):
         "isMtvItem": item_metadata.is_mtv if item_metadata else 0,
         "rrp_rate": item_metadata.rrp_rate if item_metadata else 0,
         "mtvManufacturerTpin": item_metadata.mtv_manufacturer_tpin if item_metadata else None,
+        "manufacturerItemCd": item_metadata.manufacturerItemCd if item_metadata else None,
         "inventoryInfo": {
             "valuationMethod": item.valuation_method or "",
             "trackingMethod": _get_tracking_method(item),
@@ -337,5 +339,6 @@ def _update_item_metadata(item_doc, data):
         "service_charge": data.get("svcCharge", ""),
         "is_mtv": data.get("isMtvItem", False),
         "rrp_rate": data.get("rrp_rate"),
-        "mtv_manufacturer_tpin": data.get("mtvManufacturerTpin", None)
+        "mtv_manufacturer_tpin": data.get("mtvManufacturerTpin", None),
+        "manufacturerItemCd": data.get("manufacturerItemCd", None)
     })
