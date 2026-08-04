@@ -4,7 +4,7 @@ ALLOWED_IMPORT_LOG_FIELDS = {
     "quantity", "quantity_unit", "package_count", "package_unit",
     "total_weight", "net_weight", "invoice_amount", "currency",
     "exchange_rate", "base_invoice_amount", "supplier_name",
-    "agent_name", "status", "status_code", "mapped_erp_item",
+    "agent_name", "status", "status_code", "mapped_erp_item", "mapped_erp_supplier",
     "remarks", "checker", "checked_at"
 }
 
@@ -17,7 +17,7 @@ ALLOWED_SORT_FIELDS = {
 RETURN_FIELDS_GET_ALL = [
     "name", "task_code", "declaration_no", "declaration_date",
     "item_sequence", "item_name", "quantity", "invoice_amount",
-    "base_invoice_amount", "status", "mapped_erp_item"
+    "base_invoice_amount", "status", "mapped_erp_item", "mapped_erp_supplier"
 ]
 
 RETURN_FIELDS_GET_BY_ID = list(ALLOWED_IMPORT_LOG_FIELDS) + [
