@@ -42,6 +42,7 @@
   "checked_at",
   "column_break_ckii",
   "mapped_erp_item",
+  "mapped_erp_supplier",
   "remarks"
  ],
  "fields": [
@@ -231,12 +232,18 @@
   {
    "fieldname": "column_break_2y9w",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "mapped_erp_supplier",
+   "fieldtype": "Link",
+   "label": "Mapped ERP Supplier",
+   "options": "Supplier"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-02 22:11:43.147955",
+ "modified": "2026-08-04 14:47:52.572414",
  "modified_by": "Administrator",
  "module": "Custom Api",
  "name": "Custom Imported Item Logs",
