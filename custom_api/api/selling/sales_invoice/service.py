@@ -242,6 +242,7 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
         "customerId": invoice.customer,
         "customerName": customer.customer_name,
         "customerTpin": customer.tax_id,
+        "customerContactNo": customer.mobile_no,
         "currency": invoice.currency,
         "exchangeRate": invoice.conversion_rate,
         "postingDate": invoice.posting_date,
@@ -302,6 +303,7 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
         item_data = {
             "itemCode": item.item_code,
             "itemName": item.item_name,
+            "brand": item.brand,
             "uom": item.uom,
             "quantity": remaining_qty,
             "rate": item.price_list_rate,
