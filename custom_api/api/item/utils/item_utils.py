@@ -86,7 +86,7 @@ def _save_item_metadata(data):
         "insurance": data.get("ins", False),
         "service_charge": data.get("svcCharge", False),
         "is_mtv": data.get("isMtvItem", False),
-        "rrp_rate": data.get("rrp_rate"),
+        "rrp_rate": data.get("mtvRrp"),
         "mtv_manufacturer_tpin": data.get("mtvManufacturerTpin", None),
         "manufactureritemcd": data.get("manufacturerItemCd", None)
     }]
