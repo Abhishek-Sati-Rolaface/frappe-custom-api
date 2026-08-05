@@ -144,7 +144,11 @@ def get_purchase_invoice_by_id(pi_id):
             "itemCode": item.item_code,
             "itemName": item.item_name,
             "quantity": item.qty,
-            "rate": item.rate,
+            "priceListRate": item.price_list_rate,        # original rate (before discount)
+            "rate": item.rate,                             # final rate (after discount)
+            "discountPercentage": item.discount_percentage,
+            "discountAmount": item.discount_amount,        # per-unit discount value
+            "amount": item.amount,             
             "warehouse": item.warehouse,
             "uom": item.uom,
             "batchNo": item.batch_no,
