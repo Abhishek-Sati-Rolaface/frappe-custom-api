@@ -551,6 +551,7 @@ def get_batch_wise_stock_report(
             pieces_per_box = item_metadata.pieces_per_box if item_metadata else ""
             rrp_rate = item_metadata.rrp_rate if item_metadata else 0.0
             tax_info     = _get_tax(item.name, tax_category)
+            is_mtv_item = item_metadata.is_mtv if item_metadata else False
 
             # ── Buy/sell values from invoices ─────────────────────────────────────
             buy_info  = item_buy_map.get(code,  {"buy_value": 0.0, "buy_currency":  company_currency})
@@ -582,7 +583,7 @@ def get_batch_wise_stock_report(
                 "is_service_item": 1,
                 "price_list": frappe.db.get_value("Item Price", {"item_code": item["item_code"], "price_list": "Standard Selling"}, "price_list_rate"),
                 "rrp_rate":            rrp_rate,
-                "is_mtv_item":         item_info.get("is_mtv_item", False),
+                "is_mtv_item":         is_mtv_item,
             }
 
     # ── Step 7: Pagination ────────────────────────────────────────────────────
