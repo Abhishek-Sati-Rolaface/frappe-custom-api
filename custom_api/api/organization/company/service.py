@@ -175,6 +175,7 @@ def get_company_defaults_data():
     data["use_separate_sequence_for_credit_notes"] = extended_details.use_separate_sequence_for_credit_notes if extended_details else None
 
     data["credit_controller"] = frappe.db.get_single_value("Accounts Settings", "credit_controller")
+    data["is_rvat_agent"] = extended_details.is_rvat_agent if extended_details else None
 
     return data
 
@@ -207,6 +208,9 @@ def update_company_defaults_data(data):
 
     if "use_separate_sequence_for_credit_notes" in data:
         extended_details.use_separate_sequence_for_credit_notes = int(data.get("use_separate_sequence_for_credit_notes", False))
+
+    if "is_rvat_agent" in data:
+        extended_details.is_rvat_agent = bool(data.get("is_rvat_agent", False))
 
     company_doc.save()
 

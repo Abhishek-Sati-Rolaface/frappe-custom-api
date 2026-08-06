@@ -11,7 +11,8 @@
   "column_break_acxi",
   "use_separate_sequence_for_credit_notes",
   "zra_section",
-  "sdc_id"
+  "sdc_id",
+  "is_rvat_agent"
  ],
  "fields": [
   {
@@ -55,13 +56,19 @@
    "fieldname": "sdc_id",
    "fieldtype": "Data",
    "label": "SDC ID"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_rvat_agent",
+   "fieldtype": "Check",
+   "label": "Is RVAT Agent"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-07-12 16:20:03.816529",
+ "modified": "2026-08-06 14:02:13.453167",
  "modified_by": "Administrator",
  "module": "Custom Api",
  "name": "Custom Company Extended Details",
