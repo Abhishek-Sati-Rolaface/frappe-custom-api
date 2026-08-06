@@ -122,6 +122,8 @@ def get_purchase_invoice_by_id(pi_id):
     pi_doc = frappe.get_doc("Purchase Invoice", pi_id)
     pi_items = []
     purchase_order = None
+    total_before_discount = 0.0
+    
     for item in pi_doc.items:
         purchase_order = item.purchase_order
         item_meta = frappe.db.get_value(
