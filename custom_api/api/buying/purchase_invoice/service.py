@@ -140,6 +140,9 @@ def get_purchase_invoice_by_id(pi_id):
                 as_dict=True,
             )
         description = frappe.get_value("Item", item.item_code,["description"])
+        item_total_before_discount = (item.price_list_rate or 0) * (item.qty or 0)   # naya
+        total_before_discount += item_total_before_discount
+
         pi_items.append({
             "itemCode": item.item_code,
             "itemName": item.item_name,
@@ -160,7 +163,10 @@ def get_purchase_invoice_by_id(pi_id):
             "description": description,
             "discount": item.discount_percentage,
         })
-    
+
+    total_after_discount = pi_doc.total or 0.0                     
+    total_discount_amount = total_before_discount - total_after_discount
+
     attachments = frappe.db.get_all(
         "File",
         filters={
@@ -197,6 +203,9 @@ def get_purchase_invoice_by_id(pi_id):
         "terms": get_linked_terms(pi_doc.name, "buying"),
         "items": pi_items,
         "totalTaxes": pi_doc.total_taxes_and_charges,
+        "totalBeforeDiscount": total_before_discount,
+        "totalDiscountAmount": total_discount_amount,       
+        "totalAfterDiscount": total_after_discount,
         "grandTotal": pi_doc.grand_total,
         "roundedTotal": pi_doc.rounded_total,
         "roundingAdjustment": pi_doc.rounding_adjustment,
