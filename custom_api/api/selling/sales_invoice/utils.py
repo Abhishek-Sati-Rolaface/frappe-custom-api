@@ -361,12 +361,13 @@ def get_receivable_account_by_currency(currency: str, company: str, account_type
 
 def _build_additional_detail(data: dict) -> dict | None:
     payment_mode = data.get("paymentMode") or data.get("payment_mode")
-
+    invoice_type = data.get("invoiceType", "")
     if not payment_mode:
         return None
 
     return {
-        "payment_mode": payment_mode
+        "payment_mode": payment_mode,
+        "invoice_type": invoice_type
     }
 
 

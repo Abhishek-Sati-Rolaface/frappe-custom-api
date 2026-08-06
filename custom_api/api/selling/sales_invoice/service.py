@@ -206,7 +206,7 @@ def update_sales_invoice(invoice_id, data):
 
     sync_taxes(invoice, data)
 
-    if "paymentMode" in data or "payment_mode" in data:
+    if "paymentMode" in data or "payment_mode" in data or "invoiceType" in data:
         detail = _build_additional_detail(data)
         invoice.set("custom_details", [])
         if detail:
@@ -283,10 +283,12 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
 
     payment_mode = custom_details[0].payment_mode if custom_details else None
     reason = custom_details[0].reason if custom_details else None
+    invoice_type = custom_details[0].invoice_type if custom_details else None
 
     data["paymentInformation"] = get_payment_information(payment_mode, invoice.company)
     data["paymentMode"] = custom_details[0].payment_mode if custom_details else None
     data["reason"] = reason
+    data["invoiceType"] = invoice_type
     credited_map = get_already_credited_qty(invoice_id) if is_credit_note else {}
 
     for item in invoice.items:
