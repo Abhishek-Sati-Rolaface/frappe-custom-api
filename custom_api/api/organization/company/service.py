@@ -210,7 +210,7 @@ def update_company_defaults_data(data):
         extended_details.use_separate_sequence_for_credit_notes = int(data.get("use_separate_sequence_for_credit_notes", False))
 
     if "is_rvat_agent" in data:
-        extended_details.is_rvat_agent = bool(data.get("is_rvat_agent", False))
+        extended_details.is_rvat_agent = True if data.get("is_rvat_agent") == "true" else False
 
     company_doc.save()
 

@@ -33,6 +33,9 @@ def create_customer(data):
     if data.get("registration_no") is not None:
         ext_details["registration_no"] = data.get("registration_no")
 
+    if data.get("principalId") is not None:
+        ext_details["principal_id"] = data.get("principalId")
+
     if data.get("credit_limits") is not None:
         default_company = get_default_company()
         doc_args["credit_limits"] = []
@@ -108,7 +111,7 @@ def update_customer(customer_id, data):
             
         validate_credit_limits(data)
 
-    if "registration_no" in data or strict_credit_limit_val is not None:
+    if "registration_no" in data or strict_credit_limit_val is not None or "principalId" in data:
         if not customer.custom_extended_details:
             customer.append("custom_extended_details", {})
         
@@ -117,6 +120,8 @@ def update_customer(customer_id, data):
             ext_row.registration_no = data.get("registration_no")
         if strict_credit_limit_val is not None:
             ext_row.strict_credit_limit = strict_credit_limit_val
+        if "principalId" in data:
+            ext_row.principal_id = data.get("principalId")
 
     customer.save(ignore_permissions=True)
 
@@ -133,10 +138,12 @@ def get_customer_by_id(customer_id):
 
     registration_no = None
     strict_credit_limit = 0
+    principal_id = None
 
     if customer.custom_extended_details:
         registration_no = customer.custom_extended_details[0].registration_no
         strict_credit_limit = customer.custom_extended_details[0].strict_credit_limit
+        principal_id = customer.custom_extended_details[0].principal_id
 
     credit_limits = [
         {
@@ -164,6 +171,8 @@ def get_customer_by_id(customer_id):
         "contacts": get_linked_contacts("Customer", customer_id),
         "addresses": get_linked_addresses("Customer", customer_id),
         "terms": get_linked_terms(customer_id, "selling"),
+        "principalId": principal_id,
+
     }
 
 

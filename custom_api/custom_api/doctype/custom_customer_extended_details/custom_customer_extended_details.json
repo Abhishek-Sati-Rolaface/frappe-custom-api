@@ -6,7 +6,9 @@
  "engine": "InnoDB",
  "field_order": [
   "registration_no",
-  "strict_credit_limit"
+  "strict_credit_limit",
+  "zra_section",
+  "principal_id"
  ],
  "fields": [
   {
@@ -21,13 +23,23 @@
    "fieldtype": "Check",
    "in_list_view": 1,
    "label": "Enforce Strict Credit Limit"
+  },
+  {
+   "fieldname": "zra_section",
+   "fieldtype": "Section Break",
+   "label": "ZRA"
+  },
+  {
+   "fieldname": "principal_id",
+   "fieldtype": "Data",
+   "label": "Principal ID"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-07-14 15:16:20.319824",
+ "modified": "2026-08-06 18:59:20.787937",
  "modified_by": "Administrator",
  "module": "Custom Api",
  "name": "Custom Customer Extended Details",
