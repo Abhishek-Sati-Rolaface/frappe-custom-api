@@ -38,7 +38,7 @@ def update_supplier(supplier_id, data):
 
     field_map = {
         "name": "supplier_name", "currency": "default_currency",
-        "supplierTaxCategory": "tax_category", "supplierGroup": "supplier_group"
+        "supplierTaxCategory": "tax_category", "supplierGroup": "supplier_group", "tpin": "tax_id"
     }
     # field_map = {
     #     "name": "supplier_name", "type": "supplier_type", "currency": "default_currency",
