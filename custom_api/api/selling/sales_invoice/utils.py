@@ -362,13 +362,24 @@ def get_receivable_account_by_currency(currency: str, company: str, account_type
 def _build_additional_detail(data: dict) -> dict | None:
     payment_mode = data.get("paymentMode") or data.get("payment_mode")
     invoice_type = data.get("invoiceType", "")
-    if not payment_mode:
+    principal_details = data.get("principal") or data.get("principalDetails") or data.get("principal_details")
+    
+    if not payment_mode and not invoice_type and not principal_details:
         return None
 
-    return {
+    details = {
         "payment_mode": payment_mode,
         "invoice_type": invoice_type
     }
+
+    if invoice_type == "RVAT" and principal_details:
+        details["zra_principal_detail"] = (
+            json.dumps(principal_details) 
+            if isinstance(principal_details, dict) 
+            else principal_details
+        )
+
+    return details
 
 
 def _build_sales_invoice_box_detail(item: dict) -> dict:
