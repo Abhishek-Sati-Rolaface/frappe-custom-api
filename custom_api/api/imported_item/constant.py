@@ -17,7 +17,7 @@ ALLOWED_SORT_FIELDS = {
 RETURN_FIELDS_GET_ALL = [
     "name", "task_code", "declaration_no", "declaration_date",
     "item_sequence", "item_name", "quantity", "invoice_amount",
-    "base_invoice_amount", "status", "mapped_erp_item", "mapped_erp_supplier"
+    "base_invoice_amount", "status", "mapped_erp_item", "mapped_erp_supplier", "checker", "checked_at"
 ]
 
 RETURN_FIELDS_GET_BY_ID = list(ALLOWED_IMPORT_LOG_FIELDS) + [
