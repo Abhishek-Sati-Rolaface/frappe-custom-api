@@ -18,7 +18,8 @@
   "cancelled_at",
   "reason",
   "zra_section",
-  "zra_response"
+  "zra_response",
+  "zra_principal_detail"
  ],
  "fields": [
   {
@@ -93,13 +94,18 @@
    "fieldname": "invoice_type",
    "fieldtype": "Data",
    "label": "Invoice Type"
+  },
+  {
+   "fieldname": "zra_principal_detail",
+   "fieldtype": "JSON",
+   "label": "Principal Detail"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-08-06 20:24:43.849287",
+ "modified": "2026-08-08 16:13:23.166751",
  "modified_by": "Administrator",
  "module": "Custom Api",
  "name": "Custom Sales Invoice Additional Detail",
