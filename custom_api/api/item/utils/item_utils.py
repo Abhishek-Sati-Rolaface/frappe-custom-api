@@ -338,7 +338,7 @@ def _update_item_metadata(item_doc, data):
         "insurance": data.get("ins",""),
         "service_charge": data.get("svcCharge", ""),
         "is_mtv": data.get("isMtvItem", False),
-        "rrp_rate": data.get("rrp_rate"),
+        "rrp_rate": data.get("mtvRrp"),
         "mtv_manufacturer_tpin": data.get("mtvManufacturerTpin", None),
         "manufactureritemcd": data.get("manufacturerItemCd", None)
     })
