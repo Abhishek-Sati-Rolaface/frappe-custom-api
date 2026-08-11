@@ -190,13 +190,13 @@ def update_bulk_naming_settings(payload_data):
                 counter_data = frappe.db.sql("SELECT current FROM `tabSeries` WHERE name = %s", (old_db_key,))
                 current_count = counter_data[0][0] if counter_data else 0
                 
-                if current_count > 0:
-                    skipped_updates.append({
-                        "field": key,
-                        "doctype": FRONTEND_DOCTYPE_MAP[key],
-                        "reason": f"Already in use (Counter: {current_count})"
-                    })
-                    continue 
+                # if current_count > 0:
+                #     skipped_updates.append({
+                #         "field": key,
+                #         "doctype": FRONTEND_DOCTYPE_MAP[key],
+                #         "reason": f"Already in use (Counter: {current_count})"
+                #     })
+                #     continue 
             
             current_settings[key] = new_val
             
