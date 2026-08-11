@@ -148,7 +148,8 @@ FRONTEND_DOCTYPE_MAP = {
     "supplier_quotation": "Supplier Quotation",
     "rfq": "Request for Quotation",
     "purchase_receipt": "Purchase Receipt",
-    "credit_note": "Sales Invoice"
+    "credit_note": "Sales Invoice",
+    "sales_debit_notes": "Sales Invoice"
 }
 
 def get_bulk_naming_settings():
@@ -172,6 +173,8 @@ def get_bulk_naming_settings():
                 settings[frontend_key] = prefixes[0] if len(prefixes) > 0 else ""
             elif frontend_key == "credit_note":
                 settings[frontend_key] = prefixes[1] if len(prefixes) > 1 else ""
+            elif frontend_key == "sales_debit_notes":
+                settings[frontend_key] = prefixes[2] if len(prefixes) > 1 else ""
         else:
             settings[frontend_key] = prefixes[0] if prefixes else ""
             

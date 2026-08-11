@@ -14,11 +14,17 @@ def before_insert(doc, method):
         company_doc = frappe.get_doc("Company", company_name)
 
         use_separate_sequence_for_credit_notes = None
+        use_separate_sequence_for_sales_debit_notes = None
         if company_doc.custom_extended_details:
             use_separate_sequence_for_credit_notes = (
                 company_doc.custom_extended_details[
                     0
                 ].use_separate_sequence_for_credit_notes
+            )
+            use_separate_sequence_for_sales_debit_notes = (
+                company_doc.custom_extended_details[
+                    0
+                ].use_separate_sequence_for_sales_debit_notes
             )
 
         if not doc.custom_details:
@@ -45,6 +51,20 @@ def before_insert(doc, method):
             if not use_separate_sequence_for_credit_notes:
                 doc.flags.name_set = True
                 doc.name = frappe.model.naming.make_autoname(series_list[1], doc=doc)
+
+        if doc.is_debit_note==1:
+            naming_series_options = frappe.get_meta("Sales Invoice").get_field("naming_series").options
+            series_list = [
+                            s.strip() for s in naming_series_options.split("\n") if s.strip()
+                          ]
+            if len(series_list) < 3:
+                frappe.throw("Please Configure Naming Series for Sales Debit Note.")
+            
+            doc.naming_series = series_list[2]
+            
+            if not use_separate_sequence_for_sales_debit_notes:
+                doc.flags.name_set = True
+                doc.name = frappe.model.naming.make_autoname(series_list[2], doc=doc)
 
         frappe.log_error(
             title=f"Sales Invoice Debug - {doc.name}",

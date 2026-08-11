@@ -46,6 +46,8 @@ def create_sales_invoice(data):
             "taxes_and_charges": data.get("salesTaxTemplate"),
             "cost_center": cost_center,
             "debit_to": account,
+            "additional_discount_percentage": data.get("additional_discount_percentage"),
+            "discount_amount": data.get("discount_amount")
         }
     )
 
