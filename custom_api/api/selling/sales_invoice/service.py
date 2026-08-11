@@ -219,7 +219,8 @@ def update_sales_invoice(invoice_id, data):
     #     invoice.set("custom_details", [])
     #     if detail:
     #         invoice.append("custom_details", detail)
-
+    invoice.additional_discount_percentage = data.get("additional_discount_percentage")
+    invoice.discount_amount = data.get("discount_amount")
     invoice.save(ignore_permissions=True)
 
     terms_payload = data.get("terms")
@@ -287,6 +288,8 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
             acount_details.get("account_currency") if acount_details else None
         ),
         "remarks": invoice.remarks,
+        "additional_discount_percentage": invoice.additional_discount_percentage,
+        "discount_amount": invoice.discount_amount
     }
 
     payment_mode = custom_details[0].payment_mode if custom_details else None
