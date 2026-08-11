@@ -173,6 +173,7 @@ def get_company_defaults_data():
         extended_details.default_payment_mode if extended_details else None
     )
     data["use_separate_sequence_for_credit_notes"] = extended_details.use_separate_sequence_for_credit_notes if extended_details else None
+    data["use_separate_sequence_for_sales_debit_notes"] = extended_details.use_separate_sequence_for_sales_debit_notes if extended_details else None
 
     data["credit_controller"] = frappe.db.get_single_value("Accounts Settings", "credit_controller")
     data["is_rvat_agent"] = extended_details.is_rvat_agent if extended_details else None
@@ -209,6 +210,9 @@ def update_company_defaults_data(data):
     if "use_separate_sequence_for_credit_notes" in data:
         extended_details.use_separate_sequence_for_credit_notes = int(data.get("use_separate_sequence_for_credit_notes", False))
 
+    if "use_separate_sequence_for_sales_debit_notes" in data:
+        extended_details.use_separate_sequence_for_sales_debit_notes = int(data.get("use_separate_sequence_for_sales_debit_notes", False))
+
     if "is_rvat_agent" in data:
         extended_details.is_rvat_agent = True if data.get("is_rvat_agent") == "true" else False
 
@@ -233,6 +237,7 @@ def update_company_defaults_data(data):
     result["primary_business_domain"] = extended_details.primary_business_domain
     result["default_payment_mode"] = extended_details.default_payment_mode
     result["use_separate_sequence_for_credit_notes"] = extended_details.use_separate_sequence_for_credit_notes
+    result["use_separate_sequence_for_sales_debit_notes"] = extended_details.use_separate_sequence_for_sales_debit_notes
     result["credit_controller"] = frappe.db.get_single_value("Accounts Settings", "credit_controller")
 
     return result
