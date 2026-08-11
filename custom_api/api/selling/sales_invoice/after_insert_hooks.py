@@ -14,6 +14,10 @@ def get_series_prefix(naming_series: str) -> str:
     return prefix
 
 def after_insert(doc, method):
+    installed_apps = frappe.get_installed_apps()
+    if "zra_smart_invoice" in installed_apps:
+        doc.disable_rounded_total = 1
+
     if not doc.is_return:
         company_name = frappe.defaults.get_user_default("Company")
         company_doc = frappe.get_doc("Company", company_name)
