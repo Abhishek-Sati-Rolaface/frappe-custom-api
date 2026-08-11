@@ -251,6 +251,13 @@ def update_pi_service(pi_id, data):
     pi_doc.only_include_allocated_payments = 0
     pi_doc.set("items", [])
     pi_doc.credit_to = account
+    payment_mode = data.get("paymentType")
+    if payment_mode:
+        pi_doc.set("custom_invoice_metadata", [])
+        pi_doc.append("custom_invoice_metadata", {
+            "payment_mode": payment_mode,
+        })  
+
     for item in build_items(data.get("items"), data.get("supplierId"), data.get("lpoNumber")):
         pi_doc.append("items", item)
 
