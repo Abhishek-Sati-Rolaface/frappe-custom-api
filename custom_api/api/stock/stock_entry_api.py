@@ -13,7 +13,6 @@ STOCK_ENTRY_RULES = {
     "Disassemble": {"mixed": True},
 }
 
-
 @frappe.whitelist()
 def create_stock_entry(
     stock_entry_type,
@@ -24,6 +23,7 @@ def create_stock_entry(
     target_warehouse=None,
     work_order=None,
     bom_no=None,
+    remarks=None,
     submit=1,
 ):
     """
@@ -76,6 +76,8 @@ def create_stock_entry(
         doc.work_order = work_order
     if bom_no:
         doc.bom_no = bom_no
+    if remarks:
+        doc.remarks = remarks
 
     for row in items:
         doc.append("items", build_item_row(row, rules, source_warehouse, target_warehouse))
