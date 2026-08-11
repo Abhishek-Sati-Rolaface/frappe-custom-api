@@ -158,7 +158,7 @@ def map_item_response(item, tax_category=None):
         "ins": item_metadata.insurance if item_metadata else 0,
         "svcCharge": item_metadata.service_charge if item_metadata else 0,
         "isMtvItem": item_metadata.is_mtv if item_metadata else 0,
-        "rrp_rate": item_metadata.rrp_rate if item_metadata else 0,
+        "mtvRrp": item_metadata.rrp_rate if item_metadata else 0,
         "mtvManufacturerTpin": item_metadata.mtv_manufacturer_tpin if item_metadata else None,
         "manufacturerItemCd": item_metadata.manufactureritemcd if item_metadata else None,
         "inventoryInfo": {
@@ -338,7 +338,7 @@ def _update_item_metadata(item_doc, data):
         "insurance": data.get("ins",""),
         "service_charge": data.get("svcCharge", ""),
         "is_mtv": data.get("isMtvItem", False),
-        "rrp_rate": data.get("rrp_rate"),
+        "rrp_rate": data.get("mtvRrp"),
         "mtv_manufacturer_tpin": data.get("mtvManufacturerTpin", None),
         "manufactureritemcd": data.get("manufacturerItemCd", None)
     })
