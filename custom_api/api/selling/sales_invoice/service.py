@@ -47,7 +47,8 @@ def create_sales_invoice(data):
             "cost_center": cost_center,
             "debit_to": account,
             "additional_discount_percentage": data.get("additional_discount_percentage"),
-            "discount_amount": data.get("discount_amount")
+            "discount_amount": data.get("discount_amount"),
+            "po_no": data.get("lpoNumber"),
         }
     )
 
@@ -155,6 +156,7 @@ def update_sales_invoice(invoice_id, data):
         "billingAddress": "customer_address",
         "shippingAddress": "shipping_address_name",
         "salesTaxTemplate": "taxes_and_charges",
+        "lpoNumber": "po_no"
     }
 
     for api_field, doc_field in field_map.items():
@@ -289,7 +291,8 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
         ),
         "remarks": invoice.remarks,
         "additional_discount_percentage": invoice.additional_discount_percentage,
-        "discount_amount": invoice.discount_amount
+        "discount_amount": invoice.discount_amount,
+        "lpoNumber":invoice.po_no
     }
 
     payment_mode = custom_details[0].payment_mode if custom_details else None
