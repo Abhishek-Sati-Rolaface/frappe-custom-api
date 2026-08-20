@@ -110,6 +110,12 @@ def validate_item_payload(data):
     if batch_info.get("has_expiry_date") and not batch_info.get("shelfLife"):
         frappe.throw("Shelf life is required when expiry tracking is enabled")
 
+    installed_apps = frappe.get_installed_apps()
+    if "zra_smart_invoice" in installed_apps and data.get("is_purchase_item"):
+        if not data.get("countryOfOrigin"):
+            frappe.throw("Country of Origin is Required")
+
+    
 def map_item_response(item, tax_category=None):
 
     # Prices
