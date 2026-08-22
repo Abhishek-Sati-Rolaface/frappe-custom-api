@@ -17,7 +17,7 @@ def send_overdue_payment_reminders():
 
                                                     filters={
                                                         "custom_notification_scheduler_name": notification_scheduler_doc.name,
-                                                        "reference_doctype_name": "Customer",
+                                                        "reference_doctype": "Customer",
                                                         "reference_doctype_name": customer_data["customer"]
                                                     }, 
                                                     fieldname=["*"], as_dict=True)
