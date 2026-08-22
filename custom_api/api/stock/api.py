@@ -197,7 +197,9 @@ def get_batch_wise_stock_report(
                     sbb.warehouse,
                     sbe.batch_no,
                     SUM(ABS(sbe.qty))                  AS qty,
-                    SUM(ABS(sbe.qty) * sbb.avg_rate)   AS value
+                    SUM(ABS(sbe.qty) * sbb.avg_rate)   AS value,
+                    SUM(CASE WHEN sbb.voucher_type = 'Sales Invoice' THEN ABS(sbe.qty) ELSE 0 END) AS return_qty,
+                    SUM(CASE WHEN sbb.voucher_type = 'Sales Invoice' THEN ABS(sbe.qty) * sbb.avg_rate ELSE 0 END) AS return_value
                 FROM `tabSerial and Batch Entry` sbe
                 INNER JOIN `tabSerial and Batch Bundle` sbb ON sbb.name = sbe.parent
                 WHERE sbb.item_code IN ({escaped_codes})
@@ -350,7 +352,12 @@ def get_batch_wise_stock_report(
 
             for r in inward_rows:
                 key = (r["item_code"], r["warehouse"], r["batch_no"])
-                inward_map[key] = {"qty": float(r["qty"] or 0), "value": round(float(r["value"] or 0), 2)}
+                inward_map[key] = {
+                    "qty": float(r["qty"] or 0),
+                    "value": round(float(r["value"] or 0), 2),
+                    "return_qty": float(r["return_qty"] or 0),
+                    "return_value": round(float(r["return_value"] or 0), 2),
+                }
 
             for r in outward_rows:
                 key = (r["item_code"], r["warehouse"], r["batch_no"])
@@ -445,6 +452,13 @@ def get_batch_wise_stock_report(
                     b_out_value = outward_map.get(out_key, {}).get("value", 0.0)
                     b_bal_qty   = b_in_qty - b_out_qty
 
+                    # NEW: return qty/value — the portion of b_in_qty/b_in_value that came
+                    # from a Sales Invoice (customer return) rather than a Purchase Invoice.
+                    # Already included inside b_in_qty/b_in_value above (bal_qty unaffected);
+                    # this is purely an additional breakdown field.
+                    b_return_qty   = inward_map.get(in_key, {}).get("return_qty",   0.0)
+                    b_return_value = inward_map.get(in_key, {}).get("return_value", 0.0)
+
                     # Skip batches with no real activity
                     if b_in_qty == 0 and b_out_qty == 0:
                         continue
@@ -452,9 +466,12 @@ def get_batch_wise_stock_report(
                     # New: batch rate calculate  (Do not use item-level val_rate for batch-level valuation)
                     b_val_rate = round(b_in_value / b_in_qty, 6) if b_in_qty else val_rate
 
-                    # Batch buy/sell value = balance-qty based, normalized batch_no lookup
-                    norm_b_no = (b_no or "").strip().rstrip(".")
-                    b_buy_rate  = batch_buy_map.get((code, norm_b_no), {}).get("buy_rate", 0)
+                    # Batch buy/sell value = balance-qty based.
+                    # NEW: use the ITEM-LEVEL average buy rate (item_buy_rate, same rate
+                    # shown as buy_price_avg at item level) instead of a per-batch purchase
+                    # rate — keeps buy_value consistent across all batches of an item and
+                    # matches item-level total_buy_value = total_bal_qty * buy_price_avg.
+                    b_buy_rate  = item_buy_rate
                     b_buy_value = round(b_bal_qty * b_buy_rate, 2)
 
                     # Batch-level sell_value uses the same item-wide average sell
@@ -485,6 +502,15 @@ def get_batch_wise_stock_report(
                         # pattern already used above for batch-level sell_value).
                         "buy_price_latest":   round(item_last_buy_rate_map.get(code, 0), 2),
                         "sell_price_latest":  round(item_last_sale_rate_map.get(code, 0), 2),
+                        # NEW: batch-level buy avg price — same item-wide average rate
+                        # used to compute this batch's buy_value (b_buy_rate = item_buy_rate)
+                        "buy_price_avg":      round(item_buy_rate, 2),
+                        # NEW: batch-level sell avg price — same item-wide average rate
+                        # used to compute this batch's sell_value (b_sell_value above)
+                        "sell_price_avg":     round(item_sell_avg_map.get(code, 0), 2),
+                        # NEW: batch-level return breakdown (subset already counted inside in_qty/in_value)
+                        "return_qty":         round(b_return_qty, 4),
+                        "return_value":       round(b_return_value, 2),
                     })
 
                 # Fallback: no batch tracking
@@ -510,6 +536,13 @@ def get_batch_wise_stock_report(
                         # NEW: same item-level latest rates for the untracked fallback batch
                         "buy_price_latest":   round(item_last_buy_rate_map.get(code, 0), 2),
                         "sell_price_latest":  round(item_last_sale_rate_map.get(code, 0), 2),
+                        # NEW: no per-batch tracking here, so use the same item-level avg buy rate
+                        "buy_price_avg":      round(item_buy_rate, 2),
+                        # NEW: no per-batch tracking here, so use the same item-level avg sell rate
+                        "sell_price_avg":     round(item_sell_avg_map.get(code, 0), 2),
+                        # NEW: no batch tracking here, so no per-batch return breakdown available
+                        "return_qty":         0.0,
+                        "return_value":       0.0,
                     })
 
                 # buy_value = sum of batch-level buy values (accurate per-batch
