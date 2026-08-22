@@ -1447,6 +1447,10 @@ def get_batch_wise_stock_report(
             # FIX: batch_no normalized (TRIM + strip trailing '.') to tolerate the
             #      known data-entry duplicate ('ACI6021' vs 'ACI6021.') without
             #      requiring a master-data cleanup first.
+            # FIX: `pii.qty > 0` excludes Purchase Returns (negative qty rows).
+            # Without this, a return that exactly offsets a purchase makes
+            # SUM(qty) = 0, causing the average rate to be silently reported
+            # as 0 instead of the real historical purchase rate.
             item_buy_rows = frappe.db.sql(f"""
                 SELECT
                     pii.item_code,
@@ -1457,6 +1461,7 @@ def get_batch_wise_stock_report(
                 WHERE pii.item_code IN ({escaped_codes})
                 AND pi.docstatus = 1
                 AND pi.company   = {frappe.db.escape(company)}
+                AND pii.qty > 0
                 {date_cond_pi}
                 GROUP BY pii.item_code
             """, as_dict=True)
@@ -1469,6 +1474,9 @@ def get_batch_wise_stock_report(
                 }
 
             # ── Average sell rate — item level (all Sales Invoice lines, not just latest) ──
+            # FIX: `sii.qty > 0` excludes Sales Returns/Credit Notes (negative qty).
+            # Without this, a return exactly offsetting a sale makes SUM(qty) = 0,
+            # so the average silently reports as 0 instead of the real sale price.
             item_sell_avg_rows = frappe.db.sql(f"""
                 SELECT
                     sii.item_code,
@@ -1479,6 +1487,7 @@ def get_batch_wise_stock_report(
                 WHERE sii.item_code IN ({escaped_codes})
                 AND si.docstatus = 1
                 AND si.company   = {frappe.db.escape(company)}
+                AND sii.qty > 0
                 {date_cond_si}
                 GROUP BY sii.item_code
             """, as_dict=True)
@@ -1722,6 +1731,22 @@ def get_batch_wise_stock_report(
                         "sell_value":         sell_value,
                         "sell_currency":      sell_currency,
                     })
+
+                # FIX: item-level total_buy_value / total_sell_value are now the
+                # SUM of the batch-level values above, instead of being computed
+                # independently as (item_bal_qty * item-wide latest rate).
+                # Reason: the old approach valued the *entire* item balance using
+                # whichever batch sold most recently, so a batch that has never
+                # been sold (real sell_value = 0) still got counted at the other
+                # batch's rate — overstating the item total and making it
+                # inconsistent with the sum of its own batch rows. Summing the
+                # batch rows keeps the item total accurate and internally
+                # consistent (item total == sum of batches, always).
+                # For non-batch-tracked items, batch_rows has exactly one
+                # fallback row equal to the item-level values, so this sum
+                # is a no-op in that case.
+                buy_value  = round(sum(b["buy_value"]  for b in batch_rows), 2)
+                sell_value = round(sum(b["sell_value"] for b in batch_rows), 2)
 
                 if code not in items_map:
                     items_map[code] = {
