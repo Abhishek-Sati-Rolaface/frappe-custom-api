@@ -480,6 +480,11 @@ def get_batch_wise_stock_report(
                         "buy_currency":       company_currency,
                         "sell_value":         b_sell_value,
                         "sell_currency":      company_currency,
+                        # NEW: batch-level latest buy/sell price — reused from item-level
+                        # latest maps (no separate per-batch "latest" is tracked, same
+                        # pattern already used above for batch-level sell_value).
+                        "buy_price_latest":   round(item_last_buy_rate_map.get(code, 0), 2),
+                        "sell_price_latest":  round(item_last_sale_rate_map.get(code, 0), 2),
                     })
 
                 # Fallback: no batch tracking
@@ -502,6 +507,9 @@ def get_batch_wise_stock_report(
                         "buy_currency":       buy_currency,
                         "sell_value":         sell_value,
                         "sell_currency":      sell_currency,
+                        # NEW: same item-level latest rates for the untracked fallback batch
+                        "buy_price_latest":   round(item_last_buy_rate_map.get(code, 0), 2),
+                        "sell_price_latest":  round(item_last_sale_rate_map.get(code, 0), 2),
                     })
 
                 # buy_value = sum of batch-level buy values (accurate per-batch
