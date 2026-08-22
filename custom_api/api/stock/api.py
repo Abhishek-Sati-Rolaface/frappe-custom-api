@@ -344,35 +344,7 @@ def get_batch_wise_stock_report(
                 """, (code, company), as_dict=True)
                 item_last_sale_rate_map[code] = float(latest_item_sale[0]["base_rate"]) if latest_item_sale else 0
 
-            # ── Untracked sales — Sales Invoice lines with no batch_no recorded ───────
-            # These sales cannot be attributed to a specific batch, so they can't be
-            # folded into any batch's sell_value. But they ARE real transactions and
-            # must be counted at the item level — using their actual transacted
-            # value (base_amount), not bal_qty * rate (which would overstate it
-            # against unsold balance stock).
-            untracked_sell_rows = frappe.db.sql(f"""
-                SELECT
-                    sii.item_code,
-                    SUM(sii.base_amount) AS untracked_sell_value
-                FROM `tabSales Invoice Item` sii
-                INNER JOIN `tabSales Invoice` si ON si.name = sii.parent
-                WHERE sii.item_code IN ({escaped_codes})
-                AND si.docstatus = 1
-                AND si.company   = {frappe.db.escape(company)}
-                AND (sii.batch_no IS NULL OR sii.batch_no = '')
-                AND sii.qty > 0
-                {date_cond_si}
-                GROUP BY sii.item_code
-            """, as_dict=True)
-
-            untracked_sell_map = {}
-            for r in untracked_sell_rows:
-                untracked_sell_map[r["item_code"]] = round(float(r["untracked_sell_value"] or 0), 2)
-
-            # ── Latest sale rate — batch level ────────────────────────────────────────
-            batch_last_sale_rate_map = {}
-
-            # Collect all batch_nos that actually have movements
+            # ── Collect batch-level inward/outward movement maps ──────────────────────
             inward_map  = {}
             outward_map = {}
 
@@ -387,25 +359,6 @@ def get_batch_wise_stock_report(
             all_active_batch_nos = set(
                 [k[2] for k in inward_map.keys()] + [k[2] for k in outward_map.keys()]
             )
-
-            for code in all_item_codes:
-                for b_no in all_active_batch_nos:
-                    key = (code, b_no)
-                    if key in batch_last_sale_rate_map:
-                        continue
-                    norm_b_no = (b_no or "").strip().rstrip(".")
-                    latest_batch_sale = frappe.db.sql("""
-                        SELECT sii.base_rate
-                        FROM `tabSales Invoice Item` sii
-                        INNER JOIN `tabSales Invoice` si ON si.name = sii.parent
-                        WHERE sii.item_code = %s
-                        AND TRIM(TRAILING '.' FROM TRIM(sii.batch_no)) = %s
-                        AND si.docstatus = 1
-                        AND si.company   = %s
-                        ORDER BY si.posting_date DESC, si.posting_time DESC, si.creation DESC, si.name DESC
-                        LIMIT 1
-                    """, (code, norm_b_no, company), as_dict=True)
-                    batch_last_sale_rate_map[key] = float(latest_batch_sale[0]["base_rate"]) if latest_batch_sale else 0
 
             # Fetch batch metadata (expiry, manufacturing date) from tabBatch
             batch_meta_map = {}
@@ -465,15 +418,18 @@ def get_batch_wise_stock_report(
                 val_rate      = float(row["last_valuation_rate"] or 0) or o["valuation_rate"]
                 bal_val       = round(bal_qty * val_rate, 2)
 
-                # buy_value/sell_value = value of the CURRENT BALANCE STOCK only,
-                # in company currency (GHS). Not the historical total purchased/sold.
+                # buy_value = balance_qty * avg buy rate (confirmed earlier).
+                # sell_value = balance_qty * avg sell rate (Option B, confirmed):
+                # values the ENTIRE balance stock at the average selling price,
+                # regardless of whether it has actually been sold yet. This is a
+                # potential/estimated value, not a realized-sales figure.
                 item_buy_rate = item_buy_map.get(code, {}).get("buy_rate", 0)
                 buy_value     = round(bal_qty * item_buy_rate, 2)
                 buy_currency  = company_currency
 
-                item_sell_rate = item_last_sale_rate_map.get(code, 0)
-                sell_value     = round(bal_qty * item_sell_rate, 2)
-                sell_currency  = company_currency
+                item_sell_avg_rate = item_sell_avg_map.get(code, 0)
+                sell_value         = round(bal_qty * item_sell_avg_rate, 2)
+                sell_currency      = company_currency
 
                 item_batches = batches_by_item.get(code, [])
                 batch_rows   = []
@@ -501,8 +457,10 @@ def get_batch_wise_stock_report(
                     b_buy_rate  = batch_buy_map.get((code, norm_b_no), {}).get("buy_rate", 0)
                     b_buy_value = round(b_bal_qty * b_buy_rate, 2)
 
-                    b_sell_rate  = batch_last_sale_rate_map.get((code, b_no), 0)
-                    b_sell_value = round(b_bal_qty * b_sell_rate, 2)
+                    # Batch-level sell_value uses the same item-wide average sell
+                    # rate as the item-level total (no separate per-batch average
+                    # is tracked) — keeps batch-level and item-level consistent.
+                    b_sell_value = round(b_bal_qty * item_sell_avg_map.get(code, 0), 2)
 
                     batch_rows.append({
                         "batch_no":           b_no,
@@ -546,21 +504,15 @@ def get_batch_wise_stock_report(
                         "sell_currency":      sell_currency,
                     })
 
-                # FIX: item-level total_buy_value / total_sell_value are now the
-                # SUM of the batch-level values above, instead of being computed
-                # independently as (item_bal_qty * item-wide latest rate).
-                # Reason: the old approach valued the *entire* item balance using
-                # whichever batch sold most recently, so a batch that has never
-                # been sold (real sell_value = 0) still got counted at the other
-                # batch's rate — overstating the item total and making it
-                # inconsistent with the sum of its own batch rows. Summing the
-                # batch rows keeps the item total accurate and internally
-                # consistent (item total == sum of batches, always).
-                # For non-batch-tracked items, batch_rows has exactly one
-                # fallback row equal to the item-level values, so this sum
-                # is a no-op in that case.
-                buy_value  = round(sum(b["buy_value"]  for b in batch_rows), 2)
-                sell_value = round(sum(b["sell_value"] for b in batch_rows), 2) + untracked_sell_map.get(code, 0)
+                # buy_value = sum of batch-level buy values (accurate per-batch
+                # purchase pricing — unchanged, no complaints on buy side).
+                # sell_value = bal_qty * item-wide average sell rate (Option B,
+                # confirmed) — computed earlier, NOT summed from batch_rows here,
+                # since batch-level sell_value now already uses the same item-wide
+                # average (summing them would just reproduce the same number via
+                # a longer path, and diverges if any batch was skipped above).
+                buy_value = round(sum(b["buy_value"] for b in batch_rows), 2)
+                # sell_value intentionally left as computed above: bal_qty * item_sell_avg_rate
 
                 if code not in items_map:
                     items_map[code] = {
@@ -592,7 +544,7 @@ def get_batch_wise_stock_report(
                         "sell_currency":       sell_currency,
                         "buy_price_latest":    round(item_last_buy_rate_map.get(code, 0), 2),
                         "buy_price_avg":       round(item_buy_rate, 2),
-                        "sell_price_latest":   round(item_sell_rate, 2),
+                        "sell_price_latest":   round(item_last_sale_rate_map.get(code, 0), 2),
                         "sell_price_avg":      round(item_sell_avg_map.get(code, 0), 2),
                         "batches":             batch_rows,
                         "price_list":          item_info.get("price_list", 0.0),
