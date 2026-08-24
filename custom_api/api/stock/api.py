@@ -2957,11 +2957,15 @@ def get_batch_wise_stock_report(
                 # values the ENTIRE balance stock at the average selling price,
                 # regardless of whether it has actually been sold yet. This is a
                 # potential/estimated value, not a realized-sales figure.
-                item_buy_rate = item_buy_map.get(code, {}).get("buy_rate", 0)
+                item_buy_rate = round(item_buy_map.get(code, {}).get("buy_rate", 0), 2)
                 buy_value     = round(bal_qty * item_buy_rate, 2)
                 buy_currency  = company_currency
 
-                item_sell_avg_rate = item_sell_avg_map.get(code, 0)
+                # item_sell_avg_rate = item_sell_avg_map.get(code, 0)
+                # sell_value         = round(bal_qty * item_sell_avg_rate, 2)
+                # sell_currency      = company_currency
+
+                item_sell_avg_rate = round(item_sell_avg_map.get(code, 0), 2)
                 sell_value         = round(bal_qty * item_sell_avg_rate, 2)
                 sell_currency      = company_currency
 
