@@ -26,6 +26,8 @@ class ZRAConnectionError(Exception):
         elif self.doctype == "Sales Invoice" and fresh_doc.get("custom_details"):
             child_row = fresh_doc.custom_details[0]
             if child_row.get("name"):
+                if not self.result:
+                    self.result = None
                 child_row.db_set("zra_response", self.result, update_modified=True)
 
         frappe.db.commit()
