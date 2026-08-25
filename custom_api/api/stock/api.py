@@ -3005,6 +3005,9 @@ def get_batch_wise_stock_report(
                     b_buy_rate  = item_buy_rate
                     b_buy_value = round(b_bal_qty * b_buy_rate, 2)
 
+                    b_buy_valuation_rate  = b_val_rate
+                    b_buy_valuation = round(b_bal_qty * b_buy_valuation_rate, 2)
+
                     # Batch-level sell_value uses the same item-wide average sell
                     # rate as the item-level total (no separate per-batch average
                     # is tracked) — keeps batch-level and item-level consistent.
@@ -3036,6 +3039,7 @@ def get_batch_wise_stock_report(
                         # NEW: batch-level buy avg price — same item-wide average rate
                         # used to compute this batch's buy_value (b_buy_rate = item_buy_rate)
                         "buy_price_avg":      round(item_buy_rate, 2),
+                        "buy_price_valuation":      round(b_buy_valuation_rate, 2),
                         # NEW: batch-level sell avg price — same item-wide average rate
                         # used to compute this batch's sell_value (b_sell_value above)
                         "sell_price_avg":     round(item_sell_avg_map.get(code, 0), 2),
