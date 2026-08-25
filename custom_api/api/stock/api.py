@@ -69,25 +69,6 @@ def get_batch_wise_stock_report(
         range_cond = ""
 
     # ── Step 2: Movement SLE grouped by item_code + warehouse ────────────────
-    # NOTE: buy_value / sell_value are intentionally removed here — they were
-    #       identical to in_value / out_value (both used stock_value_difference).
-    #       Real sell_value (actual revenue) is fetched from Sales Invoice below.
-    # movement_rows = frappe.db.sql(f"""
-    #     SELECT
-    #         item_code,
-    #         warehouse,
-    #         SUM(CASE WHEN actual_qty > 0 THEN actual_qty                  ELSE 0 END) AS in_qty,
-    #         SUM(CASE WHEN actual_qty > 0 THEN stock_value_difference      ELSE 0 END) AS in_value,
-    #         SUM(CASE WHEN actual_qty < 0 THEN ABS(actual_qty)             ELSE 0 END) AS out_qty,
-    #         SUM(CASE WHEN actual_qty < 0 THEN ABS(stock_value_difference) ELSE 0 END) AS out_value,
-    #         MAX(valuation_rate)            AS last_valuation_rate,
-    #         MAX(stock_value)               AS last_stock_value
-    #     FROM `tabStock Ledger Entry`
-    #     {where_clause}
-    #     {range_cond}
-    #     GROUP BY item_code, warehouse
-    # """, as_dict=True) 
-
     movement_rows = frappe.db.sql(f"""
         SELECT
         item_code,
@@ -102,14 +83,17 @@ def get_batch_wise_stock_report(
         GROUP BY item_code, warehouse
     """, as_dict=True)
 
-# Fetch chronologically LATEST valuation_rate/stock_value per item+warehouse
-# (MAX() was picking the highest historical rate, not the latest one)
+    # Fetch chronologically LATEST valuation_rate/stock_value per item+warehouse
+    # FIX: added `name DESC` as a final tiebreaker — without it, when multiple SLEs
+    # share the same posting_date/posting_time/creation (common with bulk imports),
+    # MySQL's LIMIT 1 pick is non-deterministic and returns a different row on
+    # different runs, causing valuation_rate/bal_val/out_value to change randomly.
     for row in movement_rows:
         latest = frappe.db.sql("""
             SELECT valuation_rate, stock_value
             FROM `tabStock Ledger Entry`
             WHERE item_code=%s AND warehouse=%s AND docstatus=1 AND is_cancelled=0
-            ORDER BY posting_date DESC, posting_time DESC, creation DESC
+            ORDER BY posting_date DESC, posting_time DESC, creation DESC, name DESC
             LIMIT 1
         """, (row["item_code"], row["warehouse"]), as_dict=True)
 
@@ -118,10 +102,9 @@ def get_batch_wise_stock_report(
 
     items_map = {}
     item_buy_map = {}
-    item_sell_map = {}
+    item_last_sale_rate_map = {}
     if get_product_item:
         if movement_rows:
-            # return _empty(page, page_size)
 
             # ── Step 3: Opening SLE per item_code ─────────────────────────────────────
             opening_map = {}
@@ -214,7 +197,9 @@ def get_batch_wise_stock_report(
                     sbb.warehouse,
                     sbe.batch_no,
                     SUM(ABS(sbe.qty))                  AS qty,
-                    SUM(ABS(sbe.qty) * sbb.avg_rate)   AS value
+                    SUM(ABS(sbe.qty) * sbb.avg_rate)   AS value,
+                    SUM(CASE WHEN sbb.voucher_type = 'Sales Invoice' THEN ABS(sbe.qty) ELSE 0 END) AS return_qty,
+                    SUM(CASE WHEN sbb.voucher_type = 'Sales Invoice' THEN ABS(sbe.qty) * sbb.avg_rate ELSE 0 END) AS return_value
                 FROM `tabSerial and Batch Entry` sbe
                 INNER JOIN `tabSerial and Batch Bundle` sbb ON sbb.name = sbe.parent
                 WHERE sbb.item_code IN ({escaped_codes})
@@ -243,111 +228,141 @@ def get_batch_wise_stock_report(
                 GROUP BY sbb.item_code, sbb.warehouse, sbe.batch_no
             """, as_dict=True)
 
-            # ── FIX: Actual buy value + currency from Purchase Invoice ───────────────
-            # Item-level buy  {item_code: {buy_value, buy_currency}}
+            # ── NEW REQUIREMENT (client confirmed):
+            #     buy_value  = balance_qty * (buy cost per unit from Purchase Invoice)
+            #     sell_value = balance_qty * (rate from the MOST RECENT Sales Invoice
+            #                  for that item/batch); if never sold -> 0
+            #     Both values reported in company currency (base_amount / base_rate).
+            #
+            # ── Buy rate per unit — item-level, from Purchase Invoice ────────────────
+            # FIX: batch_no normalized (TRIM + strip trailing '.') to tolerate the
+            #      known data-entry duplicate ('ACI6021' vs 'ACI6021.') without
+            #      requiring a master-data cleanup first.
+            # FIX: `pii.qty > 0` excludes Purchase Returns (negative qty rows).
+            # Without this, a return that exactly offsets a purchase makes
+            # SUM(qty) = 0, causing the average rate to be silently reported
+            # as 0 instead of the real historical purchase rate.
             item_buy_rows = frappe.db.sql(f"""
                 SELECT
                     pii.item_code,
-                    pi.currency,
-                    SUM(pii.amount) AS buy_value
+                    SUM(pii.qty)         AS buy_qty,
+                    SUM(pii.base_amount) AS buy_value
                 FROM `tabPurchase Invoice Item` pii
                 INNER JOIN `tabPurchase Invoice` pi ON pi.name = pii.parent
                 WHERE pii.item_code IN ({escaped_codes})
                 AND pi.docstatus = 1
                 AND pi.company   = {frappe.db.escape(company)}
+                AND pii.qty > 0
                 {date_cond_pi}
-                GROUP BY pii.item_code, pi.currency
+                GROUP BY pii.item_code
             """, as_dict=True)
 
             for r in item_buy_rows:
+                b_qty = float(r["buy_qty"] or 0)
+                b_val = float(r["buy_value"] or 0)
                 item_buy_map[r["item_code"]] = {
-                    "buy_value":    round(float(r["buy_value"] or 0), 2),
-                    "buy_currency": r["currency"] or company_currency,
+                    "buy_rate": round(b_val / b_qty, 6) if b_qty else 0,
                 }
 
-            # Batch-level buy  {(item_code, batch_no): {buy_value, buy_currency}}
+            # ── Average sell rate — item level (all Sales Invoice lines, not just latest) ──
+            # FIX: `sii.qty > 0` excludes Sales Returns/Credit Notes (negative qty).
+            # Without this, a return exactly offsetting a sale makes SUM(qty) = 0,
+            # so the average silently reports as 0 instead of the real sale price.
+            item_sell_avg_rows = frappe.db.sql(f"""
+                SELECT
+                    sii.item_code,
+                    SUM(sii.qty)         AS sell_qty,
+                    SUM(sii.base_amount) AS sell_value
+                FROM `tabSales Invoice Item` sii
+                INNER JOIN `tabSales Invoice` si ON si.name = sii.parent
+                WHERE sii.item_code IN ({escaped_codes})
+                AND si.docstatus = 1
+                AND si.company   = {frappe.db.escape(company)}
+                AND sii.qty > 0
+                {date_cond_si}
+                GROUP BY sii.item_code
+            """, as_dict=True)
+
+            item_sell_avg_map = {}
+            for r in item_sell_avg_rows:
+                s_qty = float(r["sell_qty"] or 0)
+                s_val = float(r["sell_value"] or 0)
+                item_sell_avg_map[r["item_code"]] = round(s_val / s_qty, 6) if s_qty else 0
+
+            # ── Latest buy rate — item level (most recent Purchase Invoice line) ─────
+            item_last_buy_rate_map = {}
+            for code in all_item_codes:
+                latest_item_buy = frappe.db.sql("""
+                    SELECT pii.base_rate
+                    FROM `tabPurchase Invoice Item` pii
+                    INNER JOIN `tabPurchase Invoice` pi ON pi.name = pii.parent
+                    WHERE pii.item_code = %s
+                    AND pi.docstatus = 1
+                    AND pi.company   = %s
+                    ORDER BY pi.posting_date DESC, pi.posting_time DESC, pi.creation DESC, pi.name DESC
+                    LIMIT 1
+                """, (code, company), as_dict=True)
+                item_last_buy_rate_map[code] = float(latest_item_buy[0]["base_rate"]) if latest_item_buy else 0
+
+            # Batch-level buy rate  {(item_code, batch_no_normalized): buy_rate}
             batch_buy_rows = frappe.db.sql(f"""
                 SELECT
                     pii.item_code,
-                    pii.batch_no,
-                    pi.currency,
-                    SUM(pii.amount) AS buy_value
+                    TRIM(TRAILING '.' FROM TRIM(pii.batch_no)) AS batch_no,
+                    SUM(pii.qty)         AS buy_qty,
+                    SUM(pii.base_amount) AS buy_value
                 FROM `tabPurchase Invoice Item` pii
                 INNER JOIN `tabPurchase Invoice` pi ON pi.name = pii.parent
                 WHERE pii.item_code IN ({escaped_codes})
                 AND pi.docstatus = 1
                 AND pi.company   = {frappe.db.escape(company)}
                 {date_cond_pi}
-                GROUP BY pii.item_code, pii.batch_no, pi.currency
+                GROUP BY pii.item_code, TRIM(TRAILING '.' FROM TRIM(pii.batch_no))
             """, as_dict=True)
 
             batch_buy_map = {}
             for r in batch_buy_rows:
                 key = (r["item_code"], r["batch_no"])
+                b_qty = float(r["buy_qty"] or 0)
+                b_val = float(r["buy_value"] or 0)
                 batch_buy_map[key] = {
-                    "buy_value":    round(float(r["buy_value"] or 0), 2),
-                    "buy_currency": r["currency"] or company_currency,
+                    "buy_rate": round(b_val / b_qty, 6) if b_qty else 0,
                 }
 
-            # ── Actual sell value + currency from Sales Invoice ───────────────────────
-            # Item-level sell  {item_code: {sell_value, sell_currency}}
-            item_sell_rows = frappe.db.sql(f"""
-                SELECT
-                    sii.item_code,
-                    si.currency,
-                    SUM(sii.amount) AS sell_value
-                FROM `tabSales Invoice Item` sii
-                INNER JOIN `tabSales Invoice` si ON si.name = sii.parent
-                WHERE sii.item_code IN ({escaped_codes})
-                AND si.docstatus = 1
-                AND si.company   = {frappe.db.escape(company)}
-                {date_cond_si}
-                GROUP BY sii.item_code, si.currency
-            """, as_dict=True)
+            # ── Latest sale rate — item level (most recent Sales Invoice line) ───────
+            # One lightweight query per item instead of a correlated subquery
+            # across the whole table (keeps this readable/maintainable; item counts
+            # here are not large enough to justify a windowed-query rewrite).
+            for code in all_item_codes:
+                latest_item_sale = frappe.db.sql("""
+                    SELECT sii.base_rate
+                    FROM `tabSales Invoice Item` sii
+                    INNER JOIN `tabSales Invoice` si ON si.name = sii.parent
+                    WHERE sii.item_code = %s
+                    AND si.docstatus = 1
+                    AND si.company   = %s
+                    ORDER BY si.posting_date DESC, si.posting_time DESC, si.creation DESC, si.name DESC
+                    LIMIT 1
+                """, (code, company), as_dict=True)
+                item_last_sale_rate_map[code] = float(latest_item_sale[0]["base_rate"]) if latest_item_sale else 0
 
-            for r in item_sell_rows:
-                item_sell_map[r["item_code"]] = {
-                    "sell_value":    round(float(r["sell_value"] or 0), 2),
-                    "sell_currency": r["currency"] or company_currency,
-                }
-
-            # Batch-level sell  {(item_code, batch_no): {sell_value, sell_currency}}
-            batch_sell_rows = frappe.db.sql(f"""
-                SELECT
-                    sii.item_code,
-                    sii.batch_no,
-                    si.currency,
-                    SUM(sii.amount) AS sell_value
-                FROM `tabSales Invoice Item` sii
-                INNER JOIN `tabSales Invoice` si ON si.name = sii.parent
-                WHERE sii.item_code IN ({escaped_codes})
-                AND si.docstatus = 1
-                AND si.company   = {frappe.db.escape(company)}
-                {date_cond_si}
-                GROUP BY sii.item_code, sii.batch_no, si.currency
-            """, as_dict=True)
-
-            batch_sell_map = {}
-            for r in batch_sell_rows:
-                key = (r["item_code"], r["batch_no"])
-                batch_sell_map[key] = {
-                    "sell_value":    round(float(r["sell_value"] or 0), 2),
-                    "sell_currency": r["currency"] or company_currency,
-                }
-
-            # Build lookup maps  {(item_code, warehouse, batch_no): {qty, value}}
+            # ── Collect batch-level inward/outward movement maps ──────────────────────
             inward_map  = {}
             outward_map = {}
 
             for r in inward_rows:
                 key = (r["item_code"], r["warehouse"], r["batch_no"])
-                inward_map[key] = {"qty": float(r["qty"] or 0), "value": round(float(r["value"] or 0), 2)}
+                inward_map[key] = {
+                    "qty": float(r["qty"] or 0),
+                    "value": round(float(r["value"] or 0), 2),
+                    "return_qty": float(r["return_qty"] or 0),
+                    "return_value": round(float(r["return_value"] or 0), 2),
+                }
 
             for r in outward_rows:
                 key = (r["item_code"], r["warehouse"], r["batch_no"])
                 outward_map[key] = {"qty": float(r["qty"] or 0), "value": round(float(r["value"] or 0), 2)}
 
-            # Collect all batch_nos that actually have movements
             all_active_batch_nos = set(
                 [k[2] for k in inward_map.keys()] + [k[2] for k in outward_map.keys()]
             )
@@ -372,7 +387,6 @@ def get_batch_wise_stock_report(
                 meta = batch_meta_map.get(b_no, {})
                 i_code = meta.get("item_code")
                 if not i_code:
-                    # Try to find item_code from inward/outward maps
                     for key in list(inward_map.keys()) + list(outward_map.keys()):
                         if key[2] == b_no:
                             i_code = key[0]
@@ -411,15 +425,26 @@ def get_batch_wise_stock_report(
                 val_rate      = float(row["last_valuation_rate"] or 0) or o["valuation_rate"]
                 bal_val       = round(bal_qty * val_rate, 2)
 
-                # buy_value/currency  = from Purchase Invoice (actual cost + currency)
-                # sell_value/currency = from Sales Invoice   (actual revenue + currency)
-                buy_info  = item_buy_map.get(code,  {"buy_value":  in_value, "buy_currency":  company_currency})
-                sell_info = item_sell_map.get(code, {"sell_value": 0.0,      "sell_currency": company_currency})
+                # item_buy_rate = average historical purchase price (informational,
+                # shown as buy_price_avg). No longer drives buy_value directly.
+                item_buy_rate = round(item_buy_map.get(code, {}).get("buy_rate", 0), 2)
 
-                buy_value     = buy_info["buy_value"]
-                buy_currency  = buy_info["buy_currency"]
-                sell_value    = sell_info["sell_value"]
-                sell_currency = sell_info["sell_currency"]
+                # FIX: buy_value (used as the fallback/non-batch-tracked value below,
+                # and as the base before being overwritten by sum-of-batches for
+                # batch-tracked items) is now based on FIFO valuation_rate, not the
+                # average purchase price — this makes buy_value == bal_val, so it
+                # reconciles with the Chart of Accounts / Stock In Hand GL balance.
+                buy_value     = round(bal_qty * val_rate, 2)
+                buy_currency  = company_currency
+
+                # sell_value = balance_qty * avg sell rate (Option B, confirmed):
+                # values the ENTIRE balance stock at the average selling price,
+                # regardless of whether it has actually been sold yet. This is a
+                # potential/estimated value, not a realized-sales figure. GL has
+                # no equivalent "sell valuation" concept, so this is left avg-based.
+                item_sell_avg_rate = round(item_sell_avg_map.get(code, 0), 2)
+                sell_value         = round(bal_qty * item_sell_avg_rate, 2)
+                sell_currency      = company_currency
 
                 item_batches = batches_by_item.get(code, [])
                 batch_rows   = []
@@ -435,6 +460,13 @@ def get_batch_wise_stock_report(
                     b_out_value = outward_map.get(out_key, {}).get("value", 0.0)
                     b_bal_qty   = b_in_qty - b_out_qty
 
+                    # NEW: return qty/value — the portion of b_in_qty/b_in_value that came
+                    # from a Sales Invoice (customer return) rather than a Purchase Invoice.
+                    # Already included inside b_in_qty/b_in_value above (bal_qty unaffected);
+                    # this is purely an additional breakdown field.
+                    b_return_qty   = inward_map.get(in_key, {}).get("return_qty",   0.0)
+                    b_return_value = inward_map.get(in_key, {}).get("return_value", 0.0)
+
                     # Skip batches with no real activity
                     if b_in_qty == 0 and b_out_qty == 0:
                         continue
@@ -442,9 +474,21 @@ def get_batch_wise_stock_report(
                     # New: batch rate calculate  (Do not use item-level val_rate for batch-level valuation)
                     b_val_rate = round(b_in_value / b_in_qty, 6) if b_in_qty else val_rate
 
-                    # Batch buy/sell value with currency
-                    b_buy_info   = batch_buy_map.get((code, b_no),  {"buy_value":  round(b_in_value, 2), "buy_currency":  buy_currency})
-                    b_sell_info  = batch_sell_map.get((code, b_no), {"sell_value": 0.0,                  "sell_currency": sell_currency})
+                    # FIX: batch-level buy_value now uses the batch's own FIFO
+                    # valuation_rate (b_val_rate) instead of the item-wide average
+                    # buy price. This makes buy_value == bal_val for each batch, so
+                    # the item-level total (sum of batch buy_values below) reconciles
+                    # with the Chart of Accounts / Stock In Hand GL balance.
+                    # buy_price_avg (below) is kept purely as an informational
+                    # reference — the average historical purchase price — and no
+                    # longer drives buy_value.
+                    b_buy_valuation_rate = b_val_rate
+                    b_buy_value          = round(b_bal_qty * b_buy_valuation_rate, 2)
+
+                    # Batch-level sell_value uses the same item-wide average sell
+                    # rate as the item-level total (no separate per-batch average
+                    # is tracked) — keeps batch-level and item-level consistent.
+                    b_sell_value = round(b_bal_qty * item_sell_avg_map.get(code, 0), 2)
 
                     batch_rows.append({
                         "batch_no":           b_no,
@@ -458,14 +502,27 @@ def get_batch_wise_stock_report(
                         "out_qty":            round(b_out_qty,   4),
                         "out_value":          round(b_out_value, 2),
                         "bal_qty":            round(b_bal_qty,   4),
-                        # "bal_val":            round(b_bal_qty * val_rate, 2),
                         "bal_val":            round(b_bal_qty * b_val_rate, 2),
-                        # "valuation_rate":     val_rate,
                         "valuation_rate":     b_val_rate,
-                        "buy_value":          b_buy_info["buy_value"],
-                        "buy_currency":       b_buy_info["buy_currency"],
-                        "sell_value":         b_sell_info["sell_value"],
-                        "sell_currency":      b_sell_info["sell_currency"],
+                        "buy_value":          b_buy_value,
+                        "buy_currency":       company_currency,
+                        "sell_value":         b_sell_value,
+                        "sell_currency":      company_currency,
+                        # Batch-level latest buy/sell price — reused from item-level
+                        # latest maps (no separate per-batch "latest" is tracked).
+                        "buy_price_latest":   round(item_last_buy_rate_map.get(code, 0), 2),
+                        "sell_price_latest":  round(item_last_sale_rate_map.get(code, 0), 2),
+                        # Informational: item-wide average purchase price (does NOT
+                        # drive buy_value anymore — see b_buy_valuation_rate above).
+                        "buy_price_avg":      round(item_buy_rate, 2),
+                        # The FIFO valuation rate actually used to compute buy_value
+                        # for this batch — reconciles with Chart of Accounts.
+                        "buy_price_valuation": round(b_buy_valuation_rate, 2),
+                        # Item-wide average sell price — drives this batch's sell_value.
+                        "sell_price_avg":     round(item_sell_avg_map.get(code, 0), 2),
+                        # Batch-level return breakdown (subset already counted inside in_qty/in_value)
+                        "return_qty":         round(b_return_qty, 4),
+                        "return_value":       round(b_return_value, 2),
                     })
 
                 # Fallback: no batch tracking
@@ -488,7 +545,29 @@ def get_batch_wise_stock_report(
                         "buy_currency":       buy_currency,
                         "sell_value":         sell_value,
                         "sell_currency":      sell_currency,
+                        # Same item-level latest rates for the untracked fallback batch
+                        "buy_price_latest":   round(item_last_buy_rate_map.get(code, 0), 2),
+                        "sell_price_latest":  round(item_last_sale_rate_map.get(code, 0), 2),
+                        # Informational average purchase price (no longer drives buy_value)
+                        "buy_price_avg":      round(item_buy_rate, 2),
+                        # No per-batch tracking here, so the FIFO valuation rate used
+                        # for buy_value is simply the item-level val_rate.
+                        "buy_price_valuation": round(val_rate, 2),
+                        # No per-batch tracking here, so use the same item-level avg sell rate
+                        "sell_price_avg":     round(item_sell_avg_map.get(code, 0), 2),
+                        # No batch tracking here, so no per-batch return breakdown available
+                        "return_qty":         0.0,
+                        "return_value":       0.0,
                     })
+
+                # buy_value = sum of batch-level buy values, which are now FIFO
+                # valuation-based (b_bal_qty * b_val_rate) — so this sum equals the
+                # item's total_bal_val, reconciling with the Chart of Accounts /
+                # Stock In Hand GL balance.
+                # sell_value = bal_qty * item-wide average sell rate (Option B,
+                # confirmed) — computed earlier, NOT summed from batch_rows here.
+                buy_value = round(sum(b["buy_value"] for b in batch_rows), 2)
+                # sell_value intentionally left as computed above: bal_qty * item_sell_avg_rate
 
                 if code not in items_map:
                     items_map[code] = {
@@ -496,6 +575,11 @@ def get_batch_wise_stock_report(
                         "item_name":           item_info.get("item_name",   ""),
                         "item_group":          item_info.get("item_group",  ""),
                         "stock_uom":           item_info.get("stock_uom",   ""),
+                        # NOTE: this reflects only the first warehouse processed for
+                        # this item. If the item exists across multiple warehouses,
+                        # this is a temporary/quick add — proper per-warehouse split
+                        # (items_map keyed by (item_code, warehouse)) to follow.
+                        "warehouse":           wh,
                         "description":         item_info.get("description", ""),
                         "packingSize":         item_info.get("packing_size",""),
                         "packingUnit":         item_info.get("packing_unit",""),
@@ -513,6 +597,13 @@ def get_batch_wise_stock_report(
                         "buy_currency":        buy_currency,
                         "total_sell_value":    sell_value,
                         "sell_currency":       sell_currency,
+                        "buy_price_latest":    round(item_last_buy_rate_map.get(code, 0), 2),
+                        "buy_price_avg":       round(item_buy_rate, 2),
+                        # Item-level FIFO valuation rate — this is what total_buy_value
+                        # is now based on (bal_qty * val_rate), reconciles with GL.
+                        "buy_price_valuation": round(val_rate, 2),
+                        "sell_price_latest":   round(item_last_sale_rate_map.get(code, 0), 2),
+                        "sell_price_avg":      round(item_sell_avg_map.get(code, 0), 2),
                         "batches":             batch_rows,
                         "price_list":          item_info.get("price_list", 0.0),
                         "rrp_rate":            item_info.get("rrp_rate", 0.0),
@@ -534,11 +625,9 @@ def get_batch_wise_stock_report(
         for item in non_stock_items:
             code = item["item_code"]
 
-            # ── Skip if already present from movement rows ────────────────────────
             if code in items_map:
                 continue
 
-            # ── Fetch custom metadata (packing info + tax) ────────────────────────
             item_metadata = frappe.db.get_value(
                 "Custom Item Details",
                 {"parent": item.name},
@@ -553,15 +642,13 @@ def get_batch_wise_stock_report(
             tax_info     = _get_tax(item.name, tax_category)
             is_mtv_item = item_metadata.is_mtv if item_metadata else False
 
-            # ── Buy/sell values from invoices ─────────────────────────────────────
-            buy_info  = item_buy_map.get(code,  {"buy_value": 0.0, "buy_currency":  company_currency})
-            sell_info = item_sell_map.get(code, {"sell_value": 0.0, "sell_currency": company_currency})
-
+            # Non-stock/service items have no balance qty concept -> buy/sell value 0
             items_map[code] = {
                 "item_code":           code,
                 "item_name":           item["item_name"]  or "",
                 "item_group":          item["item_group"] or "",
                 "stock_uom":           item["stock_uom"]  or "",
+                "warehouse":           None,
                 "description":         item["description"] or "",
                 "packingSize":         packing_size,
                 "packingUnit":         packing_unit,
@@ -575,10 +662,15 @@ def get_batch_wise_stock_report(
                 "total_out_value":     0.0,
                 "total_bal_qty":       0.0,
                 "total_bal_val":       0.0,
-                "total_buy_value":     buy_info["buy_value"],
-                "buy_currency":        buy_info["buy_currency"],
-                "total_sell_value":    sell_info["sell_value"],
-                "sell_currency":       sell_info["sell_currency"],
+                "total_buy_value":     0.0,
+                "buy_currency":        company_currency,
+                "total_sell_value":    0.0,
+                "sell_currency":       company_currency,
+                "buy_price_latest":    0.0,
+                "buy_price_avg":       0.0,
+                "buy_price_valuation": 0.0,
+                "sell_price_latest":   0.0,
+                "sell_price_avg":      0.0,
                 "batches":             [],
                 "is_service_item": 1,
                 "price_list": frappe.db.get_value("Item Price", {"item_code": item["item_code"], "price_list": "Standard Selling"}, "price_list_rate"),
