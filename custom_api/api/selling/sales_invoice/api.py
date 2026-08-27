@@ -273,13 +273,21 @@ def update_sales_invoice_status(id=None, action=None):
         )
 
     except frappe.exceptions.ValidationError as e:
-        frappe.db.rollback()
+        if db := getattr(frappe.local, "db", None):
+            db.rollback(chain=True)
+        else:
+            frappe.db.rollback()
+
         return send_response(
             status="fail", message=str(e), status_code=400, http_status=400
         )
 
     except frappe.exceptions.PermissionError as e:
-        frappe.db.rollback()
+        if db := getattr(frappe.local, "db", None):
+            db.rollback(chain=True)
+        else:
+            frappe.db.rollback()
+
         return send_response(
             status="fail", message=f"You do not have permission to {action} the status of this Sales Invoice.Please contact your Administrator.", status_code=403, http_status=403
         )
@@ -297,7 +305,10 @@ def update_sales_invoice_status(id=None, action=None):
         )
 
     except Exception as e:
-        frappe.db.rollback()
+        if db := getattr(frappe.local, "db", None):
+            db.rollback(chain=True)
+        else:
+            frappe.db.rollback()
         frappe.log_error(
             frappe.get_traceback(), "Update Sales Invoice Status API Error"
         )
