@@ -12,7 +12,12 @@ class ZRAConnectionError(Exception):
             self._mark_connection_failed()
 
     def _mark_connection_failed(self):
-        frappe.db.rollback()
+
+        if db := getattr(frappe.local, "db", None):
+            db.rollback(chain=True)
+        else:
+            frappe.db.rollback()
+
         new_status = "Pending"
 
         fresh_doc = frappe.get_doc(self.doctype, self.invoice_id)
@@ -44,7 +49,12 @@ class ZRAResponseError(Exception):
             self._mark_connection_failed()
 
     def _mark_connection_failed(self):
-        frappe.db.rollback()
+
+        if db := getattr(frappe.local, "db", None):
+            db.rollback(chain=True)
+        else:
+            frappe.db.rollback()
+
         new_status = "Failed"
 
         fresh_doc = frappe.get_doc(self.doctype, self.invoice_id)
