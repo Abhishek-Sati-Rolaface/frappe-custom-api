@@ -25,6 +25,8 @@
   "service_charge",
   "insurance",
   "is_mtv",
+  "useyn",
+  "rentalyn",
   "column_break_swdy",
   "rrp_rate",
   "mtv_manufacturer_tpin",
@@ -151,13 +153,25 @@
    "fieldname": "manufactureritemcd",
    "fieldtype": "Data",
    "label": "Manufacturer Item Code"
+  },
+  {
+   "default": "0",
+   "fieldname": "useyn",
+   "fieldtype": "Check",
+   "label": "UseYn"
+  },
+  {
+   "default": "0",
+   "fieldname": "rentalyn",
+   "fieldtype": "Check",
+   "label": "RentalYn"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-08-03 17:04:35.879677",
+ "modified": "2026-08-28 19:17:37.451049",
  "modified_by": "Administrator",
  "module": "Custom Api",
  "name": "Custom Item Details",
