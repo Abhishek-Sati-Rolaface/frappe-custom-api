@@ -16,6 +16,7 @@ from .utils import (
     get_payment_information,
     build_sales_invoice_filters,
     get_already_credited_qty,
+    get_lpo_tax_template
 )
 
 from custom_api.api.item.utils.item_utils import _get_tax
@@ -29,6 +30,12 @@ def create_sales_invoice(data):
     account = validate_receivable_account_for_currency(currency)
 
     invoice = frappe.new_doc("Sales Invoice")
+    is_lpo_category = data.get("invoiceType") == "LPO"
+    applied_tax_category = data.get("tax_category")
+    if is_lpo_category:
+                applied_tax_category = "LPO"
+                lpo_tax_template = get_lpo_tax_template(company)
+    
 
     invoice.update(
         {
@@ -37,7 +44,7 @@ def create_sales_invoice(data):
             "conversion_rate": data.get("exchangeRate", 1),
             "posting_date": data.get("postingDate"),
             "due_date": data.get("dueDate"),
-            "tax_category": data.get("tax_category"),
+            "tax_category": applied_tax_category,
             "update_stock": 1 if data.get("updateStock") else 0,
             "set_posting_time": 1,
             "set_warehouse": data.get("warehouse"),
@@ -57,10 +64,15 @@ def create_sales_invoice(data):
         batch_no = item.get("batchNo") or item.get("batch_no")
         mfg_date = item.get("mfgDate") or item.get("mfg_date")
         exp_date = item.get("expDate") or item.get("exp_date")
+        print("🚀 ~ create_sales_invoice ~ original tax:", _get_item_tax_template(item_code, data.get("tax_category")))
 
         if batch_no:
             ensure_batch(item_code, batch_no, mfg_date, exp_date)
 
+        if is_lpo_category:
+            applied_tax_template = lpo_tax_template
+        else:
+            applied_tax_template = _get_item_tax_template(item_code, data.get("tax_category"))
         invoice.append(
             "items",
             {
@@ -68,9 +80,7 @@ def create_sales_invoice(data):
                 "qty": item.get("quantity"),
                 "warehouse": item.get("warehouse", data.get("warehouse")),
                 "batch_no": batch_no,
-                "item_tax_template": _get_item_tax_template(
-                    item_code, data.get("tax_category")
-                ),
+                "item_tax_template": applied_tax_template,
                 "discount_percentage": item.get("discount", 0),
                 "price_list_rate": item.get("rate"),
                 "description": item.get("description", None),
@@ -85,8 +95,12 @@ def create_sales_invoice(data):
 
     sync_taxes(invoice, data)
 
+    # for i, row in enumerate(invoice.items):
+    #     print(f"🚀 ~ BEFORE INSERT ~ Row {i}: {row.item_tax_template}")
     try:
         invoice.insert(ignore_permissions=True)
+        # for i, row in enumerate(invoice.items):
+        #     print(f"🚀 ~ AFTER INSERT ~ Row {i}: {row.item_tax_template}")
     except frappe.ValidationError as e:
         error_msg = str(e)
         if "Due Date cannot be after" in error_msg:
@@ -146,6 +160,14 @@ def update_sales_invoice(invoice_id, data):
 
     update_sales_invoice_customer(invoice, data.get("customerId"))
 
+    existing_invoice_type = (
+        invoice.custom_details[0].invoice_type
+        if invoice.get("custom_details") and len(invoice.custom_details) > 0
+        else None
+    )
+    effective_invoice_type = data.get("invoiceType", existing_invoice_type)
+    is_lpo_category = effective_invoice_type == "LPO"
+
     field_map = {
         "currency": "currency",
         "exchangeRate": "conversion_rate",
@@ -173,6 +195,11 @@ def update_sales_invoice(invoice_id, data):
         invoice.update_stock = 1 if data.get("updateStock") else 0
         invoice.set_posting_time = 1
 
+
+    if is_lpo_category:
+        invoice.tax_category = "LPO"
+        lpo_tax_template = get_lpo_tax_template(company)
+
     if "items" in data:
         invoice.set("items", [])
         invoice.set("custom_item_box_detail", [])
@@ -186,6 +213,14 @@ def update_sales_invoice(invoice_id, data):
             if batch_no:
                 ensure_batch(item_code, batch_no, mfg_date, exp_date)
 
+            if is_lpo_category:
+                applied_tax_template = lpo_tax_template
+            else:
+                applied_tax_template = _get_item_tax_template(
+                    item_code,
+                    data.get("tax_category") or invoice.tax_category,
+                )
+
             invoice.append(
                 "items",
                 {
@@ -194,10 +229,7 @@ def update_sales_invoice(invoice_id, data):
                     "price_list_rate": item.get("rate"),
                     "warehouse": item.get("warehouse", invoice.set_warehouse),
                     "batch_no": batch_no,
-                    "item_tax_template": _get_item_tax_template(
-                        item_code,
-                        data.get("tax_category") or invoice.tax_category,
-                    ),
+                    "item_tax_template": applied_tax_template,
                     "discount_percentage": item.get("discount", 0),
                     "description": item.get("description"),
                 },
@@ -216,11 +248,6 @@ def update_sales_invoice(invoice_id, data):
         if detail:
             invoice.append("custom_details", detail)
 
-    # if "paymentMode" in data or "payment_mode" in data or "invoiceType" in data:
-    #     detail = _build_additional_detail(data)
-    #     invoice.set("custom_details", [])
-    #     if detail:
-    #         invoice.append("custom_details", detail)
     invoice.additional_discount_percentage = data.get("additional_discount_percentage")
     invoice.discount_amount = data.get("discount_amount")
     invoice.save(ignore_permissions=True)
