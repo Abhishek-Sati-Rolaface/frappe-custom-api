@@ -19,7 +19,7 @@ def create_item_service(data: dict):
 
     create_item_prices(item_doc, data)
 
-    frappe.db.commit()
+    # frappe.db.commit()
 
     return item_doc
 
