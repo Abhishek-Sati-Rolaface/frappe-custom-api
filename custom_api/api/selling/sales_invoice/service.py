@@ -8,7 +8,6 @@ from erpnext.selling.doctype.customer.customer import get_customer_outstanding
 from .utils import (
     ensure_batch,
     sync_invoice_terms,
-    sync_taxes,
     _build_sales_invoice_box_detail,
     _build_additional_detail,
     validate_receivable_account_for_currency,
@@ -16,7 +15,29 @@ from .utils import (
     get_payment_information,
     build_sales_invoice_filters,
     get_already_credited_qty,
-    get_lpo_tax_template
+    get_lpo_tax_template,
+)
+
+from custom_api.api.item.utils.item_utils import _get_tax
+
+import json
+import re
+import traceback
+import frappe
+from frappe.utils import flt, cint, add_days, now
+from ....api.buying.purchase_order.utils import _get_item_tax_template
+from erpnext.selling.doctype.customer.customer import get_customer_outstanding
+from .utils import (
+    ensure_batch,
+    sync_invoice_terms,
+    _build_sales_invoice_box_detail,
+    _build_additional_detail,
+    validate_receivable_account_for_currency,
+    get_extended_item_detail,
+    get_payment_information,
+    build_sales_invoice_filters,
+    get_already_credited_qty,
+    get_lpo_tax_template,
 )
 
 from custom_api.api.item.utils.item_utils import _get_tax
@@ -31,61 +52,68 @@ def create_sales_invoice(data):
 
     invoice = frappe.new_doc("Sales Invoice")
     is_lpo_category = data.get("invoiceType") == "LPO"
-    applied_tax_category = data.get("tax_category")
-    if is_lpo_category:
-                applied_tax_category = "LPO"
-                lpo_tax_template = get_lpo_tax_template(company)
-    
+    applied_tax_category = "LPO" if is_lpo_category else data.get("tax_category")
 
-    invoice.update(
-        {
-            "customer": data.get("customerId"),
-            "currency": currency,
-            "conversion_rate": data.get("exchangeRate", 1),
-            "posting_date": data.get("postingDate"),
-            "due_date": data.get("dueDate"),
-            "tax_category": applied_tax_category,
-            "update_stock": 1 if data.get("updateStock") else 0,
-            "set_posting_time": 1,
-            "set_warehouse": data.get("warehouse"),
-            "customer_address": data.get("billingAddress"),
-            "shipping_address_name": data.get("shippingAddress"),
-            "taxes_and_charges": data.get("salesTaxTemplate"),
-            "cost_center": cost_center,
-            "debit_to": account,
-            "additional_discount_percentage": data.get("additional_discount_percentage"),
-            "discount_amount": data.get("discount_amount"),
-            "po_no": data.get("lpoNumber"),
-        }
-    )
+    if is_lpo_category:
+        lpo_tax_template = get_lpo_tax_template(company)
+
+    invoice.update({
+        "customer": data.get("customerId"),
+        "currency": currency,
+        "conversion_rate": data.get("exchangeRate", 1),
+        "posting_date": data.get("postingDate"),
+        "due_date": data.get("dueDate"),
+        "tax_category": applied_tax_category,
+        "update_stock": 1 if data.get("updateStock") else 0,
+        "set_posting_time": 1,
+        "set_warehouse": data.get("warehouse"),
+        "customer_address": data.get("billingAddress"),
+        "shipping_address_name": data.get("shippingAddress"),
+        "cost_center": cost_center,
+        "debit_to": account,
+        "additional_discount_percentage": data.get("additional_discount_percentage"),
+        "discount_amount": data.get("discount_amount"),
+        "po_no": data.get("lpoNumber"),
+    })
 
     for item in data.get("items", []):
         item_code = item.get("itemCode")
         batch_no = item.get("batchNo") or item.get("batch_no")
         mfg_date = item.get("mfgDate") or item.get("mfg_date")
         exp_date = item.get("expDate") or item.get("exp_date")
-        print("🚀 ~ create_sales_invoice ~ original tax:", _get_item_tax_template(item_code, data.get("tax_category")))
 
         if batch_no:
             ensure_batch(item_code, batch_no, mfg_date, exp_date)
 
+        tax_templates = _get_item_tax_template(item_code, applied_tax_category)
+        print("🚀 ~ create_sales_invoice ~ tax_templates:", tax_templates)
+        
+        combined_rates = {}
+
         if is_lpo_category:
-            applied_tax_template = lpo_tax_template
+            t_doc = frappe.get_cached_doc("Item Tax Template", lpo_tax_template)
+            for t_row in t_doc.taxes:
+                combined_rates[t_row.tax_type] = t_row.tax_rate
         else:
-            applied_tax_template = _get_item_tax_template(item_code, data.get("tax_category"))
-        invoice.append(
-            "items",
-            {
-                "item_code": item_code,
-                "qty": item.get("quantity"),
-                "warehouse": item.get("warehouse", data.get("warehouse")),
-                "batch_no": batch_no,
-                "item_tax_template": applied_tax_template,
-                "discount_percentage": item.get("discount", 0),
-                "price_list_rate": item.get("rate"),
-                "description": item.get("description", None),
-            },
-        )
+            if tax_templates:
+                for t_name in tax_templates:
+                    if t_name:
+                        t_doc = frappe.get_cached_doc("Item Tax Template", t_name)
+                        for t_row in t_doc.taxes:
+                            combined_rates[t_row.tax_type] = t_row.tax_rate
+        print("🚀 ~ create_sales_invoice ~ combined_rates:", combined_rates)
+
+        invoice.append("items", {
+            "item_code": item_code,
+            "qty": item.get("quantity"),
+            "warehouse": item.get("warehouse", data.get("warehouse")),
+            "batch_no": batch_no,
+            "item_tax_template": None, 
+            "item_tax_rate": json.dumps(combined_rates) if combined_rates else None,
+            "discount_percentage": item.get("discount", 0),
+            "price_list_rate": item.get("rate"),
+            "description": item.get("description", None),
+        })
 
         invoice.append("custom_item_box_detail", _build_sales_invoice_box_detail(item))
 
@@ -93,22 +121,17 @@ def create_sales_invoice(data):
     if additional_details:
         invoice.append("custom_details", additional_details)
 
-    sync_taxes(invoice, data)
+    apply_custom_taxes(invoice, data)
 
-    # for i, row in enumerate(invoice.items):
-    #     print(f"🚀 ~ BEFORE INSERT ~ Row {i}: {row.item_tax_template}")
     try:
+        invoice.ignore_default_taxes = 1 
+        invoice.taxes_and_charges = None
         invoice.insert(ignore_permissions=True)
-        # for i, row in enumerate(invoice.items):
-        #     print(f"🚀 ~ AFTER INSERT ~ Row {i}: {row.item_tax_template}")
     except frappe.ValidationError as e:
         error_msg = str(e)
         if "Due Date cannot be after" in error_msg:
             allowed_date = error_msg.replace("Due Date cannot be after ", "").strip()
-            frappe.throw(
-                f"The due date cannot be later than {allowed_date} based on the invoice payment term. "
-                "Please update the payment term to change the due date."
-            )
+            frappe.throw(f"The due date cannot be later than {allowed_date} based on the invoice payment term. Please update the payment term to change the due date.")
         raise e
 
     terms_payload = data.get("terms")
@@ -117,46 +140,97 @@ def create_sales_invoice(data):
 
     return invoice
 
-def update_sales_invoice_customer(invoice, customer_id):
 
+def apply_custom_taxes(invoice, data):
+    print("🚀 ~ apply_custom_taxes ~ apply_custom_taxes:", apply_custom_taxes)
+    invoice.set("taxes", [])
+    default_cc = invoice.cost_center or frappe.get_cached_value("Company", invoice.company, "cost_center")
+    
+    tax_map = {}
+    
+    # Store the actual rates from the item json
+    for item in invoice.get("items", []):
+        if item.item_tax_rate:
+            rates = json.loads(item.item_tax_rate)
+            for acc_head, rate in rates.items():
+                if acc_head not in tax_map or flt(rate) > flt(tax_map[acc_head]):
+                    tax_map[acc_head] = flt(rate)
+                
+    def sort_taxes(acc):
+        acc_lower = acc.lower()
+        if "excise" in acc_lower: return 0
+        if "vat" in acc_lower: return 1
+        return 2
+        
+    sorted_accounts = sorted(list(tax_map.keys()), key=sort_taxes)
+    print("🚀 ~ apply_custom_taxes ~ sorted_accounts:", sorted_accounts)
+    has_excise = any("excise" in a.lower() for a in sorted_accounts)
+    print("🚀 ~ apply_custom_taxes ~ has_excise:", has_excise)
+    
+    for idx, acc_head in enumerate(sorted_accounts, start=1):
+        charge_type = "On Net Total"
+        row_id = ""
+        
+        if has_excise and "vat" in acc_head.lower():
+            charge_type = "On Previous Row Total"
+            row_id = "1"
+            
+        invoice.append("taxes", {
+            "idx": idx,
+            "charge_type": charge_type,
+            "row_id": row_id,
+            "account_head": acc_head,
+            "description": acc_head,
+            "cost_center": default_cc,
+            "rate": tax_map.get(acc_head, 0), 
+        })
+
+    tax_overrides = data.get("taxes", [])
+    if tax_overrides:
+        override_map = {t.get("accountHead"): t for t in tax_overrides if t.get("accountHead")}
+        for tax_row in invoice.get("taxes", []):
+            override = override_map.get(tax_row.account_head)
+            if override:
+                if override.get("chargeType") or override.get("charge_type"):
+                    tax_row.charge_type = override.get("chargeType") or override.get("charge_type")
+                if override.get("amount") is not None:
+                    tax_row.tax_amount = flt(override.get("amount"))
+                    tax_row.rate = 0
+                elif override.get("rate") is not None:
+                    tax_row.rate = flt(override.get("rate"))
+
+    return True
+
+
+
+def update_sales_invoice_customer(invoice, customer_id):
     if not customer_id or customer_id == invoice.customer:
         return
 
     invoice.customer = customer_id
-
-    # Contact
     invoice.contact_person = None
     invoice.contact_display = None
     invoice.contact_email = None
     invoice.contact_mobile = None
     invoice.contact_phone = None
-
-    # Billing Address
     invoice.customer_address = None
     invoice.address_display = None
-
-    # Shipping Address
     invoice.shipping_address_name = None
     invoice.shipping_address = None
-
-    # Refresh customer defaults
     invoice.set_missing_values()
-    
+
+
 def update_sales_invoice(invoice_id, data):
     invoice = frappe.get_doc("Sales Invoice", invoice_id)
 
     if invoice.docstatus == 1:
-        raise frappe.ValidationError(
-            "Cannot edit a submitted Sales Invoice. Cancel it first."
-        )
+        raise frappe.ValidationError("Cannot edit a submitted Sales Invoice. Cancel it first.")
 
     company = invoice.company
     company_doc = frappe.get_cached_doc("Company", company)
 
     currency = data.get("currency") or company_doc.default_currency
-    cost_center = (
-        data.get("costCenter") or invoice.cost_center or company_doc.cost_center
-    )
+    cost_center = data.get("costCenter") or invoice.cost_center or company_doc.cost_center
 
     update_sales_invoice_customer(invoice, data.get("customerId"))
 
@@ -178,7 +252,7 @@ def update_sales_invoice(invoice_id, data):
         "billingAddress": "customer_address",
         "shippingAddress": "shipping_address_name",
         "salesTaxTemplate": "taxes_and_charges",
-        "lpoNumber": "po_no"
+        "lpoNumber": "po_no",
     }
 
     for api_field, doc_field in field_map.items():
@@ -187,14 +261,12 @@ def update_sales_invoice(invoice_id, data):
 
     if currency:
         invoice.currency = currency
-
     if cost_center:
         invoice.cost_center = cost_center
 
     if data.get("updateStock") is not None:
         invoice.update_stock = 1 if data.get("updateStock") else 0
         invoice.set_posting_time = 1
-
 
     if is_lpo_category:
         invoice.tax_category = "LPO"
@@ -216,10 +288,8 @@ def update_sales_invoice(invoice_id, data):
             if is_lpo_category:
                 applied_tax_template = lpo_tax_template
             else:
-                applied_tax_template = _get_item_tax_template(
-                    item_code,
-                    data.get("tax_category") or invoice.tax_category,
-                )
+                tax_templates = _get_item_tax_template(item_code, data.get("tax_category") or invoice.tax_category)
+                applied_tax_template = tax_templates[0] if tax_templates else None
 
             invoice.append(
                 "items",
@@ -258,10 +328,122 @@ def update_sales_invoice(invoice_id, data):
 
     return invoice
 
+
+def sync_taxes(invoice, data):
+    invoice.set("taxes", [])
+    default_cc = invoice.cost_center or frappe.get_cached_value("Company", invoice.company, "cost_center")
+    
+    tax_rows = []
+    existing_heads = set()
+    is_dirty = False
+
+    # 1. Invoice-level Sales Tax Template
+    template_name = data.get("salesTaxTemplate") or invoice.taxes_and_charges
+    if template_name and frappe.db.exists("Sales Taxes and Charges Template", template_name):
+        template = frappe.get_cached_doc("Sales Taxes and Charges Template", template_name)
+        for t_row in template.taxes:
+            tax_rows.append({
+                "charge_type": t_row.charge_type,
+                "account_head": t_row.account_head,
+                "description": t_row.description,
+                "cost_center": t_row.cost_center or default_cc,
+                "rate": t_row.rate,
+                "tax_amount": t_row.tax_amount,
+            })
+            existing_heads.add(t_row.account_head)
+            is_dirty = True
+
+    # 2. Extract ALL tax templates per item to handle multiple layers (Excise + VAT)
+    for item in data.get("items", []):
+        item_code = item.get("itemCode") or item.get("item_code")
+        tax_templates = _get_item_tax_template(item_code, data.get("tax_category") or invoice.tax_category)
+        
+        if not tax_templates:
+            continue
+            
+        for t_name in tax_templates:
+            if not t_name:
+                continue
+            item_tax_doc = frappe.get_cached_doc("Item Tax Template", t_name)
+            for it in item_tax_doc.taxes:
+                if it.tax_type not in existing_heads:
+                    tax_rows.append({
+                        "charge_type": "On Net Total", 
+                        "account_head": it.tax_type,
+                        "description": it.tax_type, 
+                        "cost_center": default_cc,
+                        "rate": 0,
+                        "tax_amount": 0,
+                    })
+                    existing_heads.add(it.tax_type)
+                    is_dirty = True
+
+    # 3. Handle manual overrides from payload
+    tax_overrides = data.get("taxes", [])
+    if tax_overrides:
+        override_map = {t.get("accountHead"): t for t in tax_overrides if t.get("accountHead")}
+        
+        for tax_dict in tax_rows:
+            override = override_map.get(tax_dict["account_head"])
+            if not override:
+                continue
+
+            charge_type = override.get("chargeType") or override.get("charge_type")
+            amount = override.get("amount")
+            rate = override.get("rate")
+            description = override.get("description")
+
+            if charge_type == "Actual" and rate is not None:
+                frappe.throw(f"{tax_dict['account_head']}: 'Actual' cannot have rate")
+            if charge_type and charge_type != "Actual" and amount is not None:
+                frappe.throw(f"{tax_dict['account_head']}: Only 'Actual' can have amount")
+
+            if charge_type:
+                tax_dict["charge_type"] = charge_type
+            
+            if description is not None:
+                tax_dict["description"] = description
+                is_dirty = True
+
+            if amount is not None:
+                tax_dict["tax_amount"] = flt(amount)
+                tax_dict["rate"] = 0
+                if not charge_type:
+                    tax_dict["charge_type"] = "Actual"
+                is_dirty = True
+
+            elif rate is not None:
+                tax_dict["rate"] = flt(rate)
+                tax_dict["tax_amount"] = 0
+                if not charge_type and tax_dict["charge_type"] == "Actual":
+                    tax_dict["charge_type"] = "On Net Total"
+                is_dirty = True
+
+    # 4. Sequence Excise and VAT with dynamic charge_types
+    excise_row_idx = None
+    
+    for idx, tax_dict in enumerate(tax_rows, start=1):
+        acc_head = (tax_dict.get("account_head") or "").lower()
+        desc = (tax_dict.get("description") or "").lower()
+        
+        # Identify the Excise tax row
+        if "excise" in acc_head or "excise" in desc:
+            tax_dict["charge_type"] = "On Net Total"
+            excise_row_idx = str(idx) 
+        
+        # If Excise exists, calculate subsequent taxes (VAT) on Previous Row Total
+        elif excise_row_idx and tax_dict["charge_type"] == "On Net Total":
+            tax_dict["charge_type"] = "On Previous Row Total"
+            tax_dict["row_id"] = excise_row_idx
+            
+        invoice.append("taxes", tax_dict)
+
+    return is_dirty
+
+
 def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
     invoice = frappe.get_doc("Sales Invoice", invoice_id)
     customer = frappe.get_doc("Customer", invoice.customer)
-
     box_details = invoice.get("custom_item_box_detail", [])
     custom_details = invoice.get("custom_details", [])
     acount_details = frappe.db.get_value(
@@ -313,13 +495,11 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
         "contact_email": invoice.contact_email,
         "gl_account": invoice.debit_to,
         "gl_account_name": gl_account_name,
-        "gl_account_currency": (
-            acount_details.get("account_currency") if acount_details else None
-        ),
+        "gl_account_currency": acount_details.get("account_currency") if acount_details else None,
         "remarks": invoice.remarks,
         "additional_discount_percentage": invoice.additional_discount_percentage,
         "discount_amount": invoice.discount_amount,
-        "lpoNumber":invoice.po_no
+        "lpoNumber": invoice.po_no,
     }
 
     payment_mode = custom_details[0].payment_mode if custom_details else None
@@ -328,7 +508,7 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
     principal_detail = json.dumps(custom_details[0].zra_principal_detail if custom_details else None)
 
     data["paymentInformation"] = get_payment_information(payment_mode, invoice.company)
-    data["paymentMode"] = custom_details[0].payment_mode if custom_details else None
+    data["paymentMode"] = payment_mode
     data["reason"] = reason
     data["invoiceType"] = invoice_type
     data["principal"] = principal_detail
@@ -341,9 +521,8 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
             key = (item.item_code, item.batch_no or "")
             credited_qty = credited_map.get(key, 0)
             remaining_qty = item.qty - credited_qty
-
             if remaining_qty <= 0:
-                continue  # fully credited already — skip this item entirely
+                continue 
 
         item_data = {
             "itemCode": item.item_code,
@@ -364,29 +543,20 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
         }
 
         if item.batch_no:
-            batch_info = frappe.db.get_value(
-                "Batch",
-                item.batch_no,
-                ["manufacturing_date", "expiry_date"],
-                as_dict=True,
-            )
+            batch_info = frappe.db.get_value("Batch", item.batch_no, ["manufacturing_date", "expiry_date"], as_dict=True)
             if batch_info:
                 item_data["mfgDate"] = batch_info.manufacturing_date
                 item_data["expDate"] = batch_info.expiry_date
 
         for box in box_details:
-            if box.item_code == item.item_code and (
-                box.batch_no == item.batch_no or not box.batch_no
-            ):
+            if box.item_code == item.item_code and (box.batch_no == item.batch_no or not box.batch_no):
                 item_data["boxStart"] = box.box_start
                 item_data["boxEnd"] = box.box_end
                 break
 
         metadata = get_extended_item_detail(item.item_code)
-
         if metadata:
             meta = metadata[0]
-
             item_data.update(
                 {
                     "hsnCode": meta.get("hsn_code"),
@@ -405,43 +575,29 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
                     ),
                 }
             )
-
         data["items"].append(item_data)
+
     total_tax = 0
     total_charges = 0
 
     for tax in invoice.get("taxes", []):
         amount = tax.tax_amount or 0
-
-        account = frappe.get_cached_value(
-            "Account",
-            tax.account_head,
-            ["account_type", "account_name"],
-            as_dict=True,
-        )
-
+        account = frappe.get_cached_value("Account", tax.account_head, ["account_type", "account_name"], as_dict=True)
         account_type = account.account_type if account else None
         account_name = account.account_name if account else None
 
+        row = {
+            "accountHead": tax.account_head,
+            "accountName": account_name,
+            "rate": tax.rate,
+            "amount": amount,
+            "description": tax.description,
+        }
+        
         if account_type == "Tax":
-            row = {
-                "accountHead": tax.account_head,
-                "accountName": account_name,
-                "rate": tax.rate,
-                "amount": amount,
-                "description": tax.description,
-            }
             data["taxes"].append(row)
             total_tax += amount
-
         else:
-            row = {
-                "accountHead": tax.account_head,
-                "accountName": account_name,
-                "rate": tax.rate,
-                "amount": amount,
-                "description": tax.description,
-            }
             data["charges"].append(row)
             total_charges += amount
 
@@ -449,9 +605,7 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
     data["totalCalculatedCharges"] = total_charges
 
     if invoice.tc_name and frappe.db.exists("Terms and Conditions", invoice.tc_name):
-        tc_content = frappe.db.get_value(
-            "Terms and Conditions", invoice.tc_name, "terms"
-        )
+        tc_content = frappe.db.get_value("Terms and Conditions", invoice.tc_name, "terms")
         try:
             data["terms"]["selling"] = json.loads(tc_content)
         except Exception:
@@ -459,47 +613,24 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
 
     attachments = frappe.db.get_all(
         "File",
-        filters={
-            "attached_to_doctype": "Sales Invoice",
-            "attached_to_name": invoice_id,
-        },
-        fields=[
-            "name",
-            "file_name",
-            "file_url",
-            "file_size",
-            "file_type",
-            "is_private",
-            "creation",
-        ],
+        filters={"attached_to_doctype": "Sales Invoice", "attached_to_name": invoice_id},
+        fields=["name", "file_name", "file_url", "file_size", "file_type", "is_private", "creation"],
         order_by="creation desc",
     )
-
     data["attachments"] = [att for att in attachments]
-
     return data
+
 
 def get_sales_invoices(filters=None, page=1, page_size=20, search=None):
     filters = filters or {}
-
     allowed_filters = {
         key: filters.get(key)
-        for key in [
-            "customer",
-            "status",
-            "from_date",
-            "to_date",
-            "company",
-            "minOutstanding",
-            "maxOutstanding",
-        ]
+        for key in ["customer", "status", "from_date", "to_date", "company", "minOutstanding", "maxOutstanding"]
         if filters.get(key) is not None
     }
 
     frappe_filters = build_sales_invoice_filters(allowed_filters)
-    order_by = "creation desc"
-    if filters.get("sortBy"):
-        order_by = f"{filters.get('sortBy')} {filters.get('sortOrder') or 'asc'}"
+    order_by = f"{filters.get('sortBy')} {filters.get('sortOrder') or 'asc'}" if filters.get("sortBy") else "creation desc"
 
     or_filters = []
     if search:
@@ -513,26 +644,14 @@ def get_sales_invoices(filters=None, page=1, page_size=20, search=None):
         ]
 
     start = (page - 1) * page_size
-
     invoices = frappe.get_all(
         "Sales Invoice",
         filters=frappe_filters,
         or_filters=or_filters if search else None,
         fields=[
-            "name",
-            "customer",
-            "customer_name",
-            "posting_date",
-            "due_date",
-            "base_grand_total",
-            "grand_total",
-            "currency",
-            "conversion_rate",
-            "outstanding_amount",
-            "tax_category",
-            "cost_center",
-            "status",
-            "debit_to",
+            "name", "customer", "customer_name", "posting_date", "due_date", 
+            "base_grand_total", "grand_total", "currency", "conversion_rate", 
+            "outstanding_amount", "tax_category", "cost_center", "status", "debit_to"
         ],
         limit_start=start,
         limit_page_length=page_size,
@@ -551,14 +670,10 @@ def get_sales_invoices(filters=None, page=1, page_size=20, search=None):
     total_pages = (total_invoices + page_size - 1) // page_size
 
     for inv in invoices:
-        account_details = frappe.db.get_value(
-            "Account", inv.debit_to, ["account_name", "account_number"], as_dict=True
-        )
-
+        account_details = frappe.db.get_value("Account", inv.debit_to, ["account_name", "account_number"], as_dict=True)
         inv["gl_account_name"] = (
             f"{account_details.get('account_number', '')} - {account_details.get('account_name', '')}"
-            if account_details.get("account_number")
-            else account_details.get("account_name")
+            if account_details.get("account_number") else account_details.get("account_name")
         )
         inv["gl_account"] = inv.pop("debit_to")
         inv["id"] = inv.pop("name")
@@ -571,8 +686,7 @@ def get_sales_invoices(filters=None, page=1, page_size=20, search=None):
         inv["exchangeRate"] = inv.pop("conversion_rate")
         inv["baseOutstandingAmount"] = (
             inv["outstanding_amount"] * inv["exchangeRate"]
-            if inv["exchangeRate"]
-            else inv["outstanding_amount"]
+            if inv["exchangeRate"] else inv["outstanding_amount"]
         )
         inv["costCenter"] = inv.pop("cost_center")
         inv["taxCategory"] = inv.pop("tax_category")
@@ -583,9 +697,7 @@ def get_sales_invoices(filters=None, page=1, page_size=20, search=None):
 def delete_sales_invoice(invoice_id):
     invoice = frappe.get_doc("Sales Invoice", invoice_id)
     if invoice.docstatus == 1:
-        raise frappe.ValidationError(
-            "Cannot delete a submitted Sales Invoice. Cancel it first."
-        )
+        raise frappe.ValidationError("Cannot delete a submitted Sales Invoice. Cancel it first.")
 
     frappe.db.set_value(
         "Sales Invoice",
@@ -598,24 +710,16 @@ def delete_sales_invoice(invoice_id):
 
     tc_name = f"{invoice_id} Terms"
     if frappe.db.exists("Terms and Conditions", tc_name):
-        frappe.delete_doc(
-            "Terms and Conditions", tc_name, ignore_permissions=True, force=True
-        )
+        frappe.delete_doc("Terms and Conditions", tc_name, ignore_permissions=True, force=True)
 
     pt_name = f"{invoice_id} PT"
     if frappe.db.exists("Payment Terms Template", pt_name):
         template_doc = frappe.get_doc("Payment Terms Template", pt_name)
         terms_to_delete = [t.payment_term for t in template_doc.terms]
-
-        frappe.delete_doc(
-            "Payment Terms Template", pt_name, ignore_permissions=True, force=True
-        )
+        frappe.delete_doc("Payment Terms Template", pt_name, ignore_permissions=True, force=True)
 
         for term in terms_to_delete:
-            is_used_elsewhere = frappe.db.exists(
-                "Payment Terms Template Detail", {"payment_term": term}
-            )
-
+            is_used_elsewhere = frappe.db.exists("Payment Terms Template Detail", {"payment_term": term})
             if not is_used_elsewhere:
                 try:
                     frappe.delete_doc("Payment Term", term, ignore_permissions=True)
@@ -625,7 +729,6 @@ def delete_sales_invoice(invoice_id):
 
 def validate_strict_credit_limit(invoice):
     customer = frappe.get_doc("Customer", invoice.customer)
-    
     credit_limit = 0.0
     strict_policy = 0
     bypass_at_sales_order = 0
@@ -640,13 +743,11 @@ def validate_strict_credit_limit(invoice):
         strict_policy = cint(customer.custom_extended_details[0].get("strict_credit_limit", 0))
 
     if strict_policy and credit_limit > 0:
-        
         outstanding = get_customer_outstanding(
-            invoice.customer, 
+            invoice.customer,
             invoice.company,
-            ignore_outstanding_sales_order=bypass_at_sales_order
+            ignore_outstanding_sales_order=bypass_at_sales_order,
         )
-        
         total_exposure = outstanding + invoice.base_grand_total
 
         if total_exposure > credit_limit:
@@ -655,7 +756,7 @@ def validate_strict_credit_limit(invoice):
                 f"Customer <b>'{invoice.customer_name}'</b> has exceeded their strict credit limit of {credit_limit:,.2f}. "
                 f"Current exposure (including this invoice) is {total_exposure:,.2f}.<br><br>"
                 "Exceptions and role-based overrides are strictly prohibited for this customer.",
-                title="Strict Credit Limit Exceeded"
+                title="Strict Credit Limit Exceeded",
             )
 
 
@@ -671,10 +772,7 @@ def process_approval(invoice):
         invoice.custom_details[0].approved_by = frappe.session.user
         invoice.custom_details[0].approved_at = now()
     else:
-        invoice.append(
-            "custom_details",
-            {"approved_by": frappe.session.user, "approved_at": now()},
-        )
+        invoice.append("custom_details", {"approved_by": frappe.session.user, "approved_at": now()})
 
     try:
         invoice.submit()
@@ -684,7 +782,6 @@ def process_approval(invoice):
             match = re.search(r"\(([\d.]+)/([\d.]+)\)", message)
             outstanding = float(match.group(1)) if match else 0
             credit_limit = float(match.group(2)) if match else 0
-
             contact_users = ""
             user_match = re.search(r"Please contact any of the following users.*?: (.+)", message)
             if user_match:
@@ -692,10 +789,8 @@ def process_approval(invoice):
 
             raise frappe.ValidationError(
                 f"Unable to approve invoice '{invoice.name}' because customer '{invoice.customer_name}' "
-                f"has exceeded their credit limit. "
-                f"Current outstanding amount: {outstanding:,.2f}. "
-                f"Credit limit: {credit_limit:,.2f}. "
-                "Please either reduce the invoice amount, increase the customer's credit limit, "
+                f"has exceeded their credit limit. Current outstanding amount: {outstanding:,.2f}. "
+                f"Credit limit: {credit_limit:,.2f}. Please either reduce the invoice amount, increase the customer's credit limit, "
                 "or contact an authorized user to approve a credit limit exception. "
                 f"Contact users: {contact_users}"
             )
@@ -720,13 +815,9 @@ def process_cancellation(invoice):
         invoice.custom_details[0].cancelled_by = frappe.session.user
         invoice.custom_details[0].cancelled_at = now()
     else:
-        invoice.append(
-            "custom_details",
-            {"cancelled_by": frappe.session.user, "cancelled_at": now()},
-        )
+        invoice.append("custom_details", {"cancelled_by": frappe.session.user, "cancelled_at": now()})
 
     invoice.cancel()
-
     return {
         "id": invoice.name,
         "status": invoice.status,
@@ -754,28 +845,23 @@ def process_amendment(invoice):
             row.cancelled_at = None
 
     amended_doc.insert()
-
     return {
         "id": amended_doc.name,
         "status": amended_doc.status,
         "docstatus": amended_doc.docstatus,
     }
 
+
 def update_sales_invoice_status(invoice_id, action):
-
     invoice = frappe.get_doc("Sales Invoice", invoice_id)
-
     if not frappe.has_permission("Sales Invoice", "write", invoice):
         raise frappe.PermissionError("No permission to modify this invoice")
 
     if action == "approved":
         return process_approval(invoice)
-        
     elif action == "cancelled":
         return process_cancellation(invoice)
-        
     elif action == "amend":
         return process_amendment(invoice)
-        
     else:
         raise frappe.ValidationError("Invalid action. Allowed: approved, cancelled, amend")

@@ -56,18 +56,30 @@ def build_items(items, supplier, po_number = None):
 
     return po_items
 
-def _get_item_tax_template(item_code, supplier_category):
+# def _get_item_tax_template(item_code, supplier_category):
 
+#     taxes = frappe.get_all(
+#         "Item Tax",
+#         filters={"parent": item_code},
+#         fields=["item_tax_template", "tax_category"]
+#     )
+
+#     for tax in taxes:
+#         if tax.get("tax_category") == supplier_category:
+#             return tax.get("item_tax_template")
+
+#     return None
+
+
+def _get_item_tax_template(item_code, supplier_category):
     taxes = frappe.get_all(
         "Item Tax",
         filters={"parent": item_code},
         fields=["item_tax_template", "tax_category"]
     )
 
-    for tax in taxes:
-        if tax.get("tax_category") == supplier_category:
-            return tax.get("item_tax_template")
-
-    return None
-
-
+    return [
+        tax.get("item_tax_template")
+        for tax in taxes
+        if tax.get("tax_category") == supplier_category
+    ]
