@@ -211,87 +211,326 @@ def sync_invoice_terms(invoice, terms_payload):
     if is_invoice_dirty:
         invoice.save(ignore_permissions=True)
 
+# def sync_taxes(invoice, data):
+#     invoice.set("taxes", [])
+
+#     default_cc = invoice.cost_center or frappe.get_cached_value("Company", invoice.company, "cost_center")
+#     existing_heads = set()
+#     is_dirty = False
+
+#     template_name = data.get("salesTaxTemplate") or invoice.taxes_and_charges
+#     if template_name and frappe.db.exists("Sales Taxes and Charges Template", template_name):
+#         template = frappe.get_cached_doc("Sales Taxes and Charges Template", template_name)
+#         for t_row in template.taxes:
+#             invoice.append("taxes", {
+#                 "charge_type": t_row.charge_type,
+#                 "account_head": t_row.account_head,
+#                 "description": t_row.description,
+#                 "cost_center": t_row.cost_center or default_cc,
+#                 "rate": t_row.rate,
+#                 "tax_amount": t_row.tax_amount,
+#             })
+#             existing_heads.add(t_row.account_head)
+#             is_dirty = True
+
+#     for item in invoice.get("items", []):
+#         if item.item_tax_template:
+#             item_tax_doc = frappe.get_cached_doc("Item Tax Template", item.item_tax_template)
+#             for it in item_tax_doc.taxes:
+#                 if it.tax_type not in existing_heads:
+#                     invoice.append("taxes", {
+#                         "charge_type": "On Net Total", 
+#                         "account_head": it.tax_type,
+#                         "description": it.tax_type, 
+#                         "cost_center": default_cc,
+#                         "rate": 0,
+#                         "tax_amount": 0,
+#                     })
+#                     existing_heads.add(it.tax_type)
+#                     is_dirty = True
+
+#     tax_overrides = data.get("taxes", [])
+#     if tax_overrides:
+#         override_map = {
+#             t.get("accountHead"): t for t in tax_overrides if t.get("accountHead")
+#         }
+
+#         for tax_row in invoice.get("taxes", []):
+#             override = override_map.get(tax_row.account_head)
+#             if not override:
+#                 continue
+
+#             charge_type = override.get("chargeType") or override.get("charge_type")
+
+#             amount = override.get("amount")
+#             rate = override.get("rate")
+#             description = override.get("description")
+
+#             if charge_type == "Actual" and rate is not None:
+#                 frappe.throw(f"{tax_row.account_head}: 'Actual' cannot have rate")
+
+#             if charge_type and charge_type != "Actual" and amount is not None:
+#                 frappe.throw(f"{tax_row.account_head}: Only 'Actual' can have amount")
+
+#             if charge_type:
+#                 tax_row.charge_type = charge_type
+            
+#             if description is not None:
+#                 tax_row.description = description
+#                 is_dirty = True
+
+#             if amount is not None:
+#                 tax_row.tax_amount = flt(amount)
+#                 tax_row.rate = 0
+#                 if not charge_type:
+#                     tax_row.charge_type = "Actual"
+#                 is_dirty = True
+
+#             elif rate is not None:
+#                 tax_row.rate = flt(rate)
+#                 tax_row.tax_amount = 0
+#                 if not charge_type and tax_row.charge_type == "Actual":
+#                     tax_row.charge_type = "On Net Total"
+#                 is_dirty = True
+
+#     return is_dirty
+
 def sync_taxes(invoice, data):
+    # Clear any taxes that may have been populated automatically
     invoice.set("taxes", [])
 
-    default_cc = invoice.cost_center or frappe.get_cached_value("Company", invoice.company, "cost_center")
+    default_cc = (
+        invoice.cost_center
+        or frappe.get_cached_value(
+            "Company",
+            invoice.company,
+            "cost_center",
+        )
+    )
+
     existing_heads = set()
     is_dirty = False
 
-    template_name = data.get("salesTaxTemplate") or invoice.taxes_and_charges
-    if template_name and frappe.db.exists("Sales Taxes and Charges Template", template_name):
-        template = frappe.get_cached_doc("Sales Taxes and Charges Template", template_name)
+    # =========================================================
+    # 1. ADD TAXES FROM SALES TAXES AND CHARGES TEMPLATE
+    # =========================================================
+    template_name = (
+        data.get("salesTaxTemplate")
+        or invoice.taxes_and_charges
+    )
+
+    if (
+        template_name
+        and frappe.db.exists(
+            "Sales Taxes and Charges Template",
+            template_name,
+        )
+    ):
+        template = frappe.get_cached_doc(
+            "Sales Taxes and Charges Template",
+            template_name,
+        )
+
         for t_row in template.taxes:
-            invoice.append("taxes", {
-                "charge_type": t_row.charge_type,
-                "account_head": t_row.account_head,
-                "description": t_row.description,
-                "cost_center": t_row.cost_center or default_cc,
-                "rate": t_row.rate,
-                "tax_amount": t_row.tax_amount,
-            })
+
+            invoice.append(
+                "taxes",
+                {
+                    "doctype": "Sales Taxes and Charges",
+                    "charge_type": t_row.charge_type,
+                    "account_head": t_row.account_head,
+                    "description": t_row.description,
+                    "cost_center": t_row.cost_center or default_cc,
+                    "rate": flt(t_row.rate),
+                    "tax_amount": flt(t_row.tax_amount),
+
+                    # IMPORTANT:
+                    # Required for "On Previous Row Amount/Total"
+                    "row_id": t_row.row_id,
+                },
+            )
+
             existing_heads.add(t_row.account_head)
             is_dirty = True
 
+    # =========================================================
+    # 2. ADD MISSING TAX HEADS FROM ITEM TAX TEMPLATES
+    # =========================================================
     for item in invoice.get("items", []):
-        if item.item_tax_template:
-            item_tax_doc = frappe.get_cached_doc("Item Tax Template", item.item_tax_template)
-            for it in item_tax_doc.taxes:
-                if it.tax_type not in existing_heads:
-                    invoice.append("taxes", {
-                        "charge_type": "On Net Total", 
-                        "account_head": it.tax_type,
-                        "description": it.tax_type, 
-                        "cost_center": default_cc,
-                        "rate": 0,
-                        "tax_amount": 0,
-                    })
-                    existing_heads.add(it.tax_type)
-                    is_dirty = True
 
-    tax_overrides = data.get("taxes", [])
+        if not item.item_tax_template:
+            continue
+
+        item_tax_doc = frappe.get_cached_doc(
+            "Item Tax Template",
+            item.item_tax_template,
+        )
+
+        for item_tax in item_tax_doc.taxes:
+
+            tax_head = item_tax.tax_type
+
+            # Already added from Sales Tax Template
+            if tax_head in existing_heads:
+                continue
+
+            invoice.append(
+                "taxes",
+                {
+                    "doctype": "Sales Taxes and Charges",
+                    "charge_type": "On Net Total",
+                    "account_head": tax_head,
+                    "description": tax_head,
+                    "cost_center": default_cc,
+                    "rate": 0,
+                    "tax_amount": 0,
+                    "row_id": None,
+                },
+            )
+
+            existing_heads.add(tax_head)
+            is_dirty = True
+
+    # =========================================================
+    # 3. APPLY TAX OVERRIDES FROM API PAYLOAD
+    # =========================================================
+    tax_overrides = data.get("taxes") or []
+
     if tax_overrides:
+
         override_map = {
-            t.get("accountHead"): t for t in tax_overrides if t.get("accountHead")
+            tax.get("accountHead"): tax
+            for tax in tax_overrides
+            if tax.get("accountHead")
         }
 
         for tax_row in invoice.get("taxes", []):
+
             override = override_map.get(tax_row.account_head)
+
             if not override:
                 continue
 
-            charge_type = override.get("chargeType") or override.get("charge_type")
+            charge_type = (
+                override.get("chargeType")
+                or override.get("charge_type")
+            )
 
             amount = override.get("amount")
             rate = override.get("rate")
             description = override.get("description")
 
+            # -------------------------------------------------
+            # VALIDATION
+            # -------------------------------------------------
             if charge_type == "Actual" and rate is not None:
-                frappe.throw(f"{tax_row.account_head}: 'Actual' cannot have rate")
+                frappe.throw(
+                    f"{tax_row.account_head}: "
+                    "'Actual' cannot have a rate"
+                )
 
-            if charge_type and charge_type != "Actual" and amount is not None:
-                frappe.throw(f"{tax_row.account_head}: Only 'Actual' can have amount")
+            if (
+                charge_type
+                and charge_type != "Actual"
+                and amount is not None
+            ):
+                frappe.throw(
+                    f"{tax_row.account_head}: "
+                    "Only 'Actual' can have an amount"
+                )
 
+            # -------------------------------------------------
+            # CHARGE TYPE
+            # -------------------------------------------------
             if charge_type:
                 tax_row.charge_type = charge_type
-            
+                is_dirty = True
+
+            # -------------------------------------------------
+            # DESCRIPTION
+            # -------------------------------------------------
             if description is not None:
                 tax_row.description = description
                 is_dirty = True
 
+            # -------------------------------------------------
+            # ACTUAL AMOUNT
+            # -------------------------------------------------
             if amount is not None:
+
                 tax_row.tax_amount = flt(amount)
                 tax_row.rate = 0
+
                 if not charge_type:
                     tax_row.charge_type = "Actual"
+
                 is_dirty = True
 
+            # -------------------------------------------------
+            # RATE
+            # -------------------------------------------------
             elif rate is not None:
+
                 tax_row.rate = flt(rate)
                 tax_row.tax_amount = 0
-                if not charge_type and tax_row.charge_type == "Actual":
+
+                if (
+                    not charge_type
+                    and tax_row.charge_type == "Actual"
+                ):
                     tax_row.charge_type = "On Net Total"
+
                 is_dirty = True
+
+    # =========================================================
+    # 4. VALIDATE ROW IDs
+    # =========================================================
+    for idx, tax_row in enumerate(invoice.get("taxes", []), start=1):
+
+        # These charge types require a Row ID
+        if tax_row.charge_type in (
+            "On Previous Row Amount",
+            "On Previous Row Total",
+        ):
+
+            if not tax_row.row_id:
+                frappe.throw(
+                    f"Please specify a valid Row ID "
+                    f"for row {idx} in table Sales Taxes and Charges"
+                )
+
+            # Ensure Row ID points to an existing previous row
+            if int(tax_row.row_id) >= idx:
+                frappe.throw(
+                    f"Invalid Row ID {tax_row.row_id} "
+                    f"for tax row {idx}. "
+                    f"Row ID must refer to a previous row."
+                )
+
+    # =========================================================
+    # DEBUG
+    # =========================================================
+    print("\n========== TAX ROWS BEFORE INSERT ==========")
+
+    for i, tax in enumerate(invoice.get("taxes", []), start=1):
+        print(
+            {
+                "row": i,
+                "name": tax.get("name"),
+                "idx": tax.get("idx"),
+                "row_id": tax.get("row_id"),
+                "doctype": tax.get("doctype"),
+                "parent": tax.get("parent"),
+                "parenttype": tax.get("parenttype"),
+                "parentfield": tax.get("parentfield"),
+                "account_head": tax.get("account_head"),
+                "charge_type": tax.get("charge_type"),
+                "rate": tax.get("rate"),
+                "tax_amount": tax.get("tax_amount"),
+            }
+        )
+
+    print("===========================================\n")
 
     return is_dirty
 
