@@ -16,7 +16,8 @@ from .utils import (
     get_payment_information,
     build_sales_invoice_filters,
     get_already_credited_qty,
-    get_lpo_tax_template
+    get_lpo_tax_template,
+    get_zero_rated_tax_template
 )
 
 from custom_api.api.item.utils.item_utils import _get_tax
@@ -30,12 +31,23 @@ def create_sales_invoice(data):
     account = validate_receivable_account_for_currency(currency)
 
     invoice = frappe.new_doc("Sales Invoice")
-    is_lpo_category = data.get("invoiceType") == "LPO"
+    invoice_type = data.get("invoiceType")
+
+    is_lpo_category = invoice_type == "LPO"
+    is_tot_category = invoice_type == "TOT"
+
     applied_tax_category = data.get("tax_category")
     if is_lpo_category:
                 # applied_tax_category = "LPO"
                 lpo_tax_template = get_lpo_tax_template(company)
-    
+                print("🚀 ~ create_sales_invoice ~ lpo_tax_template:", lpo_tax_template)
+
+    if is_tot_category:
+        applied_tax_category = "TOT"
+        sales_tax_template = None
+        # tot_tax_template = get_zero_rated_tax_template(company)
+    else:
+        sales_tax_template = data.get("salesTaxTemplate")
 
     invoice.update(
         {
@@ -50,7 +62,7 @@ def create_sales_invoice(data):
             "set_warehouse": data.get("warehouse"),
             "customer_address": data.get("billingAddress"),
             "shipping_address_name": data.get("shippingAddress"),
-            "taxes_and_charges": data.get("salesTaxTemplate"),
+            "taxes_and_charges": sales_tax_template,
             "cost_center": cost_center,
             "debit_to": account,
             "additional_discount_percentage": data.get("additional_discount_percentage"),
@@ -64,15 +76,19 @@ def create_sales_invoice(data):
         batch_no = item.get("batchNo") or item.get("batch_no")
         mfg_date = item.get("mfgDate") or item.get("mfg_date")
         exp_date = item.get("expDate") or item.get("exp_date")
-        # print("🚀 ~ create_sales_invoice ~ original tax:", _get_item_tax_template(item_code, data.get("tax_category")))
+        print("🚀 ~ create_sales_invoice ~ original tax:", _get_item_tax_template(item_code, data.get("tax_category")))
 
         if batch_no:
             ensure_batch(item_code, batch_no, mfg_date, exp_date)
 
         if is_lpo_category:
             applied_tax_template = lpo_tax_template
+        elif is_tot_category:
+            applied_tax_template = None
+            # applied_tax_template = tot_tax_template
         else:
             applied_tax_template = _get_item_tax_template(item_code, data.get("tax_category"))
+        print("🚀 ~ create_sales_invoice ~ applied_tax_template:", applied_tax_template)
         invoice.append(
             "items",
             {
@@ -167,6 +183,7 @@ def update_sales_invoice(invoice_id, data):
     )
     effective_invoice_type = data.get("invoiceType", existing_invoice_type)
     is_lpo_category = effective_invoice_type == "LPO"
+    is_tot_category = effective_invoice_type == "TOT"
 
     field_map = {
         "currency": "currency",
@@ -197,8 +214,14 @@ def update_sales_invoice(invoice_id, data):
 
 
     if is_lpo_category:
-        invoice.tax_category = "LPO"
+        # invoice.tax_category = "LPO"
         lpo_tax_template = get_lpo_tax_template(company)
+        print("🚀 ~ update_sales_invoice ~ lpo_tax_template:", lpo_tax_template)
+    elif is_tot_category:
+            # tot_tax_template = get_zero_rated_tax_template(company)
+            invoice.tax_category = "TOT"
+            invoice.taxes_and_charges = None
+            tot_tax_template = None
 
     if "items" in data:
         invoice.set("items", [])
@@ -215,6 +238,8 @@ def update_sales_invoice(invoice_id, data):
 
             if is_lpo_category:
                 applied_tax_template = lpo_tax_template
+            elif is_tot_category:
+                applied_tax_template = tot_tax_template
             else:
                 applied_tax_template = _get_item_tax_template(
                     item_code,

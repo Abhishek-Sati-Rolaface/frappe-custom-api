@@ -26,6 +26,28 @@ def get_lpo_tax_template(company=None):
 
     return template_name
 
+def get_zero_rated_tax_template(company=None):
+    company = company or frappe.defaults.get_user_default("Company")
+
+    filters = {"name": ["like", "%TOT%"]}
+    if company:
+        filters["company"] = company
+
+    template_name = frappe.db.get_value(
+        "Item Tax Template",
+        filters,
+        "name",
+        order_by="creation asc",
+    )
+
+    if not template_name:
+        frappe.throw(
+            "No Item Tax Template found matching 'C2' (LPO zero-rating template). "
+            "Please ensure it exists for the current company."
+        )
+
+    return template_name
+
 def validate_sales_invoice_payload(data: Dict[str, Any], is_update=False):
     if not is_update and not data.get("customerId"):
         raise frappe.ValidationError("customerId is required.")
