@@ -33,7 +33,7 @@ def create_sales_invoice(data):
     is_lpo_category = data.get("invoiceType") == "LPO"
     applied_tax_category = data.get("tax_category")
     if is_lpo_category:
-                applied_tax_category = "LPO"
+                # applied_tax_category = "LPO"
                 lpo_tax_template = get_lpo_tax_template(company)
     
 
@@ -64,7 +64,7 @@ def create_sales_invoice(data):
         batch_no = item.get("batchNo") or item.get("batch_no")
         mfg_date = item.get("mfgDate") or item.get("mfg_date")
         exp_date = item.get("expDate") or item.get("exp_date")
-        print("🚀 ~ create_sales_invoice ~ original tax:", _get_item_tax_template(item_code, data.get("tax_category")))
+        # print("🚀 ~ create_sales_invoice ~ original tax:", _get_item_tax_template(item_code, data.get("tax_category")))
 
         if batch_no:
             ensure_batch(item_code, batch_no, mfg_date, exp_date)
