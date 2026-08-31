@@ -35,6 +35,7 @@ def create_sales_invoice(data):
 
     is_lpo_category = invoice_type == "LPO"
     is_tot_category = invoice_type == "TOT"
+    is_itx_category = invoice_type == "ITX"
 
     applied_tax_category = data.get("tax_category")
     if is_lpo_category:
@@ -45,7 +46,9 @@ def create_sales_invoice(data):
     if is_tot_category:
         applied_tax_category = "TOT"
         sales_tax_template = None
-        # tot_tax_template = get_zero_rated_tax_template(company)
+    elif is_itx_category:
+        applied_tax_category = "ITX"
+        sales_tax_template = None
     else:
         sales_tax_template = data.get("salesTaxTemplate")
 
@@ -85,7 +88,8 @@ def create_sales_invoice(data):
             applied_tax_template = lpo_tax_template
         elif is_tot_category:
             applied_tax_template = None
-            # applied_tax_template = tot_tax_template
+        elif is_itx_category:
+            applied_tax_template = None
         else:
             applied_tax_template = _get_item_tax_template(item_code, data.get("tax_category"))
         print("🚀 ~ create_sales_invoice ~ applied_tax_template:", applied_tax_template)
@@ -184,6 +188,7 @@ def update_sales_invoice(invoice_id, data):
     effective_invoice_type = data.get("invoiceType", existing_invoice_type)
     is_lpo_category = effective_invoice_type == "LPO"
     is_tot_category = effective_invoice_type == "TOT"
+    is_itx_category = effective_invoice_type == "ITX"
 
     field_map = {
         "currency": "currency",
@@ -214,14 +219,13 @@ def update_sales_invoice(invoice_id, data):
 
 
     if is_lpo_category:
-        # invoice.tax_category = "LPO"
         lpo_tax_template = get_lpo_tax_template(company)
-        print("🚀 ~ update_sales_invoice ~ lpo_tax_template:", lpo_tax_template)
     elif is_tot_category:
-            # tot_tax_template = get_zero_rated_tax_template(company)
-            invoice.tax_category = "TOT"
-            invoice.taxes_and_charges = None
-            tot_tax_template = None
+        invoice.tax_category = "TOT"
+        invoice.taxes_and_charges = None
+    elif is_itx_category:
+        invoice.tax_category = "ITX"
+        invoice.taxes_and_charges = None
 
     if "items" in data:
         invoice.set("items", [])
@@ -238,8 +242,8 @@ def update_sales_invoice(invoice_id, data):
 
             if is_lpo_category:
                 applied_tax_template = lpo_tax_template
-            elif is_tot_category:
-                applied_tax_template = tot_tax_template
+            elif is_tot_category or is_itx_category:
+                applied_tax_template = None
             else:
                 applied_tax_template = _get_item_tax_template(
                     item_code,
