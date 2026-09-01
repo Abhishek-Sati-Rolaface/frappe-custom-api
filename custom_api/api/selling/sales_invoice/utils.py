@@ -26,6 +26,28 @@ def get_lpo_tax_template(company=None):
 
     return template_name
 
+def get_zero_rated_tax_template(company=None):
+    company = company or frappe.defaults.get_user_default("Company")
+
+    filters = {"name": ["like", "%TOT%"]}
+    if company:
+        filters["company"] = company
+
+    template_name = frappe.db.get_value(
+        "Item Tax Template",
+        filters,
+        "name",
+        order_by="creation asc",
+    )
+
+    if not template_name:
+        frappe.throw(
+            "No Item Tax Template found matching 'C2' (LPO zero-rating template). "
+            "Please ensure it exists for the current company."
+        )
+
+    return template_name
+
 def validate_sales_invoice_payload(data: Dict[str, Any], is_update=False):
     if not is_update and not data.get("customerId"):
         raise frappe.ValidationError("customerId is required.")
@@ -295,6 +317,54 @@ def sync_invoice_terms(invoice, terms_payload):
 
 #     return is_dirty
 
+def update_item_tax_doc(item_tax_doc):
+    installed_apps = frappe.get_installed_apps()
+    if "zra_smart_invoice" in installed_apps:
+        tax = item_tax_doc.taxes
+        title = item_tax_doc.title
+        categories_part = title.split("|")[-1].strip()
+        categories = [c.strip() for c in categories_part.split(",") if c.strip()]
+        if "Insurance Premium Levy" in categories:
+            index = categories.index("Insurance Premium Levy")
+            if index < len(tax):
+                row_to_keep = tax[index]
+                item_tax_doc.set("taxes", [row_to_keep])
+                return item_tax_doc
+
+    return item_tax_doc
+
+def create_tax_payload(tax_head, default_cc, item_tax, previous_row):
+    installed_apps = frappe.get_installed_apps()
+    if "zra_smart_invoice" in installed_apps:
+        if previous_row is None:
+            charge_type = "On Net Total"
+            row_id = None
+        else:
+            charge_type = "On Previous Row Total"
+            row_id = previous_row.idx
+
+        return {
+                    "doctype": "Sales Taxes and Charges",
+                    "charge_type": charge_type,
+                    "account_head": tax_head,
+                    "description": tax_head,
+                    "cost_center": default_cc,
+                    "rate": item_tax.tax_rate,
+                    "tax_amount": 0,
+                    "row_id": row_id,
+                }
+    else:
+        return {
+                    "doctype": "Sales Taxes and Charges",
+                    "charge_type": "On Net Total",
+                    "account_head": tax_head,
+                    "description": tax_head,
+                    "cost_center": default_cc,
+                    "rate": 0,
+                    "tax_amount": 0,
+                    "row_id": None,
+                }
+
 def sync_taxes(invoice, data):
     # Clear any taxes that may have been populated automatically
     invoice.set("taxes", [])
@@ -365,7 +435,8 @@ def sync_taxes(invoice, data):
             "Item Tax Template",
             item.item_tax_template,
         )
-
+        item_tax_doc = update_item_tax_doc(item_tax_doc)
+        previous_row = None
         for item_tax in item_tax_doc.taxes:
 
             tax_head = item_tax.tax_type
@@ -374,20 +445,23 @@ def sync_taxes(invoice, data):
             if tax_head in existing_heads:
                 continue
 
-            invoice.append(
-                "taxes",
-                {
-                    "doctype": "Sales Taxes and Charges",
-                    "charge_type": "On Net Total",
-                    "account_head": tax_head,
-                    "description": tax_head,
-                    "cost_center": default_cc,
-                    "rate": 0,
-                    "tax_amount": 0,
-                    "row_id": None,
-                },
-            )
+            taxes = create_tax_payload(tax_head, default_cc, item_tax, previous_row)
+            new_row = invoice.append("taxes",taxes)
+            # invoice.append(
+            #     "taxes",
+            #     {
+            #         "doctype": "Sales Taxes and Charges",
+            #         "charge_type": "On Net Total",
+            #         "account_head": tax_head,
+            #         "description": tax_head,
+            #         "cost_center": default_cc,
+            #         "rate": 0,
+            #         "tax_amount": 0,
+            #         "row_id": None,
+            #     },
+            # )
 
+            previous_row = new_row
             existing_heads.add(tax_head)
             is_dirty = True
 

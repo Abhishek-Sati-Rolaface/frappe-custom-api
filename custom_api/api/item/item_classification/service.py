@@ -1,6 +1,6 @@
 import frappe
 from frappe.utils import cint
-from .utils import build_classification_filters
+from .utils import build_classification_filters, trigger_zra_select_items_class
 
 
 def create_classification(data: dict):
@@ -66,7 +66,9 @@ def get_classification_by_code(class_code: str) -> dict | None:
 
 def get_classifications(filters=None, page=1, page_size=20, search=None):
     filters = filters or {}
-
+    data = trigger_zra_select_items_class()
+    if data:
+        return data, len(data), 1
     allowed_filters = {
         key: filters.get(key)
         for key in ["class_code", "class_level", "is_active"]
