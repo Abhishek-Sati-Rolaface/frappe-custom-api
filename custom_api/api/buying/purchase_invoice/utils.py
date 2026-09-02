@@ -1,3 +1,4 @@
+from custom_api.api.selling.sales_invoice.utils import update_item_tax_doc
 import frappe
 
 def build_pi_filters(args):
@@ -108,3 +109,53 @@ def apply_advances(po_no, pi_doc):
         })
 
         remaining_to_allocate = round(remaining_to_allocate - allocate, 2)
+
+def sync_taxes(invoice):
+    installed_apps = frappe.get_installed_apps()
+    if "zra_smart_invoice" in installed_apps:
+        invoice.set("taxes", [])
+
+        default_cc = ( 
+                        invoice.cost_center or 
+                        frappe.get_cached_value("Company", invoice.company, "cost_center")
+                      )
+
+        existing_heads = set()
+
+        for item in invoice.get("items", []):
+
+            if not item.item_tax_template:
+                continue
+
+            item_tax_doc = frappe.get_cached_doc(
+                "Item Tax Template",
+                item.item_tax_template,
+            )
+            item_tax_doc = update_item_tax_doc(item_tax_doc)
+            previous_row = None
+            for item_tax in item_tax_doc.taxes:
+
+                tax_head = item_tax.tax_type
+
+                if tax_head in existing_heads:
+                    continue
+
+                if previous_row is None:
+                    charge_type = "On Net Total"
+                    row_id = None
+                else:
+                    charge_type = "On Previous Row Total"
+                    row_id = previous_row.idx
+                
+                new_row = invoice.append( "taxes",{
+                                    "doctype": "Sales Taxes and Charges",
+                                    "charge_type": charge_type,
+                                    "account_head": tax_head,
+                                    "description": tax_head,
+                                    "cost_center": default_cc,
+                                    "rate": item_tax.tax_rate,
+                                    "tax_amount": 0,
+                                    "row_id": row_id,
+                                })
+                previous_row = new_row
+                existing_heads.add(tax_head)

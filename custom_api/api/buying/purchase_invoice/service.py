@@ -4,10 +4,8 @@ from custom_api.api.selling.sales_invoice.utils import validate_receivable_accou
 from custom_api.utils.party_utils import get_linked_terms, sync_terms
 import frappe
 from custom_api.api.buying.purchase_invoice.utils import (
-    apply_advances,
-    build_pi_filters,
-    apply_pi_search,
-    map_pi_list_response
+    apply_advances, build_pi_filters, apply_pi_search,
+    map_pi_list_response, sync_taxes
 )
 import json
 
@@ -94,6 +92,7 @@ def create_purchase_invoice_service(data):
         "items": build_items(data.get("items"), data.get("supplierId"), data.get("lpoNumber")),
         "custom_invoice_metadata": [{"payment_mode": data.get("paymentType")}]
     })
+    sync_taxes(pi_doc)
     pi_doc.run_method("set_missing_values")
     pi_doc.run_method("calculate_taxes_and_totals")
 
@@ -277,6 +276,7 @@ def update_pi_service(pi_id, data):
         pi_doc.append("items", item)
 
     pi_doc.set("taxes", [])
+    sync_taxes(pi_doc)
 
     terms = sync_terms(pi_doc, data.get("terms"), terms_type="buying")
     if terms:
