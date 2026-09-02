@@ -104,21 +104,21 @@ def build_item_row(row, rules, default_source, default_target):
     if not qty or qty <= 0:
         frappe.throw(_("Quantity must be greater than zero for item {0}").format(item_code))
 
-    if frappe.db.get_value("Item", item_code, "has_batch_no") and not row.get("batch_no"):
-        frappe.throw(_("Batch No is mandatory for item {0}").format(item_code))
-    if frappe.db.get_value("Item", item_code, "has_serial_no") and not row.get("serial_no"):
-        frappe.throw(_("Serial No is mandatory for item {0}").format(item_code))
-
     source = row.get("source_warehouse") or default_source
     target = row.get("target_warehouse") or default_target
 
     item_row = {
         "item_code": item_code,
         "qty": qty,
-        "batch_no": row.get("batch_no"),
-        "serial_no": row.get("serial_no"),
         "use_serial_batch_fields": 1,
     }
+    
+    if row.get("batch_no") and row.get("batch_no") != "-":
+        item_row["batch_no"] = row.get("batch_no")
+        
+    if row.get("serial_no") and row.get("serial_no") != "-":
+        item_row["serial_no"] = row.get("serial_no")
+
     if row.get("valuation_rate") is not None:
         item_row["valuation_rate"] = row.get("valuation_rate")
     if row.get("uom"):
