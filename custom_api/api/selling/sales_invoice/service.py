@@ -39,7 +39,7 @@ def create_sales_invoice(data):
 
     applied_tax_category = data.get("tax_category")
     if is_lpo_category:
-                # applied_tax_category = "LPO"
+                applied_tax_category = "LPO"
                 lpo_tax_template = get_lpo_tax_template(company)
                 print("🚀 ~ create_sales_invoice ~ lpo_tax_template:", lpo_tax_template)
 
@@ -219,6 +219,7 @@ def update_sales_invoice(invoice_id, data):
 
 
     if is_lpo_category:
+        invoice.tax_category = "LPO"
         lpo_tax_template = get_lpo_tax_template(company)
     elif is_tot_category:
         invoice.tax_category = "TOT"
