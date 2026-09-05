@@ -79,9 +79,15 @@ def resolve_items(document: Any, payload_items: list[dict]) -> list:
         )
         quantity = flt(payload_item.get("qty"))
         if quantity > available_qty + 1e-9:
-            raise frappe.ValidationError(
-                f"Row {index}: qty cannot exceed the remaining quantity {max(available_qty, 0):g}."
-            )
+            item_desc = f"Row {index} ({payload_item.get('item_code') or row.item_code})"
+            if available_qty <= 0:
+                raise frappe.ValidationError(
+                    f"{item_desc}: This item has already been fully adjusted/returned against invoice {document.return_against}. Remaining returnable quantity is 0."
+                )
+            else:
+                raise frappe.ValidationError(
+                    f"{item_desc}: Entered quantity ({quantity:g}) exceeds the remaining returnable quantity ({max(available_qty, 0):g}) for invoice {document.return_against}."
+                )
 
         serial_no = payload_item.get("serial_no")
         if isinstance(serial_no, list):
@@ -96,6 +102,10 @@ def resolve_items(document: Any, payload_items: list[dict]) -> list:
                 raise frappe.ValidationError(f"Row {index}: serial count must match qty.")
 
         row.qty = -abs(quantity) if document.is_return else abs(quantity)
+        if payload_item.get("rate") is not None:
+            rate_val = flt(payload_item.get("rate"))
+            row.rate = rate_val
+            row.price_list_rate = rate_val
         selected.append(row)
 
     if not selected:
@@ -114,7 +124,9 @@ def set_default_debit_items(document: Any) -> None:
             row.qty = available_qty
             items.append(row)
     if not items:
-        raise frappe.ValidationError("No quantity remains for this Sales Debit Note.")
+        raise frappe.ValidationError(
+            f"All items for invoice '{document.return_against}' have already been fully returned or adjusted. No returnable quantity remains."
+        )
     document.set("items", items)
 
 
@@ -149,6 +161,13 @@ def create_sales_return(data: dict):
     if document.is_debit_note:
         document.update_stock = 0
 
+    meta = frappe.get_meta("Sales Invoice")
+    series_list = [s.strip() for s in (meta.get_field("naming_series").options or "").split("\n") if s.strip()]
+    if document.is_return and len(series_list) > 1:
+        document.naming_series = series_list[1]
+    elif document.is_debit_note and len(series_list) > 2:
+        document.naming_series = series_list[2]
+
     apply_fields(document, data)
     if data.get("items") is not None:
         document.set("items", resolve_items(document, data["items"]))
@@ -158,7 +177,9 @@ def create_sales_return(data: dict):
         document.set("items", [row for row in document.items if flt(row.qty) < 0])
 
     if not document.items:
-        raise frappe.ValidationError("No quantity remains for this sales return.")
+        raise frappe.ValidationError(
+            f"All items for invoice '{document.return_against}' have already been fully returned or adjusted. No returnable quantity remains."
+        )
     document.calculate_taxes_and_totals()
     document.insert()
     return document

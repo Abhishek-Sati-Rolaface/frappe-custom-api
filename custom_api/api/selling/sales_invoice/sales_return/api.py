@@ -73,7 +73,14 @@ def get_sales_return_by_id(id=None):
             raise frappe.PermissionError("You do not have permission to read this sales return.")
         from custom_api.api.selling.sales_invoice import service as invoice_service
 
-        data = invoice_service.get_sales_invoice_by_id(invoice.name, bool(invoice.is_return))
+        data = invoice_service.get_sales_invoice_by_id(invoice.name, False)
+
+        from frappe.utils import flt
+        for inv_item, item_data in zip(invoice.items, data.get("items", [])):
+            rate_val = flt(inv_item.rate) if inv_item.rate is not None else flt(inv_item.price_list_rate)
+            item_data["rate"] = rate_val
+            item_data["price_list_rate"] = flt(inv_item.price_list_rate) if inv_item.price_list_rate is not None else rate_val
+
         data.update({
             "doc_type": "Credit Note" if invoice.is_return else "Debit Note",
             "return_against": invoice.return_against,

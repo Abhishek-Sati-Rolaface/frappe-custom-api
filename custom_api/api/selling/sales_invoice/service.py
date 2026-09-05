@@ -288,7 +288,7 @@ def update_sales_invoice(invoice_id, data):
 
     return invoice
 
-def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
+def get_sales_invoice_by_id(invoice_id, is_credit_note=False, is_sales_debit_note=False):
     invoice = frappe.get_doc("Sales Invoice", invoice_id)
     customer = frappe.get_doc("Customer", invoice.customer)
 
@@ -362,18 +362,22 @@ def get_sales_invoice_by_id(invoice_id, is_credit_note=False):
     data["reason"] = reason
     data["invoiceType"] = invoice_type
     data["principal"] = principal_detail
-    credited_map = get_already_credited_qty(invoice_id) if is_credit_note else {}
+
+    is_cn = str(is_credit_note).lower() in ("true", "1") if isinstance(is_credit_note, (str, int)) else bool(is_credit_note)
+    is_dn = str(is_sales_debit_note).lower() in ("true", "1") if isinstance(is_sales_debit_note, (str, int)) else bool(is_sales_debit_note)
+    is_return_or_debit = is_cn or is_dn
+    credited_map = get_already_credited_qty(invoice_id) if is_return_or_debit else {}
 
     for item in invoice.items:
         tax = _get_tax(item.item_code, invoice.tax_category)
         remaining_qty = item.qty
-        if is_credit_note:
+        if is_return_or_debit:
             key = (item.item_code, item.batch_no or "")
             credited_qty = credited_map.get(key, 0)
             remaining_qty = item.qty - credited_qty
 
             if remaining_qty <= 0:
-                continue  # fully credited already — skip this item entirely
+                continue  # fully credited or adjusted already — skip this item entirely
 
         item_data = {
             "itemCode": item.item_code,
