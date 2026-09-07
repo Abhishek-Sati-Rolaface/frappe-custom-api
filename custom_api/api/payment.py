@@ -595,6 +595,8 @@ def get_all_payments():
                 "mode_of_payment as paymentMode",
                 "posting_date as paymentDate",
                 "paid_amount as amount",
+                "paid_from_account_currency as paidCurrency",
+                "paid_to_account_currency as receivedCurrency",
                 "reference_no as referenceNumber",
                 "status",
             ],
