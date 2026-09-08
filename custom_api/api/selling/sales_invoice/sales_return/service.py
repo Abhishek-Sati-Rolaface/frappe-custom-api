@@ -180,6 +180,7 @@ def create_sales_return(data: dict):
         raise frappe.ValidationError(
             f"All items for invoice '{document.return_against}' have already been fully returned or adjusted. No returnable quantity remains."
         )
+    document.update_outstanding_for_self = 0
     document.calculate_taxes_and_totals()
     document.insert()
     return document
